@@ -3,7 +3,8 @@
 
 전제 (2026-09-09 기준 아직 충족 안 됨):
   1) 환경 변수 FIGMA_TOKEN 에 Figma 개인 액세스 토큰이 있어야 한다.
-     - Figma > Settings > Security > Personal access tokens 에서 발급 (file_content:read 권한)
+     - Figma > Settings > Security > Personal access tokens 에서 발급
+       권한(Scopes): file_content:read + projects:read 둘 다 필요 (폴더 목록은 projects:read 없으면 403)
      - Claude Code 환경 설정의 환경 변수에 등록한다. 채팅에 토큰을 붙여넣지 말 것.
   2) 이 환경의 네트워크 정책이 api.figma.com 을 허용해야 한다.
      - 2026-09-09 확인: 현재 정책에서는 api.figma.com 이 차단됨 (프록시 403)
