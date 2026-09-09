@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
 """Figma 폴더(프로젝트) 안 파일 목록과 각 파일의 페이지 목록을 REST API로 조회한다.
 
-전제 (2026-09-09 기준 아직 충족 안 됨):
-  1) 환경 변수 FIGMA_TOKEN 에 Figma 개인 액세스 토큰이 있어야 한다.
-     - Figma > Settings > Security > Personal access tokens 에서 발급 (file_content:read 권한)
-     - Claude Code 환경 설정의 환경 변수에 등록한다. 채팅에 토큰을 붙여넣지 말 것.
-  2) 이 환경의 네트워크 정책이 api.figma.com 을 허용해야 한다.
-     - 2026-09-09 확인: 현재 정책에서는 api.figma.com 이 차단됨 (프록시 403)
+전제:
+  1) Figma 토큰이 붙어 있어야 한다 — 환경의 API 자격 증명(api.figma.com, 헤더 X-Figma-Token) 또는 환경 변수 FIGMA_TOKEN.
+     - Figma > Settings > Security > Personal access tokens 에서 발급. 채팅에 토큰을 붙여넣지 말 것.
+     - **폴더(프로젝트) 조회에는 `projects:read` 범위가 필요하다.** 2026-09-09 Design-Core 환경 확인: 네트워크·토큰 주입은 정상,
+       파일 읽기(file_content:read)는 되지만 이 엔드포인트는 Figma가 403 "Invalid scope"로 거부 → 토큰에 projects:read 추가 후 재등록.
+  2) 이 환경의 네트워크 정책이 api.figma.com 을 허용해야 한다 (Design-Core 환경: 허용됨).
+
+폴더 조회가 안 될 때의 대안: 다른 Core의 플로우 페이지에 걸린 "○○ 코어 파일 링크" 하이퍼링크에서 파일 키를 모으거나(dump-core-file.py 참고),
+Ken이 파일 링크를 직접 준다 (2026-09-09에는 Ken이 14개 링크를 줌 → scripts/figma-rest/core-files.json).
 
 사용법:
   python3 scripts/figma-rest/list-project-files.py 591036590           # 폴더 안 파일 목록

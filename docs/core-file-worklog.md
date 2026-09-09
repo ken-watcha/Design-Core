@@ -1,14 +1,32 @@
 # 디자인 최종 시안(Core 파일) 운영안 — 워크로그
 
-> 작성 2026-09-01 · 최종 갱신 2026-09-09 · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
+> 작성 2026-09-01 · 최종 갱신 2026-09-09 (세션 3) · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
 > 저장소 사본. 중계 지점은 아티팩트 https://claude.ai/code/artifact/72e9f09e-43fc-424e-ba39-fc4d80e303c5 (세션 마무리 시 둘 다 갱신)
 
-## 다음 세션 시작점 (2026-09-09 세션 2 이후)
+## 다음 세션 시작점 (2026-09-09 세션 3 이후)
 
-- **저장소 구조 완료** (`ken-watcha/Design-Core`, 브랜치 `claude/core-file-helper-setup`): 지침서 스킬 `.claude/skills/core-file-helper/SKILL.md`(초안 v0.1) / Core 색인 `core-index/core-index.json` + `docs/core-index.md` / 읽기 스크립트 `scripts/figma/` / 워크로그 사본 `docs/core-file-worklog.md` / Δ 제안서 템플릿 `templates/delta-proposal.md` / 시연 기록 `docs/demo-2026-09-09-sosik.md`. 반드시 그 저장소를 소스로 시작한 세션에서 작업할 것
-- **Ken에게서 아직 못 받은 것 3개** (받으면 바로 진행): ① Core 파일 링크 목록 — 색인에 없는 왓챠파티·결제/구독 등 (폴더 안 파일 목록은 도구로 못 봄, 아래 기술 사실) ② 손으로 이관을 끝낸 과거 프로젝트 1건 (지침서 v0.2 검증용) ③ 왓챠파티 파일 링크 (새 Core 규격 본보기)
-- **실제 프로젝트 시연은 미실시** — Ken이 프로젝트 링크를 주면 `docs/demo-2026-09-09-sosik.md` 형식으로 "판별 → Δ 제안"까지 (쓰기 없이)
+- **저장소** `ken-watcha/Design-Core` — `main`에서 작업 (브랜치 `claude/core-file-helper-setup`과 같은 내용). 환경은 **"Design-Core"**(네트워크 Custom: `api.figma.com`·`www.figma.com` 허용 + Figma 토큰 API 자격 증명 주입) — 세션 3에서 정상 확인. 구성: 지침서 `.claude/skills/core-file-helper/SKILL.md`(v0.1 + §6 보강) / Core 색인 `core-index/core-index.json` + `docs/core-index.md`(**15개 전부**) / REST 읽기 스크립트 `scripts/figma-rest/` / MCP 읽기 스크립트 `scripts/figma/` / 템플릿 `templates/delta-proposal.md` / 시연 기록 `docs/demo-2026-09-09-sosik.md` / 실물 스크린샷 `docs/img/`
+- **Ken에게서 아직 못 받은 것** (세션 3 끝에 물어봄): ① 손으로 이관을 끝낸 **과거 프로젝트 1건**(프로젝트 문서 링크 + 반영된 Core 위치) → 지침서 §3·§4 판단 규칙 재검증 → v0.2 ② **시연용 프로젝트 문서 1건**(+ 프로젝트명·배포 예정일·담당자) → `docs/demo-2026-09-09-sosik.md` 형식으로 "판별 → Δ 제안"(쓰기 없이) ③ **스텝메이드**(`NO7uetAL9Qmk03IXWSaMej`)가 Ken의 "모든 Core 파일" 14개 목록에 없음 — 폴더에서 빠진 건지 확인 ④ (선택) Figma 토큰에 `projects:read` 범위 추가 → 폴더 조회 스크립트가 동작
+- 세션 3에서 색인은 REST로 읽었다. `use_figma`는 왓챠파티 키 발견에 1회만 사용. 다음 세션에서 시연할 때는 프로젝트 문서를 REST `nodes` 엔드포인트(`scripts/figma-rest/dump-core-file.py` 방식)나 `use_figma`로 읽으면 된다
 - 운영안 쪽 열린 항목(변화 없음): 팀 공유본 미해결 댓글 2개 / 공유본의 소유권 다이어그램 구버전 이미지 수동 교체 / 로그인·온보딩 파일럿 미결 2건 / "남은 할 일" 1~5
+
+## 2026-09-09 세션 3 — 환경 점검 · Core 색인 15개 완성 · 새 Core 규격(§6) (진행 기록)
+
+- **환경 점검**: `python3 scripts/figma-rest/list-project-files.py 591036590 --pages` → 403. 원인 분리: 네트워크는 열림(`/v1/me`가 ken 계정 반환, `www.figma.com` 200), 토큰 주입 정상, **파일 읽기(`/v1/files/:key`)는 됨**, 폴더 조회만 Figma가 `Invalid scope … requires projects:read`로 거부. 즉 프록시 문제가 아니라 **토큰 범위 문제** → Ken에게 `projects:read` 추가 요청. Figma MCP(`whoami`·`use_figma`·`get_screenshot`)와 Notion MCP 모두 붙어 있음
+- **폴더 조회 없이 Core 키 확보**: SVOD 플로우 페이지(`48:53640`)의 텍스트 하이퍼링크를 `use_figma`로 읽으니 "○○ 코어 파일 링크" 9개(콘상페·플레이어·TVOD·검색·보관함·소식함·나의 왓챠·왓챠파티·프로필)가 걸려 있었음. 이어서 Ken이 **Core 파일 링크 14개**를 채팅으로 전달(웹툰·TV·결제/구독 추가). 스텝메이드는 그 목록에 없음
+- **REST로 11개 파일의 마스터·플로우 페이지를 통째로 읽어 색인 작성** (`scripts/figma-rest/dump-core-file.py` → `build-index-entries.py` → `core-index.json` 합치기 → `build-core-index-md.py`). 묶음(⚪)·크기(🔵)는 설명 바 위치로 자동 배정. 색인 JSON에 `master.roots[]` 구조 추가(루트 섹션이 2개인 결제/구독 때문), md 생성기는 두 구조 모두 지원
+- **지침서 §6 새 Core 규격 재작성** (본보기 왓챠파티 + 실물 11개): 페이지 4개 · Cover 형식(업데이트 로그는 아직 어디에도 없음) · 마스터 = 루트 섹션 → `<이름> 진입` 섹션(가로지르는 기능만; 다른 Core의 긴 화면 + "○○ 진입점" 마커) + APP + WEB · 설명 바 3단 규칙 · 프레임 이름 규칙 · 루트 여러 개 허용 · 링크 카드 형태와 위치 · 플로우 페이지 뼈대("○○ 코어 파일 링크") · 도우미가 새 Core를 채우는 순서 5단계 · 이중 수록 주의(왓챠파티 플레이어가 플레이어·왓챠파티 양쪽에 있음)
+- **실물에서 확인된 사실**: 링크 카드 있는 파일 6개(소식함·플레이어 2장·나의 왓챠·프로필·결제/구독 3장, 모두 상태 뱃지형, 기준 정보 자리 없음) / 없는 파일 8개(SVOD·왓챠파티·콘상페·TVOD·검색·보관함·웹툰·TV) / 결제/구독은 루트 섹션 2개(🌏 결제·🌏 구독)+플로우 루트 2개 / 웹툰은 루트 섹션 없이 APP·WEB이 페이지 직속, ⚪ 묶음 없음 / TV는 새 형식 미적용(1920 프레임 4장, 플로우 비어 있음) / 콘상페 WEB은 large를 ~1079·1080~로 나눔 / 보관함 마스터가 가장 큼(APP 105·WEB 72 자식) — 자동 묶음이 어긋났을 수 있어 이관 전 실물 확인 필요
+- 스크린샷 `docs/img/`: 왓챠파티 마스터 전체(20:29495), 플레이어 링크 카드(10:10914)
+
+### 이 세션에서 확인된 기술 사실
+
+- **REST가 이 환경에서 동작한다** (토큰은 프록시가 붙임, 스크립트에는 헤더 없음). `GET /v1/files/:key?depth=1` = 페이지 목록, `GET /v1/files/:key/nodes?ids=<페이지>` = 페이지 전체 트리(마스터 페이지 5~70MB, 11개에 약 3분). `use_figma`보다 대량 읽기에 유리하고 호출당 페이지 1개 제한이 없음
+- REST 트리에서 텍스트 하이퍼링크는 `hyperlink`가 아니라 **`styleOverrideTable` 안**에 있음 (부분 서식). 인스턴스 속성값은 `componentProperties[키].value`, 설명 바 제목은 인스턴스 안 visible 텍스트 중 placeholder('제목'·'Title')를 뺀 첫 번째
+- **403 구분법**: 프록시 거부는 `X-Proxy-Error` 헤더/`connect_rejected`, Figma 거부는 본문 `{"error":true,"status":403,"message":"Invalid scope…"}`. `.claude/rules/network.md`에 추가
+- **`get_screenshot`의 URL 다운로드가 된다** (`www.figma.com/api/mcp/asset/...`, 허용 도메인) → 세션 2의 base64 방식은 이제 불필요
+- MCP 서버가 세션 중 재연결되면 도구 이름 접두어가 바뀜(`mcp__ede8b140…__use_figma` → `mcp__Figma__use_figma`). ToolSearch로 다시 찾으면 됨
+- Notion MCP로 운영안 원본(3cda2845…)과 "왓챠 피그마 구조 개편안"(349a2845…: Core 파일 목록의 원출처 — 서비스 탭 2·공통 페이지 6·공통 기능 4·플랫폼 1)을 읽을 수 있음
 
 ## 2026-09-09 세션 2 — 도우미 저장소 구축 (진행 기록)
 
@@ -38,7 +56,7 @@
 | 실험 브랜치 B | 스텝메이드 브랜치 (fileKey `XIolz3S5ClSf5VEaBkwDi6`) | 🔁 Core 반영사항(Δ) 페이지(3007:6)와 📚 Spotify 구조 다이어그램(3024:6)만 유효 |
 | 링크 카드 실물 | [Core 소식함](https://www.figma.com/design/MyrNGU07TEOXg6glOTG9jh/?node-id=18-10400) | Ken이 직접 만든 원형 — 공용 컴포넌트화 후보 |
 | **도우미 코드 저장소** | [ken-watcha/Design-Core](https://github.com/ken-watcha/Design-Core) | 2026-09-09 Ken 지정. 구조 잡기 완료 (README 참고) |
-| **Core 파일 폴더** | [Figma 팀 폴더](https://www.figma.com/files/1014901253946075002/folder/591036590) | 프로젝트 ID 591036590. MCP로는 폴더 안 파일 목록 조회 불가, 파일 링크를 개별로 받아야 함 |
+| **Core 파일 폴더** | [Figma 팀 폴더](https://www.figma.com/files/1014901253946075002/folder/591036590) | 프로젝트 ID 591036590. **15개 색인 완료(세션 3)** — 파일 키 목록은 `scripts/figma-rest/core-files.json`. 폴더 자체 조회는 토큰에 `projects:read` 범위가 붙으면 가능 |
 
 ## 프로젝트 한 줄 요약
 
@@ -97,9 +115,9 @@
 
 ### 다음 할 일 (우선순위순)
 
-1. ~~Core 색인 작성~~ **아는 4개 파일은 완료(세션 2)**. 남은 것: Ken에게 나머지 **Core 파일 링크** 받기 (왓챠파티·결제/구독 등, 폴더 591036590) → 색인에 추가
-2. Ken에게 **손으로 이관을 끝낸 과거 프로젝트 1건** 받기 (프로젝트 문서 + 반영된 Core 위치) → 지침서 v0.1의 판단 규칙 재검증 → v0.2
-3. **왓챠파티 파일**로 "새 Core 만드는 케이스"의 파일 규격 정리 (지침서 §6 보강)
+1. ~~Core 색인 작성~~ **15개 전부 완료(세션 3)**. 스텝메이드의 폴더 소속만 확인 필요
+2. Ken에게 **손으로 이관을 끝낸 과거 프로젝트 1건** 받기 (프로젝트 문서 + 반영된 Core 위치) → 지침서 v0.1의 판단 규칙 재검증 → v0.2 (세션 3 끝에 요청함)
+3. ~~**왓챠파티 파일**로 "새 Core 만드는 케이스"의 파일 규격 정리~~ **완료(세션 3, 지침서 §6)**
 4. ~~Design-Core 저장소 구조 잡기~~ **완료(세션 2)**
 5. 실제 프로젝트 1건으로 **판별 → Δ 제안까지 시연** (쓰기 없이). 자가 검증(소식함)은 완료, 실제 프로젝트는 링크 대기. Ken 승인 후 실행 단계 구현
 6. 실행 단계: 이관(껍데기 유지 교체·링크 카드 갱신·커버 로그·아카이브)과 새 Core 생성(플러그인 API로 파일 생성은 불가 → 템플릿 파일 복제는 Ken 수동, 내용 채우기는 도우미). 쓰기 스크립트는 `scripts/figma-write/`에 (아직 없음)
