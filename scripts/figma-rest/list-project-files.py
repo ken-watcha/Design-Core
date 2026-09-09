@@ -14,18 +14,26 @@
 """
 import json, os, sys, urllib.request
 
+# 토큰 전달 방식 2가지:
+#  (a) 환경 변수 FIGMA_TOKEN → 이 스크립트가 X-Figma-Token 헤더로 붙임
+#  (b) 클라우드 환경의 "API credentials"에 api.figma.com 호스트 + 헤더 X-Figma-Token(접두어 없음)으로 등록
+#      → 프록시가 요청에 붙여 주므로 여기선 헤더 없이 호출. 세션에서는 토큰이 보이지 않음 (더 안전, 권장)
 token = os.environ.get("FIGMA_TOKEN")
-if not token:
-    sys.exit("FIGMA_TOKEN 환경 변수가 없습니다. (토큰을 채팅에 붙이지 말고 환경 설정에 등록하세요)")
 if len(sys.argv) < 2:
     sys.exit(__doc__)
 project_id = sys.argv[1]
 want_pages = "--pages" in sys.argv
 
 def get(url):
-    req = urllib.request.Request(url, headers={"X-Figma-Token": token})
-    with urllib.request.urlopen(req, timeout=60) as r:
-        return json.load(r)
+    headers = {"X-Figma-Token": token} if token else {}
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.load(r)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            sys.exit(f"{e.code}: 토큰이 없거나 틀립니다. FIGMA_TOKEN 환경 변수 또는 환경의 API credentials(api.figma.com, X-Figma-Token)를 확인하세요.")
+        raise
 
 files = get(f"https://api.figma.com/v1/projects/{project_id}/files")
 out = []
