@@ -21,6 +21,8 @@
 
 - **`use_figma`는 읽기 전용 코드도 실행되며 파일이 열려 있지 않아도 됨** → `figma.root.children`으로 페이지 목록, 페이지 안 섹션·프레임 골격, 인스턴스 속성값, 텍스트·하이퍼링크까지 읽힘. `get_metadata`의 "첫 페이지만" 한계를 우회. 호출당 `setCurrentPageAsync` 1회 규칙 → 페이지마다 호출을 나눠 병렬로
 - **폴더(프로젝트 591036590) 안 파일 목록은 여전히 못 봄.** ① Figma MCP에 폴더 조회 도구가 없음 ② REST `api.figma.com`은 이 환경의 네트워크 정책이 차단(프록시 403) → 토큰이 있어도 지금 환경에선 불가. `scripts/figma-rest/list-project-files.py`는 정책이 열리고 `FIGMA_TOKEN`이 환경 변수로 들어오면 동작. 그 전까지는 **Ken이 파일 링크를 붙여넣는 방식** (파일당 링크 1개면 나머지는 자동)
+- **네트워크 정책은 Ken이 직접 풀 수 있음**: 현재 정책은 "패키지 저장소만 허용"(npm·pypi 등만 열림). claude.ai/code의 **환경(Environment) 설정 → 네트워크 접근**에서 "전체 허용" 또는 허용 도메인에 `api.figma.com`, `www.figma.com` 추가 → 그 환경으로 **새 세션**을 시작해야 적용. 같은 화면의 환경 변수에 `FIGMA_TOKEN`도 등록. 문서: https://code.claude.com/docs/en/claude-code-on-the-web
+- GitHub: 세션 2 중간에 Claude GitHub 앱을 `ken-watcha/Design-Core`에 설치 → 푸시 정상 (브랜치 `claude/core-file-helper-setup`)
 - **스크린샷 URL 다운로드도 차단**(`www.figma.com` 403) → `get_screenshot`은 `enableBase64Response: true`로만 사용 (토큰 소모 큼, 꼭 필요한 화면만)
 - 스크린 설명 컴포넌트 속성 키: `배경 색상`(⚫️ 어두운 회색=대분류 / ⚪️ 밝은 회색=케이스 묶음 / 🔵 파랑=크기·단계), `🔠 타이틀#2018:9`, `ㄴ 📝 설명#2018:8`, `🪐 뱃지#2018:10`
 - Core 소식함 링크 카드 실물(42:15817)은 텍스트 2개 + "ㄴ 상태 뱃지" 인스턴스(42:15820) 안의 "관련 스펙 링크" 텍스트에 하이퍼링크. 로그인/온보딩 카드(91:7)는 텍스트 2개(제목에 하이퍼링크 + 기준 정보 자리). 두 형태가 다름 → 공용 컴포넌트화 때 통일 필요
