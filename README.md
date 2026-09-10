@@ -17,7 +17,7 @@
 | `docs/demo-*.md` | 시연 기록 (판별 → Δ 제안) | |
 | `docs/img/` | 실물 스크린샷 (왓챠파티 마스터, 링크 카드) | |
 | `templates/delta-proposal.md` | Δ 제안서 템플릿 | |
-| `scripts/figma-rest/` | **Figma REST 읽기 스크립트** — `core-files.json`(Core 키 목록) · `dump-core-file.py`(페이지 통째 받기) · `build-index-entries.py`(색인 항목 생성) · `list-project-files.py`(폴더 조회, 토큰에 `projects:read` 필요) | Design-Core 환경에서 동작 (토큰은 프록시가 붙임) |
+| `scripts/figma-rest/` | **Figma REST 읽기 스크립트** — `core-files.json`(Core 키 목록) · `dump-core-file.py`(페이지 통째 받기) · `build-index-entries.py`(색인 항목 생성) · `trace-entry-markers.py`(플로우 번호 마커 → 진입 프레임 → 홈의 로우/셀 추적: 빈 자리표시 프레임의 정체·진입 위치 판정) · `list-project-files.py`(폴더 조회, 토큰에 `projects:read` 필요) | Design-Core 환경에서 동작 (토큰은 프록시가 붙임) |
 | `scripts/figma/` | Figma MCP 읽기 전용 스크립트 (`use_figma`에 붙여넣기) | 페이지 목록·골격·설명 바·링크 카드 |
 | `scripts/outline.py` | `get_metadata` 큰 결과 요약 | |
 
