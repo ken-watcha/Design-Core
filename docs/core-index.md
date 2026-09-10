@@ -1,14 +1,14 @@
 # Core 파일 색인 (읽기용)
 
-> 갱신 2026-09-09 · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성).
-> 수록 범위: Core 폴더(591036590)의 파일 15개 전부 수록 — 2026-09-09 Ken이 링크 14개를 확인해 줌(SVOD·소식함·로그인/온보딩·나의 왓챠·웹툰·TV·콘상페·플레이어·왓챠파티·보관함·TVOD·검색·프로필·결제/구독) + 스텝메이드(Ken 목록에 없음, 폴더 소속 확인 필요). 세션 2에 읽은 4개는 sections 구조, 세션 3에 읽은 11개는 master.roots 구조(루트 섹션이 여러 개인 결제/구독 때문).
+> 갱신 2026-09-10 · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성).
+> 수록 범위: Core 폴더(591036590)의 파일 14개 전부 수록 — 2026-09-09 Ken이 링크 14개를 확인해 줌(SVOD·소식함·로그인/온보딩·나의 왓챠·웹툰·TV·콘상페·플레이어·왓챠파티·보관함·TVOD·검색·프로필·결제/구독). 스텝메이드는 Core가 아니라 프로젝트 문서로 판명(2026-09-10) → related_files로 이동. 세션 2에 읽은 3개는 sections 구조, 세션 3에 읽은 11개는 master.roots 구조.
 
 폴더: https://www.figma.com/files/1014901253946075002/folder/591036590
 
 ## 파일 형식
 
 - **새 형식**: 🌏 마스터 파일 페이지(대표 화면만) + 🌊 플로우 페이지(기준 문서 역할, 전수). 마스터 페이지 = 루트 섹션 → [📎 스펙 링크 카드] + APP 섹션 + WEB 섹션. 설명 바 색: ⚫️ 어두운 회색=대분류, ⚪️ 밝은 회색=케이스 묶음, 🔵 파랑=크기·단계. 변형: (a) 루트 섹션 여러 개(결제/구독: 🌏 결제 + 🌏 구독) (b) 루트 섹션 없이 APP/WEB이 페이지 직속(웹툰) (c) 진입 섹션 '○○ 진입'(왓챠파티·콘상페·플레이어 — 다른 Core의 긴 화면 위에 '○○ 진입점' 마커로 진입 위치 표시)
-- **구 형식**: 스텝메이드: 크기별 섹션 안에 Guide/예시/뷰포트 폭 프레임. 마스터 페이지 없음, 새 수록 기준 미적용. TV: 섹션·설명 바 없이 1920 프레임만, 플로우 페이지 비어 있음
+- **구 형식**: TV: 섹션·설명 바 없이 1920 프레임만, 플로우 페이지 비어 있음. (스텝메이드는 구 형식 Core가 아니라 프로젝트 문서였음 — 2026-09-10 정정)
 
 - **Cover 페이지**: 모든 새 형식 파일 공통: Cover 페이지에 'Cover' 프레임 800x500 — 'Page Name(EN)'(파일 제목) + 'Page Name(KR)'(부제, 예: 왓챠파티 → '왓챠파티, 파티 플레이어') + CoverBadge(⚜️ Core / Final). 운영안의 '업데이트 로그(날짜/프로젝트/영역/담당자)'는 아직 어느 Cover에도 없음
 
@@ -211,36 +211,6 @@
   - 하위 섹션 [이메일로 회원 가입하기](https://www.figma.com/design/irS8OlYuyQmW0aL4DR3cy5/?node-id=25-69055) `25:69055` (자식 78개)
   - 하위 섹션 [간편 회원가입](https://www.figma.com/design/irS8OlYuyQmW0aL4DR3cy5/?node-id=25-70395) `25:70395` (자식 114개)
 - 섹션 밖 프레임: 온보딩 30:16617, 온보딩_웹툰 34:15825, 프로필 선택 31:20909 / 50:20369 / 50:20857, 프로필 편집 56:22173, 온보딩(WEB) 36:20911, SVOD 35:19123, webtoon 35:24097 / 56:21043
-
-## [Core] 스텝메이드
-
-- 파일: https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/ (키 `NO7uetAL9Qmk03IXWSaMej`, 형식: old)
-- 다루는 영역: 스텝메이드 상세 (헤더 이미지·정렬·Body 케이스) / 뷰포트별 변형
-- 메모: 각 크기 섹션 = Guide(해부도) + Image ratio/Gradation/Position + Header 변형 + Body 케이스(섹션 타이틀/탭바/일반) + 뷰포트 폭 프레임(360/375/440/599/600/768/799/1024/1280/1440/1680/1920). 브랜치 B(XIolz3S5ClSf5VEaBkwDi6)에 Δ 페이지 3007:6 있음
-
-### 페이지
-
-- [cover](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=28-34464) `28:34464`
-- [✅ Mobile](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=108-11477) `108:11477` — master(구형식)
-- [ㄴ 로컬 컴포넌트](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=190-69273) `190:69273`
-- [✅ Web](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=190-69275) `190:69275` — master(구형식)
-- [ㄴ 로컬 컴포넌트](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=190-69276) `190:69276`
-- [📏 운영 가이드](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=190-69274) `190:69274` — guide
-
-### 구 형식 섹션
-
-- 페이지 `108:11477`
-  - [Mobile- small](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=108-11502) `108:11502` (자식 108개) · Guide `148:21837`
-  - [Mobile - medium](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=149-32628) `149:32628` (자식 95개) · Guide `171:30636`
-  - [Mobile - large](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=190-44334) `190:44334` (자식 95개) · Guide `190:48344`
-- 페이지 `190:69275`
-  - [~767](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=190-69586) `190:69586` (자식 107개) · Guide `190:69909`
-  - [768~1280](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=191-25799) `191:25799` (자식 96개) · Guide `191:25800`
-  - [1280~](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=191-35157) `191:35157` (자식 9개)
-  - [더보기 팝업](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=298-9071) `298:9071` (자식 4개)
-- 페이지 `190:69274`
-  - [Mobile, Mobile Web](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=298-20250) `298:20250` (자식 101개)
-  - [Tablet, Desktop](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=302-45103) `302:45103` (자식 143개)
 
 ## [Core] 왓챠파티
 
@@ -1059,10 +1029,11 @@
 - WEB `20:20440` (자식 70개)
   - 프레임: 프로필 선택 20:14209, 프로필 편집 20:20089, 프로필 편집 33:10323, 평가하기 33:13192, SVOD 진입 20:15792, 프로필 잠금 20:20039, 프로필 생성 20:20146, 프로필 33:7743, 나의 왓챠 39:8199, 공지사항 39:11809, 고객센터 39:12389, 로그아웃 39:12444
 
-## 확인 필요 / 색인 밖
+## 확인 필요 / 색인 밖 (새 Core 후보)
 
-- [Core] 스텝메이드 (키 `NO7uetAL9Qmk03IXWSaMej`) — 색인에는 있으나(세션 2) Ken이 2026-09-09 보낸 '모든 Core 파일 링크' 14개에 없음 → 폴더에서 빠졌는지 확인 필요
+- [Core] 스텝메이드 (또는 리스트 상세) — 아직 없음 — 스텝메이드 상세는 SVOD·TVOD·검색에서 들어오는데 본체가 있는 Core가 없음 → 새 Core 제안 중 (docs/demo-2026-09-10-stepmade.md). Ken 확인 대기
 
 ## 관련 파일 (Core 아님)
 
 - 소식함 (Notification) 프로젝트 문서 — 키 `FbqLL5VeQAgrDAsu9s26PW`, 역할: Core 소식함의 기준 문서. 페이지: Spec `1:10`, Component `138:165254`, 👷🏻DD 검수 사항 `862:77003`, 😍 웹 디디 final `1140:83500`, 이미지 리서치 `150:72819`, appendix `28:48287`, Ref `2:4856`
+- 스텝메이드 고도화 (프로젝트 문서, Core 아님) — 키 `NO7uetAL9Qmk03IXWSaMej`, 역할: 스텝메이드 상세페이지 고도화 프로젝트 문서 (커버 Working · 담당 angela). 세션 2에 '[Core] 스텝메이드(구 형식)'로 잘못 등록했던 것을 세션 4(2026-09-10)에 정정. 판별·Δ 제안은 docs/demo-2026-09-10-stepmade.md. 브랜치 B(XIolz3S5ClSf5VEaBkwDi6)에 🔁 Core 반영사항 페이지 3007:6. 페이지: cover `28:34464`, ✅ Mobile `108:11477`, ㄴ 로컬 컴포넌트 `190:69273`, ✅ Web `190:69275`, ㄴ 로컬 컴포넌트 `190:69276`, 📏 운영 가이드 `190:69274`
