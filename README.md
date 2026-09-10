@@ -25,7 +25,8 @@
 
 - 네트워크 **Custom** 허용 목록: `api.figma.com`, `www.figma.com` + 기본 패키지 저장소
 - Figma 토큰: 환경의 API 자격 증명(호스트 `api.figma.com`, 헤더 `X-Figma-Token`)으로 주입. 채팅에 붙이지 않는다
-- 폴더 안 파일 목록 조회는 토큰 범위 `projects:read`가 있어야 한다 (2026-09-09 현재 없음 → 파일 키는 `scripts/figma-rest/core-files.json`에 고정)
+- 폴더 안 파일 목록 조회는 토큰 범위 `projects:read`가 있어야 하는데 **Ken에게 줄 권한이 없어 불가(2026-09-10 확정)** → 파일 키는 `scripts/figma-rest/core-files.json`에 고정
+- 파일 간 이미지 이관(`download_assets` → `upload_assets`)은 `mcp.figma.com` 허용이 필요 (2026-09-10 요청 중)
 
 ## 흐름 (1차: Claude 도우미)
 
