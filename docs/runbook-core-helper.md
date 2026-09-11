@@ -1,10 +1,18 @@
 # Core 도우미 실행 규약 (Routine이 매번 따르는 순서) — v1 · 2026-09-11
 
-> "프로젝트가 끝나고 피그마 링크를 붙여넣으면 Core 파일이 업데이트되는 프로그램"(Ken)의 실제 형태.
-> 입력 창구 = Notion 표 **Core 반영 요청**(데이터소스 `collection://c0f1c97d-e47a-4520-8656-6b2147b8f3ed`, https://app.notion.com/p/e5f0952582d1467d9c998653d359fbaf).
+> "프로그램 A에 피그마 링크를 올리면 Core 파일 업데이트 + 관리 정보 업데이트, 로그가 남는다"(Ken, 2026-09-11)의 실제 형태.
+> **프로그램 A = 요청함 페이지** https://claude.ai/code/artifact/6aabb40e-e80b-45f3-a76f-05f2cdee038a (파비콘 📮). 링크를 올리는 곳이자 상태·로그가 남는 곳. 자체 저장소(아티팩트 DB)에 `requests/`(요청)와 `logs/`(로그)를 둔다.
+> Notion 표 **Core 반영 요청**(https://app.notion.com/p/e5f0952582d1467d9c998653d359fbaf, 데이터소스 `collection://c0f1c97d-e47a-4520-8656-6b2147b8f3ed`)은 A의 **사본**(팀 위키에서 보기 위한 것). 도우미가 A를 처리할 때 같은 내용을 표에도 쓴다.
 > 실행 주체 = Routine "Core 도우미"가 매시간 여는 새 Claude 세션(환경 Design-Core, 저장소 main). 판단·실행 규칙은 `.claude/skills/core-file-helper/SKILL.md`(v0.2), 실행 절차는 `scripts/figma-write/*.md`.
 
-## 1. 표의 칸이 곧 상태
+## 0. 요청함 A의 저장소 (도우미가 읽고 쓰는 곳)
+
+- `requests/<id>`: project · figmaUrl · fileKey · nodeId · owner · deployDate · **status** · **approved**(승인 토글) · verdict(판별) · targetCore · proposalUrl · resultUrl · notionUrl · createdAt · updatedAt
+- `logs/<id>`: requestId · at · actor(`사람`/`도우미`) · step(접수/판별/제안서/승인/배포/반영/완료/오류) · message · url — **한 일마다 한 줄 추가**(지우지 않는다)
+- status 값: `접수` → `판별 중` → `제안서 확인 대기` (또는 `확인 필요`) → 사람이 승인 → `승인됨` / `배포일 대기` → `반영 중` → `완료`, 실패는 `오류`
+- 도우미는 세션의 Artifact 도구 `read_db`(collection `requests`, query where status != 완료)로 읽고 `write_db`(update + logs add)로 쓴다. 페이지가 열려 있으면 즉시 반영된다.
+
+## 1. (사본) Notion 표의 칸
 
 | 칸 | 누가 | 뜻 |
 |---|---|---|
@@ -17,25 +25,26 @@
 ## 2. 한 번 실행할 때 하는 일 (행마다)
 
 ```
-행 읽기 (상태 ≠ 완료, Figma 링크 있음)
- ├─ 상태 = 시작 전
+A의 requests 읽기 (status ≠ 완료)
+ ├─ status = 접수
  │    → SKILL.md §1~§4: 문서 읽기 → Core 판별 → Δ + 수록 대조표 → 제안서 아티팩트 발행
- │    → 표: 판별 / 대상 Core / 제안서 링크 / 상태 = 진행 중 / 결과 = "제안서 확인 대기 · YYYY-MM-DD"
- │      (확신도 낮음이면 결과 = "확인 필요: <질문>" 그대로 두고 다음 행)
- ├─ 상태 = 진행 중 · 실행 승인 ☐
+ │    → A: verdict / targetCore / proposalUrl / status = 제안서 확인 대기 + logs 3줄(판별·제안서) · Notion 사본 갱신(판별·대상 Core·제안서·상태 진행 중·결과)
+ │      (확신도 낮음이면 status = 확인 필요 + logs에 질문)
+ ├─ status = 제안서 확인 대기 · approved = false
  │    → 건너뜀 (아무것도 안 씀)
- ├─ 상태 = 진행 중 · 실행 승인 ☑ · 배포일 비어 있음
- │    → 결과 = "승인됨, 배포일 대기 · 날짜" (쓰기 없음)
- └─ 상태 = 진행 중 · 실행 승인 ☑ · 배포일 있음
+ ├─ approved = true · deployDate 비어 있음 (status = 배포일 대기)
+ │    → 건너뜀 (페이지가 이미 상태를 표시함)
+ └─ approved = true · deployDate 있음 (status = 승인됨)
+      → status = 반영 중 + log
       → 유형 C: 프로젝트 파일의 브랜치에 new-core-master.md 순서로 생성 (B' 원본 대조 필수)
       → 유형 A/B: **아직 검증 전** → 결과 = "유형 A/B 실행은 3단계 검증 후 · 제안서대로 손 반영 요청" (쓰기 없음)
-      → 표: 결과 = "브랜치 반영 완료 · <마스터 페이지 링크> · 남은 사람 손: 머지/이름/폴더" / 상태 = 완료
+      → A: resultUrl / status = 완료 / log "브랜치 반영 완료 · 남은 사람 손: 머지/이름/폴더" · Notion 사본: 결과·상태 완료
 ```
 
 - **쓰기 범위**: 프로젝트 파일의 브랜치(이름 "Core 도우미")에만. 브랜치가 없으면 결과에 "브랜치 'Core 도우미'를 만들어 주세요"라고 적고 멈춘다(브랜치 생성은 API 불가). Core 본 파일·다른 Core 파일에는 쓰지 않는다.
 - **두 원칙**(SKILL §0-6·§0-7): 복붙 + 원본 대조, 수록 대조표로 빠짐 없음 확인.
 - **실행 전 Named version**(브랜치)을 저장한다 — 되돌리기 1클릭.
-- 한 행에서 오류가 나면 결과 = "오류: <한 줄>"만 적고 다음 행. 표에 처리할 행이 없으면 아무것도 쓰지 않고 끝낸다(토큰 절약: 문서 읽기는 SKILL.md와 이 파일만).
+- 한 요청에서 오류가 나면 status = 오류 + log "오류: <한 줄>"만 남기고 다음 요청. 처리할 요청이 없으면 아무것도 쓰지 않고 끝낸다(토큰 절약: 문서 읽기는 SKILL.md와 이 파일만).
 
 ## 3. 사람 손이 남는 곳 (API 없음)
 
