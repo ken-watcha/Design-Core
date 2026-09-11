@@ -165,4 +165,8 @@ description: 프로젝트 피그마 문서 링크를 받아 어느 Core 파일�
 
 ## 7. 마무리
 
+Routine으로 돌 때(`docs/runbook-core-helper.md`)는 워크로그 대신 Notion 표의 결과 칸에 한 줄 남기고, 워크로그 갱신은 사람이 연 세션에서만 한다.
+
+## 7-0. (사람 세션) 마무리
+
 `docs/core-file-worklog.md` 갱신 + 아티팩트(워크로그 중계 지점) 재발행까지가 한 세트.

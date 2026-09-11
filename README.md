@@ -14,6 +14,7 @@
 | `core-index/core-index.json` | **Core 색인** — 폴더 안 15개 파일의 페이지·섹션·설명 바 묶음·화면(node-id) | 기계용 원본 |
 | `docs/core-index.md` | Core 색인 읽기용 | `scripts/build-core-index-md.py`로 JSON에서 생성 |
 | `docs/core-file-worklog.md` | 워크로그 사본 | 중계 지점은 아티팩트, 저장소는 이력 보관 |
+| `docs/runbook-core-helper.md` | **실행 규약** — Notion 표 "Core 반영 요청"의 행을 Routine(매시간 새 세션)이 어떻게 처리하는지, 상태 흐름·쓰기 범위·사람 손이 남는 곳 | 2026-09-11 프로그램화 1단계 |
 | `docs/demo-*.md` | 시연 기록 (판별 → Δ 제안) | |
 | `docs/img/` | 실물 스크린샷 (왓챠파티 마스터, 링크 카드) | |
 | `templates/delta-proposal.md` | Δ 제안서 템플릿 | |
