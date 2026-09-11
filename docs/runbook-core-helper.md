@@ -41,9 +41,18 @@
 
 브랜치 생성 · 브랜치 머지 · 파일 이름 `[Core] ○○` · Core 폴더로 이동. 도우미가 결과 칸에 "여기 눌러 주세요" 링크로 알려 준다.
 
-## 4. 끄고 켜기
+## 4. Routine 만들기 (Ken이 한 번, claude.ai/code → Routines)
 
-Routine 이름 "Core 도우미 — Core 반영 요청 표 처리" (매시간). Ken이 claude.ai/code의 Routines에서 끄거나 주기를 바꿀 수 있다. 지금 즉시 돌리려면 그 Routine의 "지금 실행".
+세션 안에서 만든 Routine(`trig_01GZzAUPSzD9z9wNi49BT26L`)은 **연결(Figma·Notion)을 담을 수 없어**(이 조직 설정) 꺼 두었다. 연결이 붙은 Routine은 Routines 화면에서 직접 만들어야 한다:
+
+1. claude.ai/code → Routines → 새 Routine
+2. 환경 **Design-Core** · 저장소 **ken-watcha/Design-Core** · 브랜치 main
+3. 일정: 매시간 (익숙해지면 하루 2회로 줄여도 됨)
+4. 연결(Connectors): **Figma**, **Notion** 둘 다 켬
+5. 프롬프트: `docs/routine-prompt-core-helper.txt` 내용을 그대로 붙여넣기
+6. 알림: 푸시 켬 (실행한 행이 있을 때만 옴)
+
+지금 즉시 돌리려면 그 Routine의 "지금 실행". 끄거나 주기를 바꾸는 것도 같은 화면.
 
 ## 5. 아직 안 된 것 (다음 단계)
 
