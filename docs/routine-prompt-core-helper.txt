@@ -2,10 +2,10 @@
 
 먼저 읽을 것 (이 둘만): docs/runbook-core-helper.md (실행 규약) 와 .claude/skills/core-file-helper/SKILL.md (판단·실행 지침서 v0.2). 필요할 때만 scripts/figma-write/new-core-master.md, docs/core-index.md, templates/delta-proposal.md 를 연다.
 
-할 일: 요청함 A(아티팩트 https://claude.ai/code/artifact/6aabb40e-e80b-45f3-a76f-05f2cdee038a)의 저장소를 Artifact 도구 read_db(collection "requests")로 읽어, status가 "완료"가 아닌 요청을 규약 §2의 분기대로 처리한다. 처리 결과는 같은 도구 write_db로 requests 문서를 update하고 logs 컬렉션에 한 일마다 한 줄(requestId·at·actor "도우미"·step·message·url)을 add한다. 같은 내용을 Notion 표 "Core 반영 요청"(데이터소스 collection://c0f1c97d-e47a-4520-8656-6b2147b8f3ed)의 해당 행(없으면 새 행)에도 사본으로 쓴다.
-- status "접수": 프로젝트 문서를 읽어 Core 판별 + Δ 목록 + 수록 대조표(문서의 모든 섹션·사이즈 클래스·페이지 → 마스터 위치 또는 미수록 이유)를 만들고, 제안서를 templates/delta-proposal.md 형식(맨 위 "한눈에" 5줄 + 접힌 상세)으로 아티팩트로 발행한 뒤, A의 verdict·targetCore·proposalUrl을 채우고 status를 "제안서 확인 대기"로 바꾸고 logs에 판별·제안서 두 줄을 남긴다. 확신도가 낮으면 status "확인 필요" + logs에 질문.
-- approved가 false이거나 deployDate가 비어 있으면 아무것도 쓰지 않는다.
-- approved true + deployDate 있음(status "승인됨"): status를 "반영 중"으로 바꾼 뒤, 판별이 "C 새 Core"면 그 프로젝트 파일의 브랜치 "Core 도우미"에서 scripts/figma-write/new-core-master.md 순서(뼈대 → APP → WEB → 진입, 복제마다 B' 원본 대조, 크기 바에 폭 범위 설명)로 마스터 페이지를 만들고, resultUrl을 채우고 status "완료", logs에 "브랜치 반영 완료 · 남은 사람 손(머지/이름/폴더)"을 남긴다. 브랜치 "Core 도우미"가 없으면 status "확인 필요" + logs "브랜치 'Core 도우미'를 만들어 주세요"로 멈춘다. 판별이 A/B면 아직 실행 검증 전이므로 status "확인 필요" + logs "유형 A/B 실행은 3단계 검증 후 · 제안서대로 손 반영 요청"만 남긴다.
+할 일: 요청함 A(아티팩트 https://claude.ai/code/artifact/6aabb40e-e80b-45f3-a76f-05f2cdee038a)의 저장소를 Artifact 도구 read_db(collection "requests")로 읽어, status가 "실행 대기"인 요청을 규약 §2대로 처리한다(제안서·승인 단계 없음, 2026-09-11 Ken 결정). 처리 결과는 같은 도구 write_db로 requests 문서를 update하고 logs 컬렉션에 한 일마다 한 줄(requestId·at·actor "도우미"·step·message·url)을 add한다. 같은 내용을 Notion 표 "Core 반영 요청"(데이터소스 collection://c0f1c97d-e47a-4520-8656-6b2147b8f3ed)의 해당 행(없으면 새 행)에도 사본으로 쓴다.
+- 먼저 status를 "반영 중"으로 바꾸고 logs에 한 줄. 프로젝트 문서를 읽어 Core 판별 + Δ 목록 + 수록 대조표(문서의 모든 섹션·사이즈 클래스·페이지 → 마스터 위치 또는 미수록 이유)를 만들고, 판별·Δ 요약·대조표를 logs에 남긴다(제안서 아티팩트는 만들지 않는다). project·owner가 비어 있으면 Cover 페이지에서 읽어 채운다.
+- 판별이 "C 새 Core"면 그 프로젝트 파일의 브랜치 "Core 도우미"에서 scripts/figma-write/new-core-master.md 순서(뼈대 → APP → WEB → 진입, 복제마다 B' 원본 대조, 크기 바에 폭 범위 설명)로 마스터 페이지를 만들고, resultUrl을 채우고 status "완료", logs에 "브랜치 반영 완료 · 남은 사람 손(머지/이름/폴더)"을 남긴다. 브랜치 "Core 도우미"가 없으면 status "확인 필요" + logs "브랜치 'Core 도우미'를 만들어 주세요"로 멈춘다.
+- 판별이 A/B면 아직 실행 검증 전이므로 status "확인 필요" + logs에 "유형 A/B 실행은 3단계 검증 후" + 판별·Δ 요약을 남긴다. 확신도가 낮으면 status "확인 필요" + logs에 질문.
 
 절대 규칙: Figma 쓰기는 그 프로젝트 파일의 브랜치 "Core 도우미"에만, 실행 승인 없이는 어떤 파일에도 쓰지 않는다. Core 본 파일·다른 Core 파일에는 쓰지 않는다. 쓰기 전 브랜치에 Named version을 저장한다. 화면은 새로 만들지 말고 프로젝트 문서의 프레임을 그대로 복제해 분류만 하고, 복제 뒤 원본 대조로 차이 0을 확인한다. 문서의 섹션을 하나도 빠뜨리지 않는다(수록 대조표). 막힌 도메인이 있으면 우회하지 말고 결과에 도메인 이름을 적는다. 폴더 조회(projects:read)는 불가이니 시도하지 않는다.
 

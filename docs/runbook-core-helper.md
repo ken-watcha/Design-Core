@@ -9,7 +9,8 @@
 
 - `requests/<id>`: project · figmaUrl · fileKey · nodeId · owner · deployDate · **status** · **approved**(승인 토글) · verdict(판별) · targetCore · proposalUrl · resultUrl · notionUrl · createdAt · updatedAt
 - `logs/<id>`: requestId · at · actor(`사람`/`도우미`) · step(접수/판별/제안서/승인/배포/반영/완료/오류) · message · url — **한 일마다 한 줄 추가**(지우지 않는다)
-- status 값: `접수` → `판별 중` → `제안서 확인 대기` (또는 `확인 필요`) → 사람이 승인 → `승인됨` / `배포일 대기` → `반영 중` → `완료`, 실패는 `오류`
+- status 값(2026-09-11 Ken 결정: **제안서·승인 단계 없이 바로 진행**): `실행 대기`(버튼 클릭) → `반영 중` → `완료`, 판단이 안 서면 `확인 필요`, 실패는 `오류`. 되돌리기 = 브랜치이므로 안전.
+- 프로젝트 이름·담당·커버 상태(Working/Final)는 페이지가 링크를 받자마자 Figma Cover 페이지에서 읽어 채운다(뷰어의 Figma 연결 사용). 못 읽으면 도우미가 처리할 때 채운다.
 - 도우미는 세션의 Artifact 도구 `read_db`(collection `requests`, query where status != 완료)로 읽고 `write_db`(update + logs add)로 쓴다. 페이지가 열려 있으면 즉시 반영된다.
 
 ## 1. (사본) Notion 표의 칸
@@ -18,27 +19,19 @@
 |---|---|---|
 | 프로젝트 · Figma 링크 · 담당 | 디자이너 | 링크 하나면 된다 |
 | 배포일 | 디자이너 | 비어 있으면 제안서까지만 (운영안: 배포 전 시안은 마스터에 못 들어옴) |
-| 실행 승인 ☑ | 담당자/Ken | 제안서를 보고 체크하면 도우미가 실행 (⑤ 확인 단계, 처음엔 켬) |
+| 실행 승인 ☑ | (사본에서만) | A에서는 승인 단계가 없다 — 버튼 클릭이 곧 실행 |
 | 상태 | 도우미 | `시작 전` → `진행 중`(제안서 냄) → `완료`(반영 끝) |
 | 판별 · 대상 Core · 제안서 · 결과 | 도우미 | 결과 칸의 첫 줄이 세부 상태 (아래 §2) |
 
 ## 2. 한 번 실행할 때 하는 일 (행마다)
 
 ```
-A의 requests 읽기 (status ≠ 완료)
- ├─ status = 접수
- │    → SKILL.md §1~§4: 문서 읽기 → Core 판별 → Δ + 수록 대조표 → 제안서 아티팩트 발행
- │    → A: verdict / targetCore / proposalUrl / status = 제안서 확인 대기 + logs 3줄(판별·제안서) · Notion 사본 갱신(판별·대상 Core·제안서·상태 진행 중·결과)
- │      (확신도 낮음이면 status = 확인 필요 + logs에 질문)
- ├─ status = 제안서 확인 대기 · approved = false
- │    → 건너뜀 (아무것도 안 씀)
- ├─ approved = true · deployDate 비어 있음 (status = 배포일 대기)
- │    → 건너뜀 (페이지가 이미 상태를 표시함)
- └─ approved = true · deployDate 있음 (status = 승인됨)
-      → status = 반영 중 + log
-      → 유형 C: 프로젝트 파일의 브랜치에 new-core-master.md 순서로 생성 (B' 원본 대조 필수)
-      → 유형 A/B: **아직 검증 전** → 결과 = "유형 A/B 실행은 3단계 검증 후 · 제안서대로 손 반영 요청" (쓰기 없음)
-      → A: resultUrl / status = 완료 / log "브랜치 반영 완료 · 남은 사람 손: 머지/이름/폴더" · Notion 사본: 결과·상태 완료
+A의 requests 읽기 (status = 실행 대기 또는 확인 필요 중 재시도 표시된 것)
+ → status = 반영 중 + log
+ → SKILL.md §1~§4: 문서 읽기 → Core 판별 → Δ + 수록 대조표 (제안서 아티팩트는 만들지 않고, 판별·Δ 요약을 logs에 남긴다)
+ → 유형 C: 프로젝트 파일 브랜치 "Core 도우미"에 new-core-master.md 순서로 마스터 페이지 생성 (B' 원본 대조 필수)
+ → 유형 A/B: **아직 실행 검증 전** → status = 확인 필요 + log "A/B는 3단계 검증 후. 판별·Δ: …" (쓰기 없음)
+ → A: verdict / targetCore / resultUrl / status = 완료 / log "브랜치 반영 완료 · 남은 사람 손: 머지/이름/폴더" · Notion 사본 갱신
 ```
 
 - **쓰기 범위**: 프로젝트 파일의 브랜치(이름 "Core 도우미")에만. 브랜치가 없으면 결과에 "브랜치 'Core 도우미'를 만들어 주세요"라고 적고 멈춘다(브랜치 생성은 API 불가). Core 본 파일·다른 Core 파일에는 쓰지 않는다.
