@@ -7,7 +7,7 @@
 
 ## 0. 요청함 A의 저장소 (도우미가 읽고 쓰는 곳)
 
-- `requests/<id>`: project · figmaUrl · fileKey · nodeId · owner · deployDate · **status** · **approved**(승인 토글) · verdict(판별) · targetCore · proposalUrl · resultUrl · notionUrl · createdAt · updatedAt
+- `requests/<id>`: project · figmaUrl · fileKey · nodeId · owner · coverStatus(Working/Final) · **status** · verdict(판별) · targetCore · proposalUrl · resultUrl · notionUrl · createdAt · updatedAt (승인 토글·배포일 칸은 없음 — 버튼이 곧 실행)
 - `logs/<id>`: requestId · at · actor(`사람`/`도우미`) · step(접수/판별/제안서/승인/배포/반영/완료/오류) · message · url — **한 일마다 한 줄 추가**(지우지 않는다)
 - status 값(2026-09-11 Ken 결정: **제안서·승인 단계 없이 바로 진행**): `실행 대기`(버튼 클릭) → `반영 중` → `완료`, 판단이 안 서면 `확인 필요`, 실패는 `오류`. 되돌리기 = 브랜치이므로 안전.
 - 프로젝트 이름·담당·커버 상태(Working/Final)는 페이지가 링크를 받자마자 Figma Cover 페이지에서 읽어 채운다(뷰어의 Figma 연결 사용). 못 읽으면 도우미가 처리할 때 채운다.
