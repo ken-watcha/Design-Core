@@ -17,6 +17,7 @@
 | 요청함 A https://claude.ai/code/artifact/6aabb40e-e80b-45f3-a76f-05f2cdee038a | **프로그램 A** — Figma 링크를 올리는 곳이자 상태·로그가 남는 곳(아티팩트 DB `requests`/`logs`). Notion 표는 사본 | 2026-09-11 |
 | `docs/runbook-core-helper.md` | **실행 규약** — Notion 표 "Core 반영 요청"의 행을 Routine(매시간 새 세션)이 어떻게 처리하는지, 상태 흐름·쓰기 범위·사람 손이 남는 곳 | 2026-09-11 프로그램화 1단계 |
 | `docs/demo-*.md` | 시연 기록 (판별 → Δ 제안) | |
+| `docs/verify-2026-09-14-login-onboarding.md` · `scripts/figma-write/reproduce-master-from-flow.md` | 설계안 3단계(유형 A/B) 검증 — 로그인/온보딩 파일럿 판단 재현 22/22 + 브랜치 재현 절차 | 세션 6(ADP 워크스페이스)이 작성, 세션 5가 아티팩트에서 복원해 커밋 |
 | `docs/img/` | 실물 스크린샷 (왓챠파티 마스터, 링크 카드) | |
 | `templates/delta-proposal.md` | Δ 제안서 템플릿 | |
 | `scripts/figma-rest/` | **Figma REST 읽기 스크립트** — `core-files.json`(Core 키 목록) · `dump-core-file.py`(페이지 통째 받기) · `build-index-entries.py`(색인 항목 생성) · `trace-entry-markers.py`(플로우 번호 마커 → 진입 프레임 → 홈의 로우/셀 추적: 빈 자리표시 프레임의 정체·진입 위치 판정) · `list-project-files.py`(폴더 조회, 토큰에 `projects:read` 필요) | Design-Core 환경에서 동작 (토큰은 프록시가 붙임) |
