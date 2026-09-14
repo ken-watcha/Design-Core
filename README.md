@@ -10,6 +10,7 @@
 | 위치 | 무엇 | 비고 |
 |---|---|---|
 | `.claude/skills/core-file-helper/SKILL.md` | **작업 지침서** (판별·Δ 작성 기준·새 Core 규격) | 초안 v0.1 + §6 보강(2026-09-09). Claude 세션에서 스킬로 자동 로드 |
+| `CLAUDE.md` · `.mcp.json` · `docs/setup-designer-claude-code.md` | **형태 A(디자이너 각자 Claude Code 데스크톱 앱 + 이 폴더)** — 폴더를 열면 지침서·Figma 연결이 자동으로 붙는다. 설치·사용 안내 1장 | 2026-09-14 Ken 결정 |
 | `.claude/rules/network.md` | 네트워크·토큰 규칙 (막힌 도메인은 우회하지 않고 Ken에게 요청) | |
 | `core-index/core-index.json` | **Core 색인** — 폴더 안 15개 파일의 페이지·섹션·설명 바 묶음·화면(node-id) | 기계용 원본 |
 | `docs/core-index.md` | Core 색인 읽기용 | `scripts/build-core-index-md.py`로 JSON에서 생성 |
