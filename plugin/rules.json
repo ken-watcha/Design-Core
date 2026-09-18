@@ -199,7 +199,7 @@
     ]
   },
   "review": {
-    "note": "진행 결과는 가설. 결정 안 된 실행(프로젝트)이 everyRuns개 쌓이면 검토를 요청한다. reviewers에 든 사람만 승인/거절할 수 있다(비면 누구나).",
+    "note": "진행 결과는 가설. 결정 안 된 실행(프로젝트)이 everyRuns개 쌓이면 검토를 요청한다. reviewers에 든 사람만 승인/거절할 수 있다(비면 누구나). 이름은 대소문자 구분 없이 비교(Figma 표시 이름 기준. Ken의 Figma 핸들은 ken).",
     "everyRuns": 3,
     "reviewers": [
       "Ken"
