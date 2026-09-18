@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 12px/1.5 -apple-system, "Pretendard", sans-serif; margin: 0; padding: 14px; color: var(--figma-color-text, #222); background: var(--figma-color-bg, #fff); }
+  h1 { font-size: 14px; margin: 0 0 6px; }
+  h2 { font-size: 12px; margin: 14px 0 6px; opacity: .8; }
+  .muted { opacity: .65; }
+  .box { border: 1px solid var(--figma-color-border, #ddd); border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+  button { border: 0; border-radius: 6px; padding: 8px 12px; font-size: 12px; cursor: pointer; background: var(--figma-color-bg-brand, #0d99ff); color: #fff; }
+  button.secondary { background: var(--figma-color-bg-secondary, #eee); color: var(--figma-color-text, #222); }
+  button:disabled { opacity: .4; cursor: default; }
+  select, input { font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--figma-color-border, #ccc); background: transparent; color: inherit; max-width: 100%; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--figma-color-border, #eee); vertical-align: top; }
+  pre { white-space: pre-wrap; font-size: 11px; background: var(--figma-color-bg-secondary, #f5f5f5); padding: 8px; border-radius: 6px; max-height: 160px; overflow: auto; }
+  .warn { color: #c47a00; } .err { color: #d33; } .ok { color: #1a9d4b; }
+  a { color: var(--figma-color-text-brand, #0d99ff); }
+  textarea { width: 100%; height: 90px; font-size: 11px; }
+</style>
+</head>
+<body>
+<h1>Core 도우미 <span id="ver" class="muted"></span></h1>
+<div id="status" class="muted">규칙을 받아오는 중…</div>
+
+<!-- 화면 1: 분석·판별 (프로젝트 파일) -->
+<div id="s-analyze" style="display:none">
+  <div class="box">
+    <div><b id="fileName"></b> <span id="kindLabel" class="muted"></span></div>
+    <div class="row"><button id="btnAnalyze">분석하기</button><span class="muted">문서를 읽기만 합니다</span></div>
+  </div>
+  <div id="analysis" style="display:none">
+    <h2>대표 화면 (오버뷰: 크기마다 1장)</h2>
+    <div id="picks"></div>
+    <h2>수록 대조표</h2>
+    <table id="coverage"></table>
+    <div id="missing" class="warn"></div>
+    <h2>판별</h2>
+    <div id="judge" class="box"></div>
+    <div class="row">
+      <label>프로젝트명 <input id="projName" size="14"></label>
+      <label>배포월 <input id="relMonth" size="7" placeholder="2026.10"></label>
+      <label>담당 <input id="owner" size="8"></label>
+    </div>
+    <div class="row">
+      <button id="btnNew">새 Core로 진행</button>
+      <button id="btnUpdate" class="secondary">기존 Core 업데이트로 진행</button>
+    </div>
+  </div>
+</div>
+
+<!-- 화면 2: 다음에 할 일 (계획 저장됨) -->
+<div id="s-plan" style="display:none">
+  <div class="box">
+    <div><b>계획 저장됨</b> — <span id="planSummary"></span></div>
+    <div id="nextNew" style="display:none">
+      <h2>새 Core 만들기 — 다음 단계</h2>
+      <ol>
+        <li>이 파일을 우클릭 → <b>Duplicate</b> → 이름 <code>[Core] <span class="pn"></span></code> → Core 폴더로 이동</li>
+        <li>복제본을 열고 이 플러그인을 다시 실행 → 아래 버튼이 활성화됩니다</li>
+      </ol>
+      <button id="btnBuild" disabled>복제본에 Core 만들기</button>
+      <span id="buildHint" class="muted"></span>
+    </div>
+    <div id="nextUpdate" style="display:none">
+      <h2>기존 Core 업데이트 — 다음 단계</h2>
+      <ol>
+        <li><button id="btnSelect" class="secondary">Δ 화면 선택</button> → <b>⌘C</b></li>
+        <li>Core 파일 <span class="cn"></span>의 브랜치 "Core 도우미"를 열고 🌏 마스터 파일 페이지에서 <b>⌘V</b></li>
+        <li>붙여 넣은 상태 그대로 플러그인 실행 → 아래 버튼</li>
+      </ol>
+      <button id="btnPlace" disabled>붙여 넣은 화면 배치</button>
+      <span id="placeHint" class="muted"></span>
+    </div>
+    <div class="row"><button id="btnClear" class="secondary">계획 지우기</button></div>
+  </div>
+</div>
+
+<h2>진행 기록</h2>
+<pre id="log"></pre>
+<div id="result"></div>
+
+<details style="margin-top:10px"><summary class="muted">사례 남기기 (규칙을 다듬을 때 Ken/도우미에게 붙여 넣기)</summary>
+  <textarea id="caseNote" readonly></textarea>
+</details>
+
+<script>
+const RULES_URL = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/plugin/rules.json';
+const INDEX_URL = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/core-index/core-index.json';
+const $ = (id) => document.getElementById(id);
+const send = (type, payload) => parent.postMessage({ pluginMessage: Object.assign({ type }, payload || {}) }, '*');
+let STATE = { kind: null, plan: null, analysis: null, judge: null };
+
+async function fetchJson(url) { try { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return await r.json(); } catch (e) { return null; } }
+(async () => {
+  const [rules, index] = await Promise.all([fetchJson(RULES_URL), fetchJson(INDEX_URL)]);
+  if (!rules) $('status').textContent = '규칙을 GitHub에서 못 받았습니다 — 마지막으로 받은 규칙으로 시도합니다';
+  send('init', { rules, index });
+})();
+
+function logLine(s) { $('log').textContent += s + '\n'; $('log').scrollTop = 1e9; }
+function show(kind, plan) {
+  $('s-analyze').style.display = kind === 'project' && !plan ? '' : 'none';
+  $('s-plan').style.display = plan ? '' : 'none';
+  if (plan) {
+    $('planSummary').textContent = `${plan.projectName} · ${plan.mode === 'new' ? '새 Core' : '기존 Core ' + (plan.targetCore || '') + ' 업데이트'} · 화면 ${plan.screenCount}장`;
+    document.querySelectorAll('.pn').forEach(e => e.textContent = plan.projectName);
+    document.querySelectorAll('.cn').forEach(e => e.textContent = plan.targetCore || '');
+    $('nextNew').style.display = plan.mode === 'new' ? '' : 'none';
+    $('nextUpdate').style.display = plan.mode === 'update' ? '' : 'none';
+    const inCopy = kind === 'project' && STATE.fileName !== plan.sourceFileName;
+    $('btnBuild').disabled = !(plan.mode === 'new' && kind === 'project' && (inCopy || /Copy|복사/.test(STATE.fileName || '')));
+    $('buildHint').textContent = $('btnBuild').disabled ? '(복제본을 연 뒤 활성화)' : '이 파일이 복제본이면 누르세요';
+    $('btnPlace').disabled = !(plan.mode === 'update' && kind === 'core');
+    $('placeHint').textContent = $('btnPlace').disabled ? '(Core 파일에서 활성화)' : '';
+  }
+}
+
+function renderAnalysis(a, j) {
+  STATE.analysis = a; STATE.judge = j;
+  $('analysis').style.display = '';
+  let html = '';
+  for (const platform of Object.keys(a.platforms)) {
+    html += `<div class="box"><b>${platform}</b>`;
+    for (const e of a.platforms[platform]) {
+      for (const p of e.picks) {
+        const opts = p.candidates.map(c => `<option value="${c.id}" ${c.id === p.chosen ? 'selected' : ''}>${c.name} (${c.w}×${c.h})</option>`).join('');
+        html += `<div class="row"><span style="width:110px">🔵 ${e.cls} ${p.width}px</span>` + (p.candidates.length ? `<select data-platform="${platform}" data-cls="${e.cls}" data-width="${p.width}">${opts}</select> <a href="#" data-sel="${p.chosen}">보기</a>` : `<span class="err">후보 없음</span>`) + `</div>`;
+      }
+      html += `<div class="muted" style="margin-left:110px">${e.section ? '섹션: ' + e.section.name : '섹션 못 찾음'} · ${e.desc}</div>`;
+    }
+    html += '</div>';
+  }
+  $('picks').innerHTML = html;
+  $('picks').querySelectorAll('select').forEach(s => s.addEventListener('change', (ev) => {
+    const { platform, cls, width } = ev.target.dataset;
+    const e = a.platforms[platform].find(x => x.cls === cls); const p = e.picks.find(x => x.width == width); p.chosen = ev.target.value;
+  }));
+  $('picks').querySelectorAll('a[data-sel]').forEach(el => el.addEventListener('click', (ev) => { ev.preventDefault(); send('select', { id: el.dataset.sel }); }));
+  $('coverage').innerHTML = '<tr><th>문서 섹션</th><th>마스터 위치</th></tr>' + a.coverage.map(c => `<tr><td>${c.section}</td><td class="${/미수록/.test(c.to) ? 'warn' : ''}">${c.to}</td></tr>`).join('');
+  $('missing').textContent = a.missing.length ? '⚠ ' + a.missing.join(' · ') : '';
+  if (j) {
+    const cands = j.candidates.map(c => `<div>· ${c.name} <span class="muted">(${c.score}점: ${c.hits.join(', ')})</span></div>`).join('') || '<div class="muted">색인에 맞는 Core 없음</div>';
+    $('judge').innerHTML = `<div><b>${j.suggestion === 'new' ? '새 Core' : '기존 Core 업데이트'}</b> 로 보임 — ${j.reason}</div>${cands}<div class="row"><label>기존 Core 이름 <select id="targetCore"><option value="">(선택)</option>${j.candidates.map(c => `<option>${c.name}</option>`).join('')}</select></label></div>`;
+  }
+  $('projName').value = a.cover.nameEN.replace(/\n.*/, '') || a.fileName.replace(/\s*\(Copy\)|\s*고도화.*/g, '');
+  $('owner').value = a.cover.owner;
+  $('caseNote').value = JSON.stringify({ file: a.fileName, cover: a.cover, sections: a.sections.map(s => s.platform + ' > ' + s.name), missing: a.missing, judge: j }, null, 1);
+}
+
+function makePlan(mode) {
+  const a = STATE.analysis;
+  let count = 0; for (const pl of Object.values(a.platforms)) for (const e of pl) for (const p of e.picks) if (p.chosen) count++;
+  return { mode, projectName: $('projName').value.trim(), releaseMonth: $('relMonth').value.trim(), owner: $('owner').value.trim(),
+    targetCore: mode === 'update' ? ($('targetCore') && $('targetCore').value) : null,
+    sourceFileName: a.fileName, sourceFileKey: a.fileKey, sourceUrl: a.fileKey ? `https://www.figma.com/design/${a.fileKey}/` : '',
+    platforms: a.platforms, coverage: a.coverage, screenCount: count, savedAt: new Date().toISOString() };
+}
+
+$('btnAnalyze').onclick = () => { $('log').textContent = ''; send('analyze'); };
+$('btnNew').onclick = () => send('savePlan', { plan: makePlan('new') });
+$('btnUpdate').onclick = () => { if (!$('targetCore').value) return alert('업데이트할 기존 Core를 고르세요'); send('savePlan', { plan: makePlan('update') }); };
+$('btnClear').onclick = () => send('clearPlan');
+$('btnBuild').onclick = () => { $('btnBuild').disabled = true; $('log').textContent = ''; send('buildNewCore'); };
+$('btnSelect').onclick = () => send('selectPlanned');
+$('btnPlace').onclick = () => { $('log').textContent = ''; send('placePasted'); };
+
+onmessage = (ev) => {
+  const m = ev.data.pluginMessage; if (!m) return;
+  if (m.type === 'ready') {
+    STATE.kind = m.kind; STATE.plan = m.plan; STATE.fileName = m.fileName;
+    $('ver').textContent = 'v' + m.rulesVersion + (m.hasIndex ? '' : ' · 색인 없음');
+    $('status').textContent = ''; $('fileName').textContent = m.fileName;
+    $('kindLabel').textContent = m.kind === 'project' ? '— 프로젝트 문서' : m.kind === 'core' ? '— Core 파일' : '— 종류를 모르겠음(규칙에 없는 페이지 구성)';
+    show(m.kind, m.plan);
+    if (m.kind === 'unknown') logLine('이 파일의 페이지 구성이 규칙에 없습니다. "사례 남기기"를 Ken에게 보내 주세요.');
+  }
+  if (m.type === 'analysis') renderAnalysis(m.analysis, m.judge);
+  if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }
+  if (m.type === 'log') logLine(m.msg);
+  if (m.type === 'selected') logLine(`화면 ${m.count}/${m.total}장을 선택했습니다 → ⌘C 하세요 (다른 페이지 화면은 페이지를 옮겨 다시 누르세요)`);
+  if (m.type === 'done') { logLine('완료'); $('result').innerHTML = `<div class="box ok">${JSON.stringify(m.result)}</div>`; }
+  if (m.type === 'error') { logLine('오류: ' + m.msg); $('btnBuild').disabled = false; }
+};
+</script>
+</body>
+</html>
