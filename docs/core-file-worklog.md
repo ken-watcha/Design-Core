@@ -9,7 +9,11 @@
 - **막힌 것은 토큰 만료 하나**: `GET /v1/me`·`/v1/projects/591036590/files` → 401 `Token has expired`, `/v1/files/:key?depth=1` → 403 `Token expired`. 즉 환경에 등록된 Figma 토큰이 만료됨
 - **`projects:read`는 개인 토큰에 없음 (Ken 질문으로 확인)**: Figma가 "프로젝트"를 "폴더"로 바꾸면서 PAT 발급 화면의 권한이 `folders:read`로 바뀜. `projects:read`는 조직용 비공개 OAuth 앱에만 남은 권한이라 개인이 못 고르는 게 정상 (역할·플랜 문제 아님). 폴더 목록 엔드포인트도 `GET /v2/folders/:id/files`로 바뀌었고(구 v1 projects는 폐기 예정) 이 환경에서 v2 경로가 존재함을 확인(401, 404 아님). 포럼에는 일부 플랜에서 v2가 404를 낸다는 보고가 있어 스크립트는 v2 실패 시 v1로 자동 재시도. 근거: [Figma 개발자 문서 – 인증/권한](https://developers.figma.com/docs/rest-api/authentication/), [변경 이력](https://developers.figma.com/docs/rest-api/changelog/), [포럼: 새 Folder API 문제](https://forum.figma.com/report-a-problem-6/the-new-folder-rest-apis-doesn-t-work-57025) — 이 문서 도메인들은 환경에서 차단돼 검색 요약으로만 확인
 - **Ken이 할 일**: Figma > Settings > Security > Personal access tokens에서 재발급 — 권한 `file_content:read` + `folders:read` 둘 다, 만료 기간은 넉넉히(가능하면 만료 없음). 환경의 API credentials는 수정이 안 되므로 기존 항목 삭제 후 `api.figma.com` / 헤더 `X-Figma-Token` / 접두어 없음으로 재등록. **새 세션부터 적용**
-- 스크립트 개선: `scripts/figma-rest/list-project-files.py`에 `--check`(GET /v1/me로 토큰·네트워크만 점검) 추가, 오류 시 Figma 본문 `err`와 프록시 헤더를 그대로 보여주고 원인(만료 / 네트워크 차단 / 권한 부족)별 조치를 안내. 토큰이 갱신되면 `python3 scripts/figma-rest/list-project-files.py --check` → `591036590 --pages` 순으로 실행해 폴더 안 Core 파일 전체 목록을 색인에 반영할 것 (다음 할 일 1번)
+- 스크립트 개선: `scripts/figma-rest/list-project-files.py`에 `--check`(GET /v1/me로 토큰·네트워크만 점검) 추가, 오류 시 Figma 본문 `err`와 프록시 헤더를 그대로 보여주고 원인(만료 / 네트워크 차단 / 권한 부족 / 헤더 이름 오류)별 조치를 안내
+- **✅ REST 개통 (같은 세션 안에서 완료)**: Ken이 토큰 재발급(`file_content:read` + `folders:read`) → 환경 API 자격 증명 재등록. 첫 등록은 헤더 이름이 기본값 `Authorization`이라 401 `figd_ tokens must be passed via X-Figma-Token header` → 사용자 지정 헤더 이름을 `X-Figma-Token`, 접두사 빈칸으로 재등록하니 통과. **자격 증명 변경은 새 세션 없이 즉시 반영됨** (허용 도메인과 다름). 등록 화면 요령은 `.claude/rules/network.md`
+- **폴더 591036590 = "Design Core ✅", 파일 15개 확보** (v2 `folders:read` 엔드포인트로 성공, v1 재시도 불필요). 원본은 `core-index/folder-files.json`. 색인에 구조까지 있던 3개(SVOD·소식함·로그인/온보딩) 외 12개는 `known_but_unindexed`에 키·페이지 등록: TV / TVOD / 검색 / 결제·구독 / 나의 왓챠 / 보관함 / 스텝메이드 / 왓챠파티 / 웹툰 / 콘상페 / 프로필 / 플레이어 (⚜️ 표시는 파일명 그대로). 전부 새 형식(🌏 마스터 파일 페이지 있음)
+- **색인 오류 발견**: 색인의 "[Core] 스텝메이드" 키 `NO7uetAL9Qmk03IXWSaMej`는 폴더에 없고 파일명이 **"스텝메이드 고도화"(프로젝트 문서)**. 진짜 [Core] 스텝메이드는 `txuuBtHiDgal8pC4OIbSHF`(새 형식, 마스터 페이지 `5005:6`, 9/18 수정). 세션 2가 "구 형식"으로 적은 스텝메이드 구조 설명은 프로젝트 파일 기준이므로 교체 필요. 브랜치 B(`XIolz3S5ClSf5VEaBkwDi6`)가 어느 파일의 브랜치인지도 재확인 대상
+- **다음 작업**: 12개 파일의 마스터 페이지를 `scripts/figma/walk-page.js` → `label-texts.js`로 읽어 색인 구조 완성 (파일당 `use_figma` 호출 2~3회). 왓챠파티부터 (새 Core 규격 본보기, 다음 할 일 3번)
 
 ## 다음 세션 시작점 (2026-09-09 세션 2 이후)
 
@@ -108,7 +112,7 @@
 
 ### 다음 할 일 (우선순위순)
 
-1. ~~Core 색인 작성~~ **아는 4개 파일은 완료(세션 2)**. 남은 것: Ken에게 나머지 **Core 파일 링크** 받기 (왓챠파티·결제/구독 등, 폴더 591036590) → 색인에 추가
+1. ~~Core 색인 작성~~ 구조까지 완료 3개(세션 2). ~~Ken에게 링크 받기~~ **세션 4에서 REST로 폴더 전체 15개 키·페이지 확보** → 남은 것: 12개 파일 마스터 페이지 구조 색인 + 스텝메이드 항목 교체
 2. Ken에게 **손으로 이관을 끝낸 과거 프로젝트 1건** 받기 (프로젝트 문서 + 반영된 Core 위치) → 지침서 v0.1의 판단 규칙 재검증 → v0.2
 3. **왓챠파티 파일**로 "새 Core 만드는 케이스"의 파일 규격 정리 (지침서 §6 보강)
 4. ~~Design-Core 저장소 구조 잡기~~ **완료(세션 2)**

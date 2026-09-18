@@ -5,7 +5,7 @@ import json, os
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 idx = json.load(open(os.path.join(ROOT, "core-index/core-index.json"), encoding="utf-8"))
 L = lambda key, node: f"https://www.figma.com/design/{key}/?node-id={node.replace(':','-')}"
-out = ["# Core 파일 색인 (읽기용)", "", f"> 갱신 {idx['_meta']['updated']} · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성). 수록 범위: 폴더 안 파일 중 키를 아는 4개.", "", f"폴더: {idx['_meta']['folder']}", ""]
+out = ["# Core 파일 색인 (읽기용)", "", f"> 갱신 {idx['_meta']['updated']} · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성). 수록 범위: 구조까지 색인한 3개 + 키·페이지만 확보한 12개(폴더 전체 15개, `core-index/folder-files.json`).", "", f"폴더: {idx['_meta']['folder']}", ""]
 out += ["## 파일 형식 두 가지", "", f"- **새 형식**: {idx['_meta']['format_notes']['new_format']}", f"- **구 형식**: {idx['_meta']['format_notes']['old_format']}", ""]
 for f in idx["files"]:
     k = f["key"]
@@ -53,8 +53,14 @@ for f in idx["files"]:
             for s in pg["sections"]:
                 out.append(f"  - [{s['name'].strip()}]({L(k,s['id'])}) `{s['id']}` (자식 {s['children']}개)" + (f" · Guide `{s['guide']}`" if s.get('guide') else ""))
     out.append("")
-out += ["## 아직 색인에 없는 Core 파일", ""]
-for u in idx["known_but_unindexed"]: out.append(f"- {u['name']} — {u['note']}")
+out += ["## 키·페이지만 확보한 Core 파일 (구조 색인은 아직)", ""]
+for u in idx["known_but_unindexed"]:
+    if u.get("key"):
+        pages = ", ".join(f"[{p['name'].strip()}]({L(u['key'],p['id'])}) `{p['id']}`" for p in u.get("pages", []))
+        out.append(f"- **{u['name']}** — 키 `{u['key']}` · 수정 {u.get('last_modified','?')[:10]} · 페이지: {pages}")
+        out.append(f"  - {u['note']}")
+    else:
+        out.append(f"- {u['name']} — {u['note']}")
 out += ["", "## 관련 파일 (Core 아님)", ""]
 for r in idx["related_files"]:
     out.append(f"- {r['name']} — 키 `{r['key']}`, 역할: {r['role']}. 페이지: " + ", ".join(f"{p['name'].strip()} `{p['id']}`" for p in r["pages"]))

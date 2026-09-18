@@ -1,6 +1,6 @@
 # Core 파일 색인 (읽기용)
 
-> 갱신 2026-09-09 · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성). 수록 범위: 폴더 안 파일 중 키를 아는 4개.
+> 갱신 2026-09-18 · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성). 수록 범위: 구조까지 색인한 3개 + 키·페이지만 확보한 12개(폴더 전체 15개, `core-index/folder-files.json`).
 
 폴더: https://www.figma.com/files/1014901253946075002/folder/591036590
 
@@ -203,11 +203,11 @@
   - 하위 섹션 [간편 회원가입](https://www.figma.com/design/irS8OlYuyQmW0aL4DR3cy5/?node-id=25-70395) `25:70395` (자식 114개)
 - 섹션 밖 프레임: 온보딩 30:16617, 온보딩_웹툰 34:15825, 프로필 선택 31:20909 / 50:20369 / 50:20857, 프로필 편집 56:22173, 온보딩(WEB) 36:20911, SVOD 35:19123, webtoon 35:24097 / 56:21043
 
-## [Core] 스텝메이드
+## 스텝메이드 고도화 (프로젝트 파일 — Core 아님)
 
 - 파일: https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/ (키 `NO7uetAL9Qmk03IXWSaMej`, 형식: old)
 - 다루는 영역: 스텝메이드 상세 (헤더 이미지·정렬·Body 케이스) / 뷰포트별 변형
-- 메모: 각 크기 섹션 = Guide(해부도) + Image ratio/Gradation/Position + Header 변형 + Body 케이스(섹션 타이틀/탭바/일반) + 뷰포트 폭 프레임(360/375/440/599/600/768/799/1024/1280/1440/1680/1920). 브랜치 B(XIolz3S5ClSf5VEaBkwDi6)에 Δ 페이지 3007:6 있음
+- 메모: 2026-09-18 REST 확인: 이 키는 폴더 591036590에 없고 파일명이 '스텝메이드 고도화'(프로젝트 문서). 진짜 [Core] 스텝메이드는 txuuBtHiDgal8pC4OIbSHF (known_but_unindexed 참고). 아래 구조 설명은 프로젝트 파일 기준이므로 교체 예정. 각 크기 섹션 = Guide(해부도) + Image ratio/Gradation/Position + Header 변형 + Body 케이스(섹션 타이틀/탭바/일반) + 뷰포트 폭 프레임(360/375/440/599/600/768/799/1024/1280/1440/1680/1920). 브랜치 B(XIolz3S5ClSf5VEaBkwDi6)에 Δ 페이지 3007:6 있음
 
 ### 페이지
 
@@ -233,10 +233,32 @@
   - [Mobile, Mobile Web](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=298-20250) `298:20250` (자식 101개)
   - [Tablet, Desktop](https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/?node-id=302-45103) `302:45103` (자식 143개)
 
-## 아직 색인에 없는 Core 파일
+## 키·페이지만 확보한 Core 파일 (구조 색인은 아직)
 
-- [Core] 왓챠파티 — 새 Core 케이스의 본보기. 링크 필요
-- [Core] 결제/구독 — 링크 필요
+- **[Core] TV ⚜️** — 키 `XaSH6GlcwwoHs424kf3Flp` · 수정 2026-08-31 · 페이지: [Cover](https://www.figma.com/design/XaSH6GlcwwoHs424kf3Flp/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/XaSH6GlcwwoHs424kf3Flp/?node-id=2-2) `2:2`, [🌏 마스터 파일](https://www.figma.com/design/XaSH6GlcwwoHs424kf3Flp/?node-id=4-55) `4:55`, [🌊 플로우](https://www.figma.com/design/XaSH6GlcwwoHs424kf3Flp/?node-id=4-54) `4:54`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] TVOD ⚜️** — 키 `aBcQKIbe9nOsPMNQOagw2v` · 수정 2026-06-17 · 페이지: [Cover](https://www.figma.com/design/aBcQKIbe9nOsPMNQOagw2v/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/aBcQKIbe9nOsPMNQOagw2v/?node-id=2-49) `2:49`, [🌏 마스터 파일](https://www.figma.com/design/aBcQKIbe9nOsPMNQOagw2v/?node-id=2-50) `2:50`, [🌊 플로우](https://www.figma.com/design/aBcQKIbe9nOsPMNQOagw2v/?node-id=21-34918) `21:34918`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 검색 ⚜️** — 키 `9BOnazPjHfZgssTKl9kEMN` · 수정 2026-06-17 · 페이지: [Cover](https://www.figma.com/design/9BOnazPjHfZgssTKl9kEMN/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/9BOnazPjHfZgssTKl9kEMN/?node-id=1-2) `1:2`, [🌏 마스터 파일](https://www.figma.com/design/9BOnazPjHfZgssTKl9kEMN/?node-id=1-3) `1:3`, [🌊 플로우](https://www.figma.com/design/9BOnazPjHfZgssTKl9kEMN/?node-id=1-4) `1:4`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 결제/구독** — 키 `qxQoDWpbqwCDvGb1O2HZLv` · 수정 2026-06-10 · 페이지: [Cover](https://www.figma.com/design/qxQoDWpbqwCDvGb1O2HZLv/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/qxQoDWpbqwCDvGb1O2HZLv/?node-id=9-6) `9:6`, [🌏 마스터 파일](https://www.figma.com/design/qxQoDWpbqwCDvGb1O2HZLv/?node-id=9-7) `9:7`, [🌊 플로우](https://www.figma.com/design/qxQoDWpbqwCDvGb1O2HZLv/?node-id=21-3920) `21:3920`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 나의 왓챠 ⚜️** — 키 `EoBr8OeZ4bCo35laDmO2RK` · 수정 2026-09-02 · 페이지: [Cover](https://www.figma.com/design/EoBr8OeZ4bCo35laDmO2RK/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/EoBr8OeZ4bCo35laDmO2RK/?node-id=1-48) `1:48`, [🌏 마스터 파일](https://www.figma.com/design/EoBr8OeZ4bCo35laDmO2RK/?node-id=1-49) `1:49`, [---](https://www.figma.com/design/EoBr8OeZ4bCo35laDmO2RK/?node-id=99-21472) `99:21472`, [🌊 플로우_26.07 기준](https://www.figma.com/design/EoBr8OeZ4bCo35laDmO2RK/?node-id=1-50) `1:50`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 보관함 ⚜️** — 키 `vK6m0SufuZSM9mfWTfenyP` · 수정 2026-06-17 · 페이지: [Cover](https://www.figma.com/design/vK6m0SufuZSM9mfWTfenyP/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/vK6m0SufuZSM9mfWTfenyP/?node-id=1-2) `1:2`, [🌏 마스터 파일](https://www.figma.com/design/vK6m0SufuZSM9mfWTfenyP/?node-id=1-4805) `1:4805`, [🌊 플로우](https://www.figma.com/design/vK6m0SufuZSM9mfWTfenyP/?node-id=4-27922) `4:27922`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 스텝메이드** — 키 `txuuBtHiDgal8pC4OIbSHF` · 수정 2026-09-18 · 페이지: [Cover](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=28-34464) `28:34464`, [---](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=28-34485) `28:34485`, [🌏 마스터 파일](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-6) `5005:6`
+  - files의 '[Core] 스텝메이드'(NO7uetAL9Qmk03IXWSaMej)는 실제로는 프로젝트 파일 '스텝메이드 고도화'였음. 이 파일이 진짜 Core(새 형식, 마스터 페이지 5005:6). 색인 교체 필요. 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 왓챠파티** — 키 `sDW2rfQE7IRRiQ5R0CWLWz` · 수정 2026-09-11 · 페이지: [Cover](https://www.figma.com/design/sDW2rfQE7IRRiQ5R0CWLWz/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/sDW2rfQE7IRRiQ5R0CWLWz/?node-id=5-6) `5:6`, [🌏 마스터 파일](https://www.figma.com/design/sDW2rfQE7IRRiQ5R0CWLWz/?node-id=5-7) `5:7`, [🌊 플로우](https://www.figma.com/design/sDW2rfQE7IRRiQ5R0CWLWz/?node-id=5-8) `5:8`
+  - 새 Core 케이스의 본보기. 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 웹툰** — 키 `oxNqyqrROApLaQbHB0Kowz` · 수정 2026-09-02 · 페이지: [Cover](https://www.figma.com/design/oxNqyqrROApLaQbHB0Kowz/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/oxNqyqrROApLaQbHB0Kowz/?node-id=5-6) `5:6`, [🌏 마스터 파일](https://www.figma.com/design/oxNqyqrROApLaQbHB0Kowz/?node-id=5-7) `5:7`, [---](https://www.figma.com/design/oxNqyqrROApLaQbHB0Kowz/?node-id=57-8112) `57:8112`, [🌊 플로우_26.09.02 기준](https://www.figma.com/design/oxNqyqrROApLaQbHB0Kowz/?node-id=25-33860) `25:33860`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 콘상페 ⚜️** — 키 `TCceg5cEvzgzViCXg8S4WO` · 수정 2026-09-18 · 페이지: [Cover](https://www.figma.com/design/TCceg5cEvzgzViCXg8S4WO/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/TCceg5cEvzgzViCXg8S4WO/?node-id=1-2) `1:2`, [🌏 마스터 파일](https://www.figma.com/design/TCceg5cEvzgzViCXg8S4WO/?node-id=1-3) `1:3`, [🌊 플로우](https://www.figma.com/design/TCceg5cEvzgzViCXg8S4WO/?node-id=32-35692) `32:35692`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 프로필 ⚜️** — 키 `0b3LD8NXqNWIdDISqU71Js` · 수정 2026-06-12 · 페이지: [Cover](https://www.figma.com/design/0b3LD8NXqNWIdDISqU71Js/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/0b3LD8NXqNWIdDISqU71Js/?node-id=3-2) `3:2`, [🌏 마스터 파일](https://www.figma.com/design/0b3LD8NXqNWIdDISqU71Js/?node-id=3-3) `3:3`, [🌊 플로우](https://www.figma.com/design/0b3LD8NXqNWIdDISqU71Js/?node-id=20-4545) `20:4545`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
+- **[Core] 플레이어 ⚜️** — 키 `y9SqD2XfL1h4jSVFhkVS2m` · 수정 2026-08-03 · 페이지: [Cover](https://www.figma.com/design/y9SqD2XfL1h4jSVFhkVS2m/?node-id=0-1) `0:1`, [---](https://www.figma.com/design/y9SqD2XfL1h4jSVFhkVS2m/?node-id=1-44) `1:44`, [🌏 마스터 파일](https://www.figma.com/design/y9SqD2XfL1h4jSVFhkVS2m/?node-id=1-45) `1:45`, [🌊 플로우](https://www.figma.com/design/y9SqD2XfL1h4jSVFhkVS2m/?node-id=6-8287) `6:8287`
+  - 키·페이지만 확보(REST). 마스터 페이지 구조 색인 필요
 
 ## 관련 파일 (Core 아님)
 
