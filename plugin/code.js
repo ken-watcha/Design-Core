@@ -8,7 +8,9 @@ const STORE_INDEX = 'core-helper:index';
 
 let RULES = null, INDEX = null;
 
-figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
+// 로더(boot.js)로 실행되면 GitHub에서 받은 ui.html(__CORE_UI__)을, 직접 설치되면 번들된 __html__ 을 띄운다
+const __G = (typeof globalThis === 'object' && globalThis) || {};
+figma.showUI(__G.__CORE_UI__ || __html__, { width: 420, height: 640, themeColors: true });
 
 // ---------- 유틸 ----------
 const rgb = (a) => ({ r: a[0] / 255, g: a[1] / 255, b: a[2] / 255 });

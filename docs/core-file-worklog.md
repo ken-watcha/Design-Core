@@ -11,6 +11,9 @@
 - 스크립트 `list-project-files.py`: `--check`(GET /v1/me) 추가, v2→v1 자동 재시도, 오류를 원인별(만료/헤더 이름/네트워크/권한)로 안내
 - **학습 보고서 스크립트(`scripts/learning-report.py`)도 같은 토큰으로 돎** — 이번 세션의 원래 요청("학습 보고서 스크립트 REST 확인")은 토큰 만료가 막고 있었던 것. 실행 결과는 아래 세션 8 후속 항목 참고
 - **플러그인 첫 설치 오류(Ken 보고)**: `in get_currentUser: "currentuser" permission not specified in manifest.json` → `plugin/manifest.json`에 `"permissions": ["currentuser"]` 추가. 재설치(Import plugin from manifest) 필요
+- **플러그인을 로더 방식으로 전환 (Ken: "에러·수정마다 재설치가 너무 불편")**: 설치되는 것은 `boot.js`·`boot.html` 껍데기뿐. boot.html이 GitHub(`main` → 개발 브랜치 순, `BRANCHES`)에서 `code.js`·`ui.html`을 받아 boot.js가 실행(AsyncFunction). 규칙·색인은 코드와 같은 브랜치에서 받아 짝을 맞춤. 이후 코드 수정은 푸시만 하면 다음 실행부터 반영(캐시 최대 5분), 재설치는 manifest가 바뀔 때만. 검토한 대안: Organization 비공개 게시(왓챠는 org 플랜이라 가능, 코드 바뀔 때마다 Ken이 Publish) / Claude 방식(형태 A) 복귀 — 로더 먼저, 안정되면 게시
+- **미확인 1건**: Figma 플러그인 샌드박스가 원격 코드 실행(`new AsyncFunction`)을 허용하는지는 Ken의 첫 실행에서 확인된다(Scripter 등 같은 방식의 커뮤니티 플러그인이 있어 될 가능성 높음). 막히면 boot 화면에 "코드 실행 실패"가 뜨고, manifest의 main/ui를 code.js/ui.html로 되돌리면 예전 방식으로 동작
+- `scripts/plugin-smoke.js`(node): 푸시 전 문법·manifest·가짜 figma 위 최상위 실행 확인. 오늘 오류(권한 누락)는 이 테스트가 잡는다. Figma 실제 동작은 여전히 Ken 노트북에서만 확인 가능
 
 ## 다음 세션 시작점 (2026-09-16 · 세션 7 이후)
 

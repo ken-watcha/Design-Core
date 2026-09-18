@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  body { font: 12px/1.5 -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif; margin: 16px; color: var(--figma-color-text, #222); }
+  h1 { font-size: 15px; margin: 0 0 8px; }
+  .muted { color: var(--figma-color-text-secondary, #777); }
+  .err { color: #d33; white-space: pre-wrap; word-break: break-all; }
+  pre { font-size: 11px; background: var(--figma-color-bg-secondary, #f3f3f3); padding: 8px; border-radius: 6px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>Core 도우미</h1>
+<div id="status" class="muted">최신 코드를 GitHub에서 받아오는 중…</div>
+<pre id="log"></pre>
+<script>
+// 코드 출처: main 을 먼저, 없으면 개발 브랜치. main 에 합쳐지면 뒤 항목은 저절로 안 쓰인다.
+// raw.githubusercontent.com 은 몇 분 캐시가 있어 푸시 직후에는 최대 ~5분 뒤 반영된다.
+const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/';
+const BRANCHES = ['main', 'claude/learning-report-script-rest-7r5r9q'];
+const $ = (id) => document.getElementById(id);
+const log = (s) => { $('log').textContent += s + '\n'; };
+const send = (payload) => parent.postMessage({ pluginMessage: Object.assign({ type: 'boot' }, payload) }, '*');
+
+async function fetchText(url) {
+  const r = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return await r.text();
+}
+
+(async () => {
+  let lastErr = '';
+  for (const b of BRANCHES) {
+    try {
+      const code = await fetchText(RAW + b + '/plugin/code.js');
+      let ui = await fetchText(RAW + b + '/plugin/ui.html');
+      // 진짜 UI 에 코드 출처를 알려 준다 (규칙·색인도 같은 브랜치에서 받도록)
+      const tag = '<script>window.__CORE_BRANCH__=' + JSON.stringify(b) + ';window.__CORE_LOADED_AT__=' + JSON.stringify(new Date().toISOString()) + ';<\/script>';
+      ui = ui.includes('<head>') ? ui.replace('<head>', '<head>' + tag) : tag + ui;
+      log('코드 출처: ' + b + ' (' + Math.round(code.length / 1024) + 'KB)');
+      $('status').textContent = '실행 중…';
+      send({ code, ui, source: b });
+      return;
+    } catch (e) {
+      lastErr = b + ': ' + (e && e.message || e);
+      log('건너뜀 — ' + lastErr);
+    }
+  }
+  $('status').innerHTML = '<span class="err">GitHub에서 코드를 못 받았습니다. 네트워크(회사 프록시)나 브랜치 이름을 확인하세요.</span>';
+  send({ error: lastErr });
+})();
+
+onmessage = (ev) => {
+  const m = ev.data && ev.data.pluginMessage; if (!m) return;
+  if (m.type === 'boot-error') {
+    $('status').innerHTML = '<span class="err">오류: ' + String(m.msg).replace(/</g, '&lt;') + '</span>';
+    log('오류가 나면 이 화면을 캡처해서 Ken에게. 코드는 GitHub에서 고쳐 푸시하면 다음 실행부터 반영됩니다.');
+  }
+};
+</script>
+</body>
+</html>

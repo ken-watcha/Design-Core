@@ -1,16 +1,18 @@
 # Core 도우미 — Figma 플러그인 (뼈대, 2026-09-18)
 
-프로젝트 파일을 **분석 → 판별 → (새 Core면) 복제본을 Core로 정리 / (기존 Core면) Δ 화면을 골라 붙여 넣게** 도와주는 플러그인. Claude를 실행 중에 부르지 않는다. 판단은 전부 `rules.json`(규칙)과 `core-index/core-index.json`(Core 색인)으로 하고, 두 파일은 플러그인이 켜질 때 GitHub main에서 받아 온다 → **재설치 없이 규칙만 고치면 다음 실행부터 반영.**
+프로젝트 파일을 **분석 → 판별 → (새 Core면) 복제본을 Core로 정리 / (기존 Core면) Δ 화면을 골라 붙여 넣게** 도와주는 플러그인. Claude를 실행 중에 부르지 않는다. 판단은 전부 `rules.json`(규칙)과 `core-index/core-index.json`(Core 색인)으로 하고, 두 파일은 플러그인이 켜질 때 GitHub에서 받아 온다. **코드(`code.js`·`ui.html`)도 마찬가지로 실행 때마다 GitHub에서 받아 돌린다**(로더 방식, 2026-09-18) → 규칙이든 코드든 고쳐서 푸시하면 다음 실행부터 반영. 재설치는 `manifest.json`이 바뀔 때만.
 
 ## 파일
 
 | 파일 | 역할 |
 |---|---|
-| `manifest.json` | 플러그인 정의. 네트워크는 `raw.githubusercontent.com`만 허용 |
+| `manifest.json` | 플러그인 정의. `main`은 `boot.js`, `ui`는 `boot.html`. 권한 `currentuser`(검토자 판별). 네트워크는 `raw.githubusercontent.com`만 허용 |
+| `boot.js` · `boot.html` | **설치되는 껍데기(로더).** boot.html이 GitHub에서 `code.js`·`ui.html` 텍스트를 받아 boot.js로 보내고, boot.js가 그 코드를 실행. 브랜치 순서는 boot.html의 `BRANCHES` (main → 개발 브랜치) |
 | `rules.json` | 규칙 원본(바닥값). 크기 클래스·마스터 페이지 규격·배치 숫자·설명 바 컴포넌트 키·삭제할 페이지·판별 임계값·불용어·검토 주기와 검토자 |
 | `memory.json` | 기억 공유본(승인된 기억 + 대기 가설). 플러그인 "기억 내보내기" 결과를 넣는다 |
-| `code.js` | Figma 안에서 도는 쪽. 분석·판별·복제본 정리·붙여 넣은 화면 배치 |
-| `ui.html` | 화면. 분석·판별 → 계획 → 실행. 학습 검토·채점표는 검토자에게만 보임 |
+| `code.js` | **진짜 코드** (GitHub에서 받아 실행됨). Figma 안에서 도는 쪽. 분석·판별·복제본 정리·붙여 넣은 화면 배치 |
+| `ui.html` | **진짜 화면** (GitHub에서 받아 실행됨). 분석·판별 → 계획 → 실행. 학습 검토·채점표는 검토자에게만 보임. 규칙·색인은 코드를 받아 온 브랜치에서 같이 받는다 |
+| `../scripts/plugin-smoke.js` | 푸시 전 스모크 테스트(`node scripts/plugin-smoke.js`). 문법·manifest·가짜 figma 위 최상위 실행 확인. Figma 실제 동작은 못 본다 |
 | `report-sources.json` | 학습 보고서가 Core 색인 밖에서 추가로 읽을 파일 키 |
 | `../scripts/learning-report.py` | Ken 보고서 생성 · 결정 반영 |
 
@@ -18,7 +20,11 @@
 
 1. 이 저장소를 받는다(`git clone` 또는 ZIP 다운로드). `plugin/` 폴더가 있으면 된다.
 2. Figma 데스크톱 앱 → 아무 디자인 파일 열기 → 메뉴 **Plugins → Development → Import plugin from manifest…** → `plugin/manifest.json` 선택.
-3. 이후 **Plugins → Development → Core 도우미**로 실행. 규칙·색인은 실행마다 GitHub에서 내려받으니 저장소를 다시 받을 필요는 없다(플러그인 코드 자체가 바뀔 때만 다시 받는다 → Organization 비공개 게시로 넘어가면 그마저도 자동).
+3. 이후 **Plugins → Development → Core 도우미**로 실행. 첫 화면 "최신 코드를 GitHub에서 받아오는 중…"을 지나 진짜 화면이 뜬다. 로그 첫 줄에 코드 출처(브랜치·시각)가 찍힌다.
+4. **갱신은 필요 없다.** 코드·규칙·색인 모두 실행 때마다 GitHub에서 받는다(푸시 후 캐시 때문에 최대 5분). 다시 받아 재설치하는 경우는 `manifest.json`이 바뀔 때뿐이며, 그때는 이 README 위쪽 날짜와 워크로그에 적는다.
+5. 오류가 나면 그 화면을 캡처해 Ken에게. Claude가 고쳐 푸시하면 플러그인을 다시 실행하기만 하면 된다.
+
+로더가 "코드 실행 실패"를 내면(샌드박스가 원격 코드 실행을 막는 경우) `manifest.json`의 `main`을 `code.js`, `ui`를 `ui.html`로 바꿔 예전 방식으로 설치한다 — code.js는 두 방식 모두에서 돈다.
 
 ## 사용 흐름
 

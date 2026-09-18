@@ -2,13 +2,13 @@
   "name": "Core 도우미",
   "id": "core-helper-watcha",
   "api": "1.0.0",
-  "main": "code.js",
-  "ui": "ui.html",
+  "main": "boot.js",
+  "ui": "boot.html",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
   "permissions": ["currentuser"],
   "networkAccess": {
     "allowedDomains": ["https://raw.githubusercontent.com"],
-    "reasoning": "규칙(rules.json)과 Core 색인(core-index.json)을 GitHub ken-watcha/Design-Core main에서 내려받아 재설치 없이 갱신한다"
+    "reasoning": "플러그인 코드(code.js·ui.html)와 규칙(rules.json)·Core 색인(core-index.json)을 GitHub ken-watcha/Design-Core에서 실행 때마다 내려받아 재설치 없이 갱신한다"
   }
 }
