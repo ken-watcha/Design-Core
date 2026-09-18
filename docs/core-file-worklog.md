@@ -1,7 +1,14 @@
 # 디자인 최종 시안(Core 파일) 운영안 — 워크로그
 
-> 작성 2026-09-01 · 최종 갱신 2026-09-09 · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
+> 작성 2026-09-01 · 최종 갱신 2026-09-18 · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
 > 저장소 사본. 중계 지점은 아티팩트 https://claude.ai/code/artifact/72e9f09e-43fc-424e-ba39-fc4d80e303c5 (세션 마무리 시 둘 다 갱신)
+
+## 2026-09-18 세션 4 — REST 스크립트 점검 (Design-Core 환경)
+
+- **네트워크는 열림**: Design-Core 환경에서 `api.figma.com` 연결 성공 (프록시 `connect_rejected` 없음). 프록시가 API credentials 토큰을 `X-Figma-Token`으로 붙여 주는 것도 확인 (`X-Proxy-Error: upstream auth failed: connection "Figma"` 헤더로 주입 사실이 드러남)
+- **막힌 것은 토큰 만료 하나**: `GET /v1/me`·`/v1/projects/591036590/files` → 401 `Token has expired`, `/v1/files/:key?depth=1` → 403 `Token expired`. 즉 환경에 등록된 Figma 토큰이 만료됨
+- **Ken이 할 일**: Figma > Settings > Security > Personal access tokens에서 재발급 — 권한 `file_content:read` + `projects:read` 둘 다, 만료 기간은 넉넉히(가능하면 만료 없음). 환경의 API credentials는 수정이 안 되므로 기존 항목 삭제 후 `api.figma.com` / 헤더 `X-Figma-Token` / 접두어 없음으로 재등록. **새 세션부터 적용**
+- 스크립트 개선: `scripts/figma-rest/list-project-files.py`에 `--check`(GET /v1/me로 토큰·네트워크만 점검) 추가, 오류 시 Figma 본문 `err`와 프록시 헤더를 그대로 보여주고 원인(만료 / 네트워크 차단 / 권한 부족)별 조치를 안내. 토큰이 갱신되면 `python3 scripts/figma-rest/list-project-files.py --check` → `591036590 --pages` 순으로 실행해 폴더 안 Core 파일 전체 목록을 색인에 반영할 것 (다음 할 일 1번)
 
 ## 다음 세션 시작점 (2026-09-09 세션 2 이후)
 
@@ -24,6 +31,7 @@
 - **네트워크 정책은 Ken이 직접 풀 수 있음**: 이 세션은 환경 "naver-crawler"(네트워크 **Trusted** = 패키지 저장소만)에서 실행됨. 해결: claude.ai/code 입력창 위의 **구름 아이콘(환경 선택기)** → **Add cloud environment**로 "Design-Core" 환경을 새로 만들고 Network access를 **Custom**, Allowed domains에 `api.figma.com`·`www.figma.com`(한 줄에 하나), "Also include default list of common package managers" 체크. 토큰은 (권장) 환경을 한 번 만든 뒤 다시 열어 **API credentials**에 호스트 `api.figma.com`, 헤더 이름 `X-Figma-Token`, 접두어 비움, 값=토큰으로 등록 → 세션에서 토큰이 안 보임. (그 항목이 안 보이는 플랜이면) Environment variables에 `FIGMA_TOKEN=...`. 변경은 **새 세션**부터 적용. `scripts/figma-rest/list-project-files.py`는 두 방식 모두 지원. 문서: https://code.claude.com/docs/en/cloud-environments
 - GitHub: 세션 2 중간에 Claude GitHub 앱을 `ken-watcha/Design-Core`에 설치 → 푸시 정상 (브랜치 `claude/core-file-helper-setup`, `main`도 같은 내용으로 생성)
 - **Figma 토큰 권한 (세션 3에서 발견, 세션 2의 안내 오류)**: 폴더 안 파일 목록(`GET /v1/projects/:id/files`)은 토큰에 **`projects:read`** 권한이 있어야 함. `file_content:read`만으로는 403. 재발급 시 두 권한 모두 켜고, 환경의 API 자격 증명은 수정이 안 되므로 삭제 후 재등록. 세션 3은 그 사이 SVOD 플로우 페이지의 링크를 따라가 Core 파일 키 8개를 확보해 진행 중
+- **(9/18 세션 4) 토큰 만료**: 위 재발급 토큰도 9/18 시점 `Token has expired`. 네트워크·프록시 주입은 정상이므로 남은 건 재발급뿐 (만료 기간 넉넉히). 상세는 맨 위 "세션 4" 항목
 - 세션 3: https://claude.ai/code/session_01QmSAzBKrijMwjXUy5cZvkp (Design-Core 환경, `main` 브랜치)
 - **스크린샷 URL 다운로드도 차단**(`www.figma.com` 403) → `get_screenshot`은 `enableBase64Response: true`로만 사용 (토큰 소모 큼, 꼭 필요한 화면만)
 - 스크린 설명 컴포넌트 속성 키: `배경 색상`(⚫️ 어두운 회색=대분류 / ⚪️ 밝은 회색=케이스 묶음 / 🔵 파랑=크기·단계), `🔠 타이틀#2018:9`, `ㄴ 📝 설명#2018:8`, `🪐 뱃지#2018:10`

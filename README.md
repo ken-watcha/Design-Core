@@ -16,7 +16,7 @@
 | `docs/demo-*.md` | 시연 기록 (판별 → Δ 제안) | |
 | `templates/delta-proposal.md` | Δ 제안서 템플릿 | |
 | `scripts/figma/` | Figma 읽기 전용 스크립트 (`use_figma`에 붙여넣기) | 페이지 목록·페이지 골격·설명 바·링크 카드 |
-| `scripts/figma-rest/` | Figma REST 폴더 조회 스크립트 | 토큰·네트워크 허용 전까지 사용 불가 |
+| `scripts/figma-rest/` | Figma REST 폴더 조회 스크립트 | `--check`로 토큰·네트워크 점검. 2026-09-18: 네트워크 OK, 토큰 만료 → 재발급 필요 |
 | `scripts/outline.py` | `get_metadata` 큰 결과 요약 | |
 
 ## 흐름 (1차: Claude 도우미)
