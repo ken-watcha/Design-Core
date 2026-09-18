@@ -29,7 +29,7 @@
 A의 requests 읽기 (status = 실행 대기 또는 확인 필요 중 재시도 표시된 것)
  → status = 반영 중 + log
  → SKILL.md §1~§4: 문서 읽기 → Core 판별 → Δ + 수록 대조표 (제안서 아티팩트는 만들지 않고, 판별·Δ 요약을 logs에 남긴다)
- → 유형 C: 행의 **Core 파일 링크**(사람이 프로젝트 파일을 Duplicate해 `[Core] ○○`로 만든 복제본)에서 new-core-master.md 순서로 마스터 생성 → 작업 페이지 삭제 (B' 원본 대조 필수). 링크가 없거나 원본 키와 같으면 status = 확인 필요 + log "프로젝트 파일을 복제해 [Core] ○○로 만들고 링크를 적어 주세요"
+ → 유형 C: 행의 **Core 파일 링크**(사람이 프로젝트 파일을 Duplicate해 `[Core] ○○`로 만든 복제본)에서 new-core-master.md 순서로 마스터 생성 → 작업 페이지·로컬 컴포넌트 페이지 삭제 (B' 원본 대조 필수, 플로우 페이지는 만들지 않음). 링크가 없거나 원본 키와 같으면 status = 확인 필요 + log "프로젝트 파일을 복제해 [Core] ○○로 만들고 링크를 적어 주세요"
  → 유형 A/B: **아직 실행 검증 전** → status = 확인 필요 + log "A/B는 3단계 검증 후. 판별·Δ: …" (쓰기 없음)
  → A: verdict / targetCore / resultUrl / status = 완료 / log "복제본에 Core 완성 · 남은 사람 손: 다른 Core 입구 Δ, 진입 홈 사본 붙여넣기(선택), 원본 커버 Final/아카이브" · Notion 사본 갱신
 ```
