@@ -62,7 +62,10 @@ def explain(e):
     lines = [f"{e.code} ({where}): {body or e.reason}"]
     if proxy:
         lines.append(f"  프록시 메시지: {proxy}  (프록시가 API credentials 토큰을 붙였고 Figma가 거부함)")
-    if e.code == 401 or "expired" in body.lower():
+    if "x-figma-token header" in body.lower():
+        lines.append("  → 토큰은 살아 있는데 환경의 API credentials 헤더 이름이 Authorization 으로 등록돼 있습니다. "
+                     "항목을 삭제하고 헤더 이름 X-Figma-Token, 접두어 비움으로 다시 등록하세요. (변경은 즉시 반영됨)")
+    elif e.code == 401 or "expired" in body.lower():
         lines.append("  → 토큰이 만료됐거나 틀립니다. Figma에서 재발급(file_content:read + folders:read)한 뒤 "
                      "환경의 API credentials(api.figma.com, X-Figma-Token)를 삭제·재등록하세요. "
                      "환경 변수 FIGMA_TOKEN 방식이면 값을 교체하세요.")
