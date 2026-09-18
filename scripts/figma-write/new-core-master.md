@@ -11,11 +11,11 @@
 | 묶음 | use_figma 1회 | 핵심 |
 |---|---|---|
 | **0 확인** | 링크가 복제본인지 확인: 페이지 구성이 원본과 같고(✅ Mobile / ✅ Web / 📏 운영 가이드…) 파일 키가 원본과 다르다. 원본 키와 같으면 **쓰지 않고** 멈춘다 | 원본 프로젝트 문서 무수정 |
-| **A 뼈대** | (Named version) → Cover 텍스트 3개(`Page Name(EN)`·`(KR)`·CoverBadge는 배포 전이면 그대로) → `figma.createPage()` → `figma.root.insertChild(2, page)`(Cover·--- 다음) → `setCurrentPageAsync` → `createSection` 루트(fill 20,21,23) + 진입/APP/WEB(fill 34,35,38, radius 60) → 설명 바 = `importComponentByKeyAsync(키)`→`createInstance`→`setProperties({'배경 색상':…,'🔠 타이틀#2018:9':true,'ㄴ 📝 설명#2018:8':true/false})`→`제목` 텍스트 교체→`layoutSizingHorizontal='FIXED'`→`resize` → 링크 카드(세로 오토레이아웃 + 텍스트 3줄 + 상태 뱃지, "관련 스펙 링크"에 **원본 프로젝트 문서** 하이퍼링크) | ⚫ 파일 바 → ⚪ **화면 이름 1개** → 🔵 small/medium/large(📝 설명은 폭만: `~599px · 대표 375`). 바 폭은 내용을 넣은 뒤 잰다 |
+| **A 뼈대** | (Named version) → Cover 텍스트 3개(`Page Name(EN)`·`(KR)`·CoverBadge는 배포 전이면 그대로) → `figma.createPage()` → `figma.root.insertChild(2, page)`(Cover·--- 다음) → `setCurrentPageAsync` → `createSection` 루트(fill 20,21,23) + APP/WEB(fill 34,35,38, radius 60) → 설명 바 = `importComponentByKeyAsync(키)`→`createInstance`→`setProperties({'배경 색상':…,'🔠 타이틀#2018:9':true,'ㄴ 📝 설명#2018:8':true/false})`→`제목` 텍스트 교체→`layoutSizingHorizontal='FIXED'`→`resize` → 링크 카드(세로 오토레이아웃 + 텍스트 3줄 + 상태 뱃지, "관련 스펙 링크"에 **원본 프로젝트 문서** 하이퍼링크) | ⚫ 파일 바 → ⚪ **화면 이름 1개** → 🔵 small/medium/large(📝 설명은 폭만: `~599px · 대표 375`). 바 폭은 내용을 넣은 뒤 잰다 |
 | **B APP** | 원본 페이지 `loadAsync()` → 대표 프레임 `clone()` → `section.appendChild(clone)` → `x,y` → 이름 = 화면 이름. **크기마다 기본형 1장**(§4-1 오버뷰). 케이스 표·부품 도판은 넣지 않는다 | 접미사 없이 🔵 바로 구분 |
 | **B' 원본 대조(필수)** | 복제 직후 원본과 복사본 트리를 같은 순서로 걸어 크기·위치가 다른 노드를 원본 값으로(`resize`, 오토레이아웃 밖이면 `x/y`). `clone()`만으로도 HUG 셀 폭이 바뀐 적 있음(스텝메이드 768·1024) → 차이 0 확인 | 복사본은 원본과 픽셀 단위로 같아야 한다 |
 | **C WEB** | B와 같음. 구간 안 리사이징이면 양끝 2장, 최대 폭 구간의 대표는 반드시 | |
-| **D 진입** | 이 기능의 첫 화면 1장 복제만. 다른 Core의 홈 화면 사본은 파일 경계라 도우미가 못 넣는다 → 결과에 "SVOD·TVOD 홈을 진입 섹션에 붙여 넣어 주세요"라고 적고, 붙여 넣어지면 그 옆에 마커(◀ + 텍스트)를 찍는다. ~~입구 텍스트 박스(다른 Core 하이퍼링크)~~는 Ken이 "이해가 안 간다"고 해 뺐다(2026-09-18) | 진입점은 §3-1 3단계 통과분만 |
+| ~~**D 진입**~~ | **당분간 만들지 않는다** — 진입점 기준은 Ken이 따로 잡아 준다(2026-09-18). 그때까지 마스터는 링크 카드 + APP + WEB뿐 | |
 | ~~**E 플로우**~~ | 만들지 않는다 — 운영안대로 플로우 페이지는 폐지, 기준 문서는 링크 카드가 가리킨다(Ken 2026-09-18) | |
 | **F 깎기** | 작업 페이지 삭제: `✅ Mobile` · `✅ Web` · `📏 운영 가이드` · 사이 `---` · **`ㄴ 로컬 컴포넌트`도 삭제**(Ken 결정 2026-09-18). 단 먼저 마스터 화면 안에서 로컬 메인 컴포넌트를 쓰는 인스턴스를 **분리(`detachInstance()`)** 한다(`findAllWithCriteria({types:['INSTANCE']})` → `getMainComponentAsync().remote === false` → 바깥부터 반복). 남는 페이지: Cover / --- / 🌏 마스터 파일 | 지운 페이지는 버전 기록에만 남아 파일 무게에 안 잡힌다 |
 | 마무리 | 섹션·루트 크기 재조정 → 전체 스크린샷 1장 → 결과에 링크(node-id)·수록 대조표·남은 사람 손(진입 홈 사본 붙여넣기, 다른 Core 입구 Δ, 원본 문서 커버 Final/아카이브) | |
