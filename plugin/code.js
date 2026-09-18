@@ -24,25 +24,31 @@ function pageByName(name) { return figma.root.children.find(p => p.name.trim() =
 function frameWidthMatch(n, w) { return Math.abs(n.width - w) < 0.5; }
 
 // ---------- 0. 학습 기억 ----------
-// 사람이 고른 결과(섹션→크기, 어떤 화면을 대표로, 어느 Core로, 파일 종류)를 셀 때마다 기록하고
-// 다음 판단에서 규칙보다 먼저 쓴다. 저장 위치 3곳을 합친다:
-//   (1) 이 사용자 clientStorage  (2) 지금 파일의 sharedPluginData — Duplicate·브랜치로 같이 따라가고 파일을 여는 모두가 씀
-//   (3) GitHub plugin/memory.json — 여러 노트북의 기억을 합친 공유본("학습 내보내기"로 올림)
+// "진행"을 누른 결과는 정답이 아니라 **가설**이다(마구 누를 수도 있으므로). 가설은 대기함(pending)에 쌓이고,
+// 프로젝트 N개(rules.review.everyRuns)마다 검토자(Ken)가 목록을 보고 항목별로 승인/거절한다. 승인된 것만 기억이 되어 다음 판단에 쓰인다.
+// 저장 위치 3곳을 합친다: (1) 이 사용자 clientStorage (2) 지금 파일 sharedPluginData — Duplicate·브랜치에 따라가고 파일을 여는 모두가 씀
+//   (3) GitHub plugin/memory.json 공유본("기억 내보내기" → 커밋). 다른 노트북의 가설은 "가설 가져오기"로 붙여 넣어 검토한다.
 const STORE_MEM = 'core-helper:memory';
-const PD_NS = 'core-helper', PD_KEY = 'memory';
+const PD_NS = 'core-helper', PD_KEY = 'memory', PD_BUILD = 'build';
 let MEM = null;
-const emptyMem = () => ({ v: 1, sections: {}, sectionTokens: {}, frameNames: {}, frameTokens: {}, judgeWords: {}, kinds: {}, history: [], count: 0, updatedAt: null });
+const TABLES = ['sections', 'sectionTokens', 'frameNames', 'frameTokens', 'judgeWords', 'kinds', 'rejected'];
+const emptyMem = () => ({ v: 2, sections: {}, sectionTokens: {}, frameNames: {}, frameTokens: {}, judgeWords: {}, kinds: {}, rejected: {}, pending: [], history: [], count: 0, updatedAt: null });
 const tokens = (s) => String(s || '').toLowerCase().split(/[^0-9a-z가-힣~]+/).filter(t => t.length >= 2);
 const judgeTokens = (s) => tokens(s).filter(t => !((RULES.judge && RULES.judge.stopWords) || []).includes(t));
-const bump = (obj, k, v) => { obj[k] = (obj[k] || 0) + v; };
+const bump = (obj, k, v) => { obj[k] = Math.round(((obj[k] || 0) + v) * 1000) / 1000; };
 const bump2 = (obj, k1, k2, v) => { obj[k1] = obj[k1] || {}; bump(obj[k1], k2, v); };
 const argmax = (o) => { let best = null, bv = -Infinity, second = -Infinity; for (const k in o || {}) { if (o[k] > bv) { second = bv; bv = o[k]; best = k; } else if (o[k] > second) second = o[k]; } return best == null ? null : { key: best, score: bv, margin: bv - (second === -Infinity ? 0 : second) }; };
+const decided = (e) => (e.items || []).filter(i => i.decision).length;
 function mergeMem(a, b) {
   if (!b) return a;
   const deep = (x, y) => { for (const k in y) { if (typeof y[k] === 'number') bump(x, k, y[k]); else if (y[k] && typeof y[k] === 'object') { x[k] = x[k] || {}; deep(x[k], y[k]); } } };
-  for (const f of ['sections', 'sectionTokens', 'frameNames', 'frameTokens', 'judgeWords', 'kinds']) { a[f] = a[f] || {}; deep(a[f], b[f] || {}); }
-  // 채점표(history): 실행마다 "제안 vs 사람이 최종 고른 것" 기록. id로 합치고 최근 60건만
-  const seen = {}; a.history = (a.history || []).concat(b.history || []).filter(h => h && !seen[h.id] && (seen[h.id] = 1)).sort((x, y) => (x.date < y.date ? -1 : 1)).slice(-60);
+  for (const f of TABLES) { a[f] = a[f] || {}; deep(a[f], b[f] || {}); }
+  // 대기함: 같은 id면 결정이 더 많이 된 쪽·결과(outcome)가 있는 쪽이 이긴다. 최근 100건
+  const byId = {}; for (const e of (a.pending || []).concat(b.pending || [])) { if (!e || !e.id) continue; const cur = byId[e.id]; if (!cur || (e.rev || 0) > (cur.rev || 0) || ((e.rev || 0) === (cur.rev || 0) && (decided(e) > decided(cur) || (!cur.outcome && e.outcome)))) byId[e.id] = e; }
+  a.pending = Object.values(byId).sort((x, y) => (x.date < y.date ? -1 : 1)).slice(-100);
+  // 채점표: 같은 id면 최신 것
+  const hid = {}; for (const h of (a.history || []).concat(b.history || [])) { if (h && h.id) hid[h.id] = h; }
+  a.history = Object.values(hid).sort((x, y) => (x.date < y.date ? -1 : 1)).slice(-60);
   a.count = (a.count || 0) + (b.count || 0);
   if (!a.updatedAt || (b.updatedAt && b.updatedAt > a.updatedAt)) a.updatedAt = b.updatedAt;
   return a;
@@ -54,53 +60,92 @@ async function loadMemory(shared) {
   try { mergeMem(mem, await figma.clientStorage.getAsync(STORE_MEM)); } catch (e) {}
   MEM = mem; return mem;
 }
-// 새로 배운 조각(delta)만 세 곳에 더한다 — 합칠 때 두 번 세지 않도록 기억 전체가 아니라 조각을 더한다
-async function remember(delta) {
-  delta.count = 1; delta.updatedAt = new Date().toISOString();
+// 조각(delta)만 세 곳에 더한다 — 기억 전체가 아니라 조각을 더해야 합칠 때 두 번 세지 않는다
+async function saveMem(delta, countAs) {
+  delta.count = countAs == null ? 0 : countAs; delta.updatedAt = new Date().toISOString();
   mergeMem(MEM, delta);
   const local = mergeMem((await figma.clientStorage.getAsync(STORE_MEM)) || emptyMem(), delta);
   await figma.clientStorage.setAsync(STORE_MEM, local);
   let inFile = emptyMem(); try { const s = figma.root.getSharedPluginData(PD_NS, PD_KEY); if (s) inFile = JSON.parse(s); } catch (e) {}
   figma.root.setSharedPluginData(PD_NS, PD_KEY, JSON.stringify(mergeMem(inFile, delta)));
-  log(`학습: ${describeDelta(delta)} (누적 ${MEM.count}건)`);
 }
-function describeDelta(d) {
-  const n = (o) => Object.keys(o || {}).length;
-  const parts = [];
-  if (n(d.sections)) parts.push('섹션→크기'); if (n(d.frameNames)) parts.push('대표 화면 이름'); if (n(d.judgeWords)) parts.push('이름→Core'); if (n(d.kinds)) parts.push('파일 종류');
-  return parts.join(' · ') || '없음';
+const scaleMem = (d, w) => { const out = JSON.parse(JSON.stringify(d)); const deep = (x) => { for (const k in x) { if (typeof x[k] === 'number') x[k] = Math.round(x[k] * w * 1000) / 1000; else if (x[k] && typeof x[k] === 'object') deep(x[k]); } }; for (const f of TABLES) if (out[f]) deep(out[f]); return out; };
+const userName = () => (figma.currentUser && figma.currentUser.name) || '(이름 없음)';
+const isReviewer = () => { const r = (RULES.review && RULES.review.reviewers) || []; return !r.length || r.includes(userName()); };
+
+// 가설 항목 → 기억 조각. 승인될 때만 이 조각이 기억에 더해진다
+function itemDelta(it) {
+  const d = emptyMem(); delete d.count; delete d.updatedAt; delete d.pending; delete d.history;
+  if (it.kind === 'section') {
+    d.sections[it.platform] = {}; bump2(d.sections[it.platform], it.name.trim().toLowerCase(), it.cls, 1);
+    d.sectionTokens[it.platform] = {}; for (const t of tokens(it.name)) bump2(d.sectionTokens[it.platform], t, it.cls, 1);
+  }
+  if (it.kind === 'frame') {
+    bump(d.frameNames, it.name.trim().toLowerCase(), 1); for (const t of tokens(it.name)) bump(d.frameTokens, t, 0.5);
+    for (const o of it.over || []) { bump(d.frameNames, o.trim().toLowerCase(), -0.5); for (const t of tokens(o)) bump(d.frameTokens, t, -0.25); }
+  }
+  if (it.kind === 'judge') for (const w of it.words) bump2(d.judgeWords, w, it.target, 1);
+  if (it.kind === 'kind') { bump2(d.kinds, it.signature, it.value, 1); d.sectionTokens.__pages = {}; for (const n of it.pageNames) for (const t of tokens(n)) bump2(d.sectionTokens.__pages, t, it.value, 1); }
+  return d;
 }
-// 채점표 요약: 학습이 제대로 가는지 보는 숫자. 최근 실행의 적중률·고침·학습 오답·확인 요청 수, 기억끼리 갈리는 항목
+// 검토할 때가 됐나: 결정 안 된 항목이 남은 실행(프로젝트)이 N개 이상
+function reviewState() {
+  const open = (MEM.pending || []).filter(e => (e.items || []).some(i => !i.decision));
+  const every = (RULES.review && RULES.review.everyRuns) || 3;
+  return { due: open.length >= every, openRuns: open.length, openItems: open.reduce((s, e) => s + e.items.filter(i => !i.decision).length, 0), every, reviewer: isReviewer(), user: userName() };
+}
+// 채점표: 살펴본 실행에서 제안 vs 최종 채택. 빠른 진행은 안 센다
 function scorecard() {
-  const h = (MEM.history || []).slice(-10);
+  const all = (MEM.history || []).slice(-10);
+  const h = all.filter(r => !r.careless);
   const sum = (k) => h.reduce((s, r) => s + (r[k] || 0), 0);
   const picks = sum('picks'), hit = sum('hit'), fixed = sum('fixed'), fixedLearned = sum('fixedLearned'), unsure = sum('unsure');
   const half = Math.floor(h.length / 2);
   const rate = (arr) => { const p = arr.reduce((s, r) => s + (r.picks || 0), 0); return p ? arr.reduce((s, r) => s + (r.hit || 0), 0) / p : null; };
   const early = h.length >= 4 ? rate(h.slice(0, half)) : null, late = h.length >= 4 ? rate(h.slice(half)) : null;
   const judged = h.filter(r => r.judgeHit != null); const judgeHit = judged.filter(r => r.judgeHit).length;
-  // 기억이 갈리는 항목: 같은 이름이 두 크기로, 같은 낱말이 두 Core로
+  const careless = all.filter(r => r.careless).length;
+  const pend = MEM.pending || [];
+  const items = pend.reduce((s, e) => s + e.items.length, 0), approved = pend.reduce((s, e) => s + e.items.filter(i => i.decision === 'approve').length, 0), rejected = pend.reduce((s, e) => s + e.items.filter(i => i.decision === 'reject').length, 0);
+  const changed = pend.filter(e => e.outcome === 'changed').length, kept = pend.filter(e => e.outcome === 'kept').length;
   const conflicts = [];
   for (const pf in MEM.sections) for (const name in MEM.sections[pf]) { const a = argmax(MEM.sections[pf][name]); if (a && a.margin < 1 && Object.keys(MEM.sections[pf][name]).length > 1) conflicts.push(`${pf} 섹션 "${name}" → ${Object.entries(MEM.sections[pf][name]).map(([k, v]) => k + ' ' + v).join(' / ')}`); }
   for (const w in MEM.judgeWords) { const a = argmax(MEM.judgeWords[w]); if (a && a.margin < 1 && Object.keys(MEM.judgeWords[w]).length > 1) conflicts.push(`낱말 "${w}" → ${Object.keys(MEM.judgeWords[w]).join(' / ')}`); }
-  let verdict = '데이터 부족 (3회 이상 쓰면 판단)';
-  if (h.length >= 3) {
-    if (fixedLearned > 0 && h.slice(-3).some(r => r.fixedLearned)) verdict = '⚠ 최근 학습으로 제안한 것을 사람이 고쳤음 — 잘못 배운 항목이 있음 (되돌림 적용됨)';
-    else if (conflicts.length) verdict = '⚠ 기억이 갈리는 항목 있음 — 아래 목록을 정리해야 함';
+  let verdict = '데이터 부족 (살펴본 실행 3회 이상이면 판단)';
+  if (changed && pend.slice(-3).some(e => e.outcome === 'changed')) verdict = '⚠ 최근 만든 마스터가 나중에 바뀜 — 그 실행의 가설은 믿지 말 것';
+  else if (careless >= 3 && careless > h.length) verdict = '⚠ 빠른 진행이 대부분 — 살펴보지 않은 실행은 채점하지 않음';
+  else if (h.length >= 3) {
+    if (fixedLearned > 0 && h.slice(-3).some(r => r.fixedLearned)) verdict = '⚠ 승인된 기억으로 제안한 것을 사람이 고쳤음 — 잘못 승인된 항목이 있음';
+    else if (conflicts.length) verdict = '⚠ 기억이 갈리는 항목 있음';
     else if (late != null && early != null && late < early - 0.1) verdict = '⚠ 적중률이 내려가는 중';
     else if (picks && hit / picks >= 0.9) verdict = '✓ 잘 가는 중 — 제안 대부분이 그대로 채택됨';
     else if (late != null && early != null && late > early) verdict = '✓ 나아지는 중';
-    else verdict = '보통 — 고침이 아직 많음, 사례가 더 쌓여야 함';
+    else verdict = '보통 — 고침이 아직 많음';
   }
-  return { runs: h.length, picks, hit, fixed, fixedLearned, unsure, early, late, judged: judged.length, judgeHit, conflicts: conflicts.slice(0, 10), verdict, total: MEM.count };
+  return { runs: h.length, careless, picks, hit, fixed, fixedLearned, unsure, early, late, judged: judged.length, judgeHit, items, approved, rejected, kept, changed, conflicts: conflicts.slice(0, 10), verdict, total: MEM.count };
 }
 const classNames = () => { const o = {}; for (const pf in RULES.sizeClasses) o[pf] = RULES.sizeClasses[pf].classes.map(c => c.name); return o; };
-// 학습 점수: 이름 그대로 맞은 것 + 낱말 투표
+// 학습 점수: 이름 그대로 맞은 것 + 낱말 투표 (승인된 기억만 들어 있다)
 function learnedVote(exactTable, tokenTable, name) {
   const votes = {};
   const ex = exactTable && exactTable[name.trim().toLowerCase()]; if (ex) for (const k in ex) bump(votes, k, ex[k] * 3);
   for (const t of tokens(name)) { const tv = tokenTable && tokenTable[t]; if (tv) for (const k in tv) bump(votes, k, tv[k]); }
   return votes;
+}
+// 만든 마스터가 나중에도 그대로인가 — 가설을 믿을 근거. 하루 뒤 또는 다른 사람이 열었을 때 한 번 본다
+async function checkBuildOutcome() {
+  let rec = null; try { const s = figma.root.getSharedPluginData(PD_NS, PD_BUILD); if (s) rec = JSON.parse(s); } catch (e) {}
+  if (!rec || !rec.entryId) return null;
+  const aged = Date.now() - Date.parse(rec.date) > 24 * 3600 * 1000, other = rec.user !== userName();
+  if (!aged && !other) return { waiting: true };
+  await loadPages();
+  let kept = 0;
+  for (const s of rec.screens) { const n = await figma.getNodeByIdAsync(s.id); if (n && !n.removed && n.name === s.name && Math.round(n.width) === s.w && Math.round(n.height) === s.h) kept++; }
+  const outcome = kept === rec.screens.length ? 'kept' : 'changed';
+  const e = (MEM.pending || []).find(x => x.id === rec.entryId);
+  if (e) { e.rev = (e.rev || 0) + 1; e.outcome = outcome; e.outcomeNote = `${kept}/${rec.screens.length} 화면 그대로 (${other ? userName() + ' 확인' : '하루 뒤 자동 확인'})`; await saveMem({ pending: [e] }); }
+  figma.root.setSharedPluginData(PD_NS, PD_BUILD, '');
+  return { outcome, kept, total: rec.screens.length };
 }
 
 // ---------- 1. 파일 종류 ----------
@@ -196,38 +241,54 @@ async function analyze() {
   return result;
 }
 
-// ---------- 2′. 학습: 저장된 계획(=사람이 확인한 결과)에서 배울 것을 뽑는다 ----------
-function learnFromPlan(plan) {
-  const d = emptyMem(); delete d.count; delete d.updatedAt;
-  // 채점: 제안(proposed)과 최종(chosen)이 같으면 적중, 다르면 고침. 학습 근거로 제안한 게 틀렸으면 "학습 오답" → 더 세게 되돌린다
-  const score = { id: (plan.savedAt || new Date().toISOString()) + ' ' + plan.sourceFileName, date: plan.savedAt || new Date().toISOString(), file: plan.sourceFileName, picks: 0, hit: 0, fixed: 0, fixedLearned: 0, unsure: 0, unsureHit: 0, judgeHit: plan.judgeProposed ? (plan.judgeProposed === plan.mode ? 1 : 0) : null, judgeBasis: plan.judgeBasis || '' };
+// ---------- 2′. 가설: 저장된 계획에서 "배울 수도 있는 것"을 항목으로 뽑는다 (바로 배우지 않는다) ----------
+// 얼마나 살펴보고 눌렀나: 확인 필요 항목을 하나도 안 건드리고 15초 안에, 또는 5초 안에 → 빠른 진행(검토자에게 표시, 채점에서 제외)
+function planCare(care) {
+  const c = care || {}; const sec = c.seconds || 0;
+  return { seconds: sec, careless: sec < 5 || (c.unsureCount > 0 && !c.touchedUnsure && sec < 15), unsureCount: c.unsureCount || 0, touchedUnsure: !!c.touchedUnsure };
+}
+function hypothesesFromPlan(plan, care) {
+  const C = planCare(care);
+  const items = []; const seen = {};
+  const add = (it) => { if (seen[it.key]) return; seen[it.key] = 1; it.decision = null; if (MEM.rejected[it.key]) it.rejectedBefore = MEM.rejected[it.key]; items.push(it); };
+  const score = { id: (plan.savedAt || new Date().toISOString()) + ' ' + plan.sourceFileName, date: plan.savedAt || new Date().toISOString(), file: plan.sourceFileName, picks: 0, hit: 0, fixed: 0, fixedLearned: 0, unsure: 0, judgeHit: plan.judgeProposed ? (plan.judgeProposed === plan.mode ? 1 : 0) : null, careless: C.careless };
   for (const platform of Object.keys(plan.platforms || {})) {
     for (const e of plan.platforms[platform]) {
-      if (e.section) {   // 이 섹션 이름 → 이 크기
-        d.sections[platform] = d.sections[platform] || {}; bump2(d.sections[platform], e.section.name.trim().toLowerCase(), e.cls, 1);
-        d.sectionTokens[platform] = d.sectionTokens[platform] || {};
-        for (const t of tokens(e.section.name)) bump2(d.sectionTokens[platform], t, e.cls, 1);
-      }
-      for (const p of e.picks) {   // 고른 화면(+) · 제치고 고른 화면(−)
+      if (e.section) add({ key: `sec|${platform}|${e.section.name.trim().toLowerCase()}|${e.cls}`, kind: 'section', platform, name: e.section.name, cls: e.cls, text: `${platform} 섹션 "${e.section.name}" → ${e.cls}`, note: e.section.basis === '규칙' ? '규칙과 같음' : e.section.basis });
+      for (const p of e.picks) {
         if (!p.chosen) continue;
         const chosen = p.candidates.find(c => c.id === p.chosen); if (!chosen) continue;
         score.picks++;
         const hit = !p.proposed || p.proposed === p.chosen;
         if (hit) score.hit++; else { score.fixed++; if (p.basis === '학습') score.fixedLearned++; }
-        if (p.sure === false) { score.unsure++; if (hit) score.unsureHit++; }
-        bump(d.frameNames, chosen.name.trim().toLowerCase(), 1);
-        for (const t of tokens(chosen.name)) bump(d.frameTokens, t, 0.5);
-        for (const c of p.candidates) { if (c.id === p.chosen) break; const wrongLearned = !hit && c.id === p.proposed && p.basis === '학습'; bump(d.frameNames, c.name.trim().toLowerCase(), wrongLearned ? -1.5 : -0.5); for (const t of tokens(c.name)) bump(d.frameTokens, t, wrongLearned ? -0.75 : -0.25); }
+        if (p.sure === false) score.unsure++;
+        const over = []; for (const c of p.candidates) { if (c.id === p.chosen) break; over.push(c.name); }
+        add({ key: `frame|${chosen.name.trim().toLowerCase()}|${over.map(o => o.trim().toLowerCase()).join(',')}`, kind: 'frame', platform, cls: e.cls, width: p.width, name: chosen.name, over, text: `${platform} ${e.cls} ${p.width}px 대표 = "${chosen.name}"${over.length ? ` (제친 것: ${over.join(', ')})` : ''}`, note: hit ? (p.sure ? '제안 그대로' : '확인 필요였음 · 제안 그대로') : '사람이 바꿈' });
       }
     }
   }
-  d.history = [score];
-  // 수록 대조표에서 사람이 크기를 지정한 미수록 섹션
-  for (const c of plan.coverage || []) if (c.userCls) { d.sections[c.platform] = d.sections[c.platform] || {}; bump2(d.sections[c.platform], c.section.replace(/^[^>]*> /, '').trim().toLowerCase(), c.userCls, 1); d.sectionTokens[c.platform] = d.sectionTokens[c.platform] || {}; for (const t of tokens(c.section.replace(/^[^>]*> /, ''))) bump2(d.sectionTokens[c.platform], t, c.userCls, 1); }
-  // 이름 낱말 → 어느 Core (새 Core면 그 새 이름)
+  for (const c of plan.coverage || []) if (c.userCls) { const name = c.section.replace(/^[^>]*> /, ''); add({ key: `sec|${c.platform}|${name.trim().toLowerCase()}|${c.userCls}`, kind: 'section', platform: c.platform, name, cls: c.userCls, text: `${c.platform} 섹션 "${name}" → ${c.userCls}`, note: '미수록 섹션을 사람이 지정' }); }
   const target = plan.mode === 'update' ? plan.targetCore : ('[Core] ' + plan.projectName);
-  if (target) for (const w of judgeTokens(plan.judgeWords || plan.projectName)) bump2(d.judgeWords, w, target, 1);
-  return d;
+  const words = judgeTokens(plan.judgeWords || plan.projectName);
+  if (target && words.length) add({ key: `judge|${words.join(' ')}|${target}`, kind: 'judge', words, target, text: `이름 낱말 [${words.join(', ')}] → ${target}${plan.mode === 'new' ? ' (새 Core)' : ''}`, note: plan.judgeBasis === '자동' ? '판별 자동' : '판별 확인 필요였음' });
+  const entry = { id: score.id, date: score.date, file: plan.sourceFileName, fileKey: plan.sourceFileKey || null, user: userName(), mode: plan.mode, target, seconds: C.seconds, careless: C.careless, unsureCount: C.unsureCount, touchedUnsure: C.touchedUnsure, items, outcome: null };
+  return { entry, score };
+}
+// 검토 결정 적용: 승인 → 기억에 더함, 거절 → 다시 제안하지 않도록 기록, 보류 → 그대로
+async function decide(entryId, key, decision) {
+  const e = (MEM.pending || []).find(x => x.id === entryId); if (!e) throw new Error('대기 항목을 찾지 못함');
+  const it = e.items.find(i => i.key === key); if (!it) throw new Error('항목을 찾지 못함');
+  if (it.decision === decision) return;
+  const prev = it.decision; e.rev = (e.rev || 0) + 1;
+  const delta = emptyMem(); delete delta.count; delete delta.updatedAt; delete delta.history;
+  // 이전 결정을 되돌린다
+  if (it.decision === 'approve') mergeMem(delta, scaleMem(itemDelta(it), -1));
+  if (it.decision === 'reject') bump(delta.rejected, key, -1);
+  it.decision = decision === 'hold' ? null : decision; it.decidedBy = userName(); it.decidedAt = new Date().toISOString();
+  if (decision === 'approve') mergeMem(delta, itemDelta(it));
+  if (decision === 'reject') bump(delta.rejected, key, 1);
+  delta.pending = [e];
+  await saveMem(delta, (decision === 'approve' ? 1 : 0) - (prev === 'approve' ? 1 : 0));
 }
 
 // ---------- 3. 판별: 색인 대조 ----------
@@ -332,6 +393,7 @@ async function buildNewCore(plan) {
 
   // 섹션들
   let y = L.rootPadding + L.cardSize[1] + 80, maxW = 0;
+  const allScreens = [];
   for (const platform of M.sections) {
     const picks = plan.platforms[platform]; if (!picks) continue;
     const sec = section(platform, root, L.rootPadding, y, 1000, 1000, L.fills.section);
@@ -349,7 +411,7 @@ async function buildNewCore(plan) {
         const acc = { fixed: 0, failed: 0 }; diffFix(src, c, acc); diffFix(src, c, acc);
         const left = diffCount(src, c);
         log(`  ${entry.cls} ${p.width}px 복제 · 대조 수정 ${acc.fixed} · 남은 차이 ${left}`);
-        screens.push(c); x += c.width + L.gap; clsW += c.width + L.gap;
+        screens.push(c); allScreens.push(c); x += c.width + L.gap; clsW += c.width + L.gap;
       }
       if (clsW > 0) { barSizes.push({ entry, x: startX, w: clsW - L.gap }); }
     }
@@ -388,7 +450,8 @@ async function buildNewCore(plan) {
   const order = RULES.trim.keepPages; let idx = 0;
   for (const nm of order) { const p = figma.root.children.find(c => c.name.trim() === nm); if (p) { figma.root.insertChild(idx, p); idx++; } }
   figma.viewport.scrollAndZoomIntoView([root]);
-  return { pageId: page.id, rootId: root.id, screens: screens.length, pages: figma.root.children.map(p => p.name) };
+  if (plan.entryId) figma.root.setSharedPluginData(PD_NS, PD_BUILD, JSON.stringify({ entryId: plan.entryId, date: new Date().toISOString(), user: userName(), screens: allScreens.map(s => ({ id: s.id, name: s.name, w: Math.round(s.width), h: Math.round(s.height) })) }));
+  return { pageId: page.id, rootId: root.id, screens: allScreens.length, pages: figma.root.children.map(p => p.name) };
 }
 
 // ---------- 4b. 기존 Core 업데이트 (v1: 붙여 넣은 화면 배치) ----------
@@ -413,6 +476,7 @@ async function placePasted(plan) {
 }
 
 // ---------- 메시지 ----------
+const readyPayload = async (extra) => Object.assign({ kind: await detectFileKind(), plan: (await figma.clientStorage.getAsync(STORE_PLAN)) || null, rulesVersion: RULES.version, fileName: figma.root.name, fileKey: figma.fileKey || null, hasIndex: !!INDEX, memoryCount: MEM.count, score: scorecard(), classes: classNames(), review: reviewState() }, extra || {});
 figma.ui.onmessage = async (msg) => {
   try {
     if (msg.type === 'init') {
@@ -422,28 +486,50 @@ figma.ui.onmessage = async (msg) => {
       if (msg.index) await figma.clientStorage.setAsync(STORE_INDEX, msg.index);
       if (!RULES) return post('error', { msg: '규칙(rules.json)을 받지 못했습니다. 네트워크를 확인하세요' });
       await loadMemory(msg.memory);
-      const plan = await figma.clientStorage.getAsync(STORE_PLAN);
-      const kind = await detectFileKind();
-      post('ready', { kind, plan: plan || null, rulesVersion: RULES.version, fileName: figma.root.name, fileKey: figma.fileKey || null, hasIndex: !!INDEX, memoryCount: MEM.count, score: scorecard(), classes: classNames() });
+      const outcome = await checkBuildOutcome();
+      post('ready', await readyPayload({ outcome }));
     }
     if (msg.type === 'analyze') {
       const a = await analyze(); const j = a.kind === 'project' ? judge(a) : null;
       post('analysis', { analysis: a, judge: j });
     }
     if (msg.type === 'savePlan') {
+      // 진행 = 가설 1묶음. 배우지 않고 대기함에 넣는다. 채점표에는 제안 vs 채택만 남긴다
+      const { entry, score } = hypothesesFromPlan(msg.plan, msg.care);
+      msg.plan.entryId = entry.id;
       await figma.clientStorage.setAsync(STORE_PLAN, msg.plan);
-      await remember(learnFromPlan(msg.plan));   // 사람이 확인한 결과 = 학습 1건
-      post('planSaved', { plan: msg.plan, memoryCount: MEM.count, score: scorecard(), classes: classNames() });
+      await saveMem({ pending: [entry], history: [score] }, 0);
+      log(`가설 ${entry.items.length}건을 대기함에 넣었습니다${entry.careless ? ' (빠른 진행으로 표시)' : ''} — 검토자가 승인한 것만 배웁니다`);
+      post('planSaved', await readyPayload({ plan: msg.plan }));
     }
-    if (msg.type === 'learnKind') {   // "종류 모름" 파일을 사람이 지정 → 페이지 구성을 기억
-      const d = emptyMem(); delete d.count; delete d.updatedAt;
-      bump2(d.kinds, pageSignature(), msg.kind, 1);
-      d.sectionTokens.__pages = {}; for (const p of figma.root.children) for (const t of tokens(p.name)) bump2(d.sectionTokens.__pages, t, msg.kind, 1);
-      await remember(d);
-      post('ready', { kind: await detectFileKind(), plan: await figma.clientStorage.getAsync(STORE_PLAN), rulesVersion: RULES.version, fileName: figma.root.name, hasIndex: !!INDEX, memoryCount: MEM.count, score: scorecard(), classes: classNames() });
+    if (msg.type === 'learnKind') {
+      // "종류 모름" 파일을 사람이 지정: 이 파일에서는 바로 쓰고(이 파일의 기억), 전체 기억으로는 가설로 올린다
+      const it = { key: `kind|${pageSignature()}|${msg.kind}`, kind: 'kind', signature: pageSignature(), pageNames: figma.root.children.map(p => p.name), value: msg.kind, text: `페이지 구성 [${figma.root.children.map(p => p.name).join(' | ')}] → ${msg.kind === 'project' ? '프로젝트 문서' : 'Core 파일'}`, note: '사람이 지정', decision: null };
+      const entry = { id: new Date().toISOString() + ' ' + figma.root.name + ' kind', date: new Date().toISOString(), file: figma.root.name, fileKey: figma.fileKey || null, user: userName(), mode: 'kind', items: [it], outcome: null };
+      mergeMem(MEM, itemDelta(it));   // 이 세션·이 파일에서만 바로 적용
+      figma.root.setSharedPluginData(PD_NS, PD_KEY, JSON.stringify(mergeMem(JSON.parse(figma.root.getSharedPluginData(PD_NS, PD_KEY) || 'null') || emptyMem(), itemDelta(it))));
+      await saveMem({ pending: [entry] }, 0);
+      post('ready', await readyPayload());
+    }
+    if (msg.type === 'review') {
+      const open = (MEM.pending || []).filter(e => e.items.some(i => !i.decision) || (msg.all && e.items.length));
+      post('reviewList', { entries: open.slice(-30), state: reviewState() });
+    }
+    if (msg.type === 'decide') {
+      if (!isReviewer()) throw new Error(`검토는 ${(RULES.review.reviewers || []).join(', ')}만 할 수 있습니다 (지금 사용자: ${userName()})`);
+      for (const d of msg.decisions) await decide(d.entryId, d.key, d.decision);
+      const open = (MEM.pending || []).filter(e => e.items.some(i => !i.decision));
+      post('reviewList', { entries: open.slice(-30), state: reviewState(), score: scorecard(), memoryCount: MEM.count });
+    }
+    if (msg.type === 'importPending') {
+      // 다른 노트북에서 내보낸 기억(JSON)의 대기함을 이쪽에 합친다 → 검토자가 한 곳에서 검토
+      const m = JSON.parse(msg.json); const n = (m.pending || []).length;
+      await saveMem({ pending: m.pending || [], history: m.history || [] }, 0);
+      log(`가설 ${n}묶음을 가져왔습니다`);
+      post('ready', await readyPayload());
     }
     if (msg.type === 'exportMemory') post('memory', { memory: MEM });
-    if (msg.type === 'clearPlan') { await figma.clientStorage.deleteAsync(STORE_PLAN); post('ready', { kind: await detectFileKind(), plan: null, rulesVersion: RULES.version, fileName: figma.root.name, hasIndex: !!INDEX, memoryCount: MEM.count, score: scorecard(), classes: classNames() }); }
+    if (msg.type === 'clearPlan') { await figma.clientStorage.deleteAsync(STORE_PLAN); post('ready', await readyPayload({ plan: null })); }
     if (msg.type === 'buildNewCore') {
       const plan = msg.plan || (await figma.clientStorage.getAsync(STORE_PLAN));
       if (!plan) throw new Error('저장된 계획이 없습니다. 프로젝트 파일에서 먼저 분석하세요');

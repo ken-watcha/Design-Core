@@ -26,6 +26,19 @@
 <h1>Core 도우미 <span id="ver" class="muted"></span></h1>
 <div id="status" class="muted">규칙을 받아오는 중…</div>
 <div id="score" class="muted" style="margin:4px 0 8px"></div>
+<div id="reviewBanner" class="box" style="display:none">
+  <div><b id="reviewTitle"></b> <span id="reviewSub" class="muted"></span></div>
+  <div class="row"><button id="btnReview" class="secondary">학습 검토 열기</button></div>
+</div>
+
+<!-- 화면 0: 학습 검토 (검토자) -->
+<div id="s-review" style="display:none">
+  <div class="box">
+    <div><b>학습 검토</b> — 진행 결과는 가설입니다. 승인한 항목만 다음부터 자동 판단에 쓰입니다. <span id="reviewWho" class="muted"></span></div>
+    <div class="row"><button id="btnReviewBack" class="secondary">돌아가기</button><button id="btnReviewAll" class="secondary">결정된 것도 보기</button></div>
+  </div>
+  <div id="reviewList"></div>
+</div>
 <div id="s-unknown" style="display:none" class="box">
   <div>이 파일의 페이지 구성을 모릅니다. 어느 쪽인지 골라 주면 <b>이 구성을 기억</b>해 다음부터는 묻지 않습니다.</div>
   <div class="row"><button id="btnKindProject" class="secondary">프로젝트 문서다</button><button id="btnKindCore" class="secondary">Core 파일이다</button></div>
@@ -88,10 +101,11 @@
 <pre id="log"></pre>
 <div id="result"></div>
 
-<details style="margin-top:10px"><summary class="muted">학습 채점표 · 내보내기</summary>
+<details style="margin-top:10px"><summary class="muted">학습 채점표 · 내보내기 · 가져오기</summary>
   <div id="scoreDetail" class="muted" style="margin:6px 0"></div>
-  <div class="row"><button id="btnExport" class="secondary">기억 내보내기</button><span class="muted">복사해서 저장소 <code>plugin/memory.json</code>에 올리면 모든 노트북이 같이 배운 게 됩니다</span></div>
-  <textarea id="caseNote" readonly></textarea>
+  <div class="row"><button id="btnExport" class="secondary">기억 내보내기</button><span class="muted">복사해서 검토자에게 보내거나 저장소 <code>plugin/memory.json</code>에 올립니다</span></div>
+  <textarea id="caseNote" placeholder="내보낸 기억 JSON이 여기 담깁니다. 다른 사람이 보낸 JSON을 붙여 넣고 '가져오기'를 누르면 그쪽 가설이 이쪽 대기함에 합쳐집니다"></textarea>
+  <div class="row"><button id="btnImport" class="secondary">붙여 넣은 기억 가져오기</button></div>
 </details>
 
 <script>
@@ -119,6 +133,7 @@ async function fetchJson(urls) {
 
 function logLine(s) { $('log').textContent += s + '\n'; $('log').scrollTop = 1e9; }
 function show(kind, plan) {
+  $('s-review').style.display = 'none';
   $('s-analyze').style.display = kind === 'project' && !plan ? '' : 'none';
   $('s-plan').style.display = plan ? '' : 'none';
   if (plan) {
@@ -137,6 +152,7 @@ function show(kind, plan) {
 
 function renderAnalysis(a, j) {
   STATE.analysis = a; STATE.judge = j;
+  STATE.analysisAt = Date.now(); STATE.touchedUnsure = false;   // 얼마나 살펴보고 "진행"을 누르는지 재기 위한 시작점
   $('analysis').style.display = '';
   let html = '';
   for (const platform of Object.keys(a.platforms)) {
@@ -157,12 +173,12 @@ function renderAnalysis(a, j) {
   $('picks').innerHTML = html;
   $('picks').querySelectorAll('select').forEach(s => s.addEventListener('change', (ev) => {
     const { platform, cls, width } = ev.target.dataset;
-    const e = a.platforms[platform].find(x => x.cls === cls); const p = e.picks.find(x => x.width == width); p.chosen = ev.target.value;
+    const e = a.platforms[platform].find(x => x.cls === cls); const p = e.picks.find(x => x.width == width); p.chosen = ev.target.value; STATE.touchedUnsure = true;
   }));
-  $('picks').querySelectorAll('a[data-sel]').forEach(el => el.addEventListener('click', (ev) => { ev.preventDefault(); send('select', { id: el.dataset.sel }); }));
+  $('picks').querySelectorAll('a[data-sel]').forEach(el => el.addEventListener('click', (ev) => { ev.preventDefault(); STATE.touchedUnsure = true; send('select', { id: el.dataset.sel }); }));
   const clsNames = (pf) => (STATE.rulesClasses && STATE.rulesClasses[pf]) || ['small', 'medium', 'large'];
   $('coverage').innerHTML = '<tr><th>문서 섹션</th><th>마스터 위치</th></tr>' + a.coverage.map((c, i) => `<tr><td>${c.section}</td><td class="${c.to ? '' : 'warn'}">${c.to ? c.to + ' <span class="muted">(' + c.basis + ')</span>' : `<select data-cov="${i}"><option value="">어느 크기?</option>${clsNames(c.platform).map(n => `<option>${n}</option>`).join('')}<option value="skip">마스터에 안 넣음</option></select> <span class="muted">${c.note}</span>`}</td></tr>`).join('');
-  $('coverage').querySelectorAll('select[data-cov]').forEach(s => s.addEventListener('change', (ev) => { const c = a.coverage[+ev.target.dataset.cov]; c.userCls = ev.target.value && ev.target.value !== 'skip' ? ev.target.value : null; c.userSkip = ev.target.value === 'skip'; }));
+  $('coverage').querySelectorAll('select[data-cov]').forEach(s => s.addEventListener('change', (ev) => { const c = a.coverage[+ev.target.dataset.cov]; c.userCls = ev.target.value && ev.target.value !== 'skip' ? ev.target.value : null; c.userSkip = ev.target.value === 'skip'; STATE.touchedUnsure = true; }));
   $('missing').textContent = a.missing.length ? '⚠ ' + a.missing.join(' · ') : '';
   if (j) {
     const cands = j.candidates.map(c => `<div>· ${c.name} <span class="muted">(${c.total}점: ${c.hits.join(', ')})</span></div>`).join('') || '<div class="muted">색인·학습에 맞는 Core 없음</div>';
@@ -174,9 +190,9 @@ function renderAnalysis(a, j) {
 function renderScore(s) {
   if (!s) return;
   const pct = s.picks ? Math.round(s.hit / s.picks * 100) + '%' : '-';
-  $('score').textContent = `학습 ${s.total}건 · 최근 ${s.runs}회 적중 ${s.hit}/${s.picks} (${pct}) · ${s.verdict}`;
+  $('score').textContent = `승인된 기억 ${s.total}건 · 최근 살펴본 ${s.runs}회 적중 ${s.hit}/${s.picks} (${pct}) · ${s.verdict}`;
   const trend = s.early != null ? `적중률 앞 절반 ${Math.round(s.early * 100)}% → 뒤 절반 ${Math.round(s.late * 100)}%` : '추세는 4회 이상부터';
-  $('scoreDetail').innerHTML = `<div>${trend} · 확인 요청 ${s.unsure}건 · 사람이 고친 ${s.fixed}건(그중 학습 오답 ${s.fixedLearned}) · 판별 적중 ${s.judgeHit}/${s.judged}</div>` + (s.conflicts.length ? `<div class="warn">기억이 갈리는 항목:<br>${s.conflicts.join('<br>')}</div>` : '');
+  $('scoreDetail').innerHTML = `<div>${trend} · 확인 요청 ${s.unsure}건 · 사람이 고친 ${s.fixed}건(그중 승인된 기억의 오답 ${s.fixedLearned}) · 판별 적중 ${s.judgeHit}/${s.judged} · 빠른 진행 ${s.careless}회</div><div>가설 ${s.items}건 중 승인 ${s.approved} · 거절 ${s.rejected} · 만든 마스터 유지 ${s.kept} / 바뀜 ${s.changed}</div>` + (s.conflicts.length ? `<div class="warn">기억이 갈리는 항목:<br>${s.conflicts.join('<br>')}</div>` : '');
 }
 
 function makePlan(mode) {
@@ -191,8 +207,9 @@ function makePlan(mode) {
 }
 
 $('btnAnalyze').onclick = () => { $('log').textContent = ''; send('analyze'); };
-$('btnNew').onclick = () => send('savePlan', { plan: makePlan('new') });
-$('btnUpdate').onclick = () => { if (!$('targetCore').value) return alert('업데이트할 기존 Core를 고르세요'); send('savePlan', { plan: makePlan('update') }); };
+const care = () => { const a = STATE.analysis || {}; return { seconds: Math.round((Date.now() - (STATE.analysisAt || Date.now())) / 1000), touchedUnsure: !!STATE.touchedUnsure, unsureCount: (a.unsure || 0) + ((a.coverage || []).filter(c => !c.to).length) }; };
+$('btnNew').onclick = () => send('savePlan', { plan: makePlan('new'), care: care() });
+$('btnUpdate').onclick = () => { if (!$('targetCore').value) return alert('업데이트할 기존 Core를 고르세요'); send('savePlan', { plan: makePlan('update'), care: care() }); };
 $('btnClear').onclick = () => send('clearPlan');
 $('btnBuild').onclick = () => { $('btnBuild').disabled = true; $('log').textContent = ''; send('buildNewCore'); };
 $('btnSelect').onclick = () => send('selectPlanned');
@@ -200,6 +217,37 @@ $('btnPlace').onclick = () => { $('log').textContent = ''; send('placePasted'); 
 $('btnKindProject').onclick = () => send('learnKind', { kind: 'project' });
 $('btnKindCore').onclick = () => send('learnKind', { kind: 'core' });
 $('btnExport').onclick = () => send('exportMemory');
+$('btnImport').onclick = () => { const t = $('caseNote').value.trim(); if (!t) return alert('붙여 넣은 JSON이 없습니다'); try { JSON.parse(t); } catch (e) { return alert('JSON이 아닙니다'); } send('importPending', { json: t }); };
+$('btnReview').onclick = () => send('review', {});
+$('btnReviewAll').onclick = () => send('review', { all: true });
+$('btnReviewBack').onclick = () => show(STATE.kind, STATE.plan);
+
+function renderReview(entries, st) {
+  $('s-analyze').style.display = 'none'; $('s-plan').style.display = 'none'; $('s-review').style.display = '';
+  $('reviewWho').textContent = st.reviewer ? `검토자: ${st.user}` : `지금 사용자 ${st.user}는 검토자가 아닙니다 — 보기만 됩니다. "기억 내보내기"로 검토자에게 보내 주세요`;
+  if (!entries.length) { $('reviewList').innerHTML = '<div class="box muted">검토할 가설이 없습니다</div>'; return; }
+  const tag = (t, cls) => `<span class="${cls || 'muted'}" style="margin-left:6px">${t}</span>`;
+  $('reviewList').innerHTML = entries.slice().reverse().map(e => {
+    const head = `<div><b>${e.file}</b> ${tag(e.date.slice(0, 10))} ${tag(e.user)} ${e.mode === 'kind' ? tag('파일 종류') : tag(e.mode === 'new' ? '새 Core' : '기존 Core 업데이트')}`
+      + (e.careless ? tag('⚠ 빠른 진행 ' + e.seconds + '초', 'warn') : tag(e.seconds + '초 살펴봄'))
+      + (e.outcome === 'kept' ? tag('✓ 만든 마스터 그대로 유지됨', 'ok') : e.outcome === 'changed' ? tag('✗ 만든 마스터가 나중에 바뀜', 'err') : '') + `</div>`;
+    const rows = e.items.map(it => {
+      const state = it.decision === 'approve' ? '<span class="ok">승인</span>' : it.decision === 'reject' ? '<span class="err">거절</span>' : '<span class="warn">대기</span>';
+      const btn = (d, label) => `<button class="secondary" data-e="${e.id}" data-k="${it.key}" data-d="${d}" ${!st.reviewer || it.decision === d ? 'disabled' : ''}>${label}</button>`;
+      return `<tr><td>${it.text}<div class="muted">${it.note || ''}${it.rejectedBefore ? ' · 이전에 거절됨 ' + it.rejectedBefore + '회' : ''}</div></td><td style="white-space:nowrap">${state} ${btn('approve', '승인')} ${btn('reject', '거절')} ${it.decision ? btn('hold', '되돌림') : ''}</td></tr>`;
+    }).join('');
+    const all = st.reviewer && e.items.some(i => !i.decision) ? `<div class="row"><button class="secondary" data-all="${e.id}">이 묶음 나머지 모두 승인</button></div>` : '';
+    return `<div class="box">${head}<table>${rows}</table>${all}</div>`;
+  }).join('');
+  $('reviewList').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => send('decide', { decisions: [{ entryId: b.dataset.e, key: b.dataset.k, decision: b.dataset.d }] }));
+  $('reviewList').querySelectorAll('button[data-all]').forEach(b => b.onclick = () => { const e = entries.find(x => x.id === b.dataset.all); send('decide', { decisions: e.items.filter(i => !i.decision).map(i => ({ entryId: e.id, key: i.key, decision: 'approve' })) }); });
+}
+function renderReviewBanner(st) {
+  if (!st) return;
+  $('reviewBanner').style.display = st.openRuns ? '' : 'none';
+  $('reviewTitle').textContent = st.due ? `학습 검토할 때입니다 — 프로젝트 ${st.openRuns}개, 가설 ${st.openItems}건` : `가설 대기 중 — 프로젝트 ${st.openRuns}/${st.every}개`;
+  $('reviewSub').textContent = st.reviewer ? '' : `(검토자 ${st.user} 아님 — 보기만)`;
+}
 
 onmessage = (ev) => {
   const m = ev.data.pluginMessage; if (!m) return;
@@ -209,10 +257,12 @@ onmessage = (ev) => {
     $('status').textContent = ''; $('fileName').textContent = m.fileName;
     $('kindLabel').textContent = m.kind === 'project' ? '— 프로젝트 문서' : m.kind === 'core' ? '— Core 파일' : '— 종류를 모르겠음(규칙에 없는 페이지 구성)';
     $('s-unknown').style.display = m.kind === 'unknown' ? '' : 'none';
-    show(m.kind, m.plan); renderScore(m.score);
+    show(m.kind, m.plan); renderScore(m.score); renderReviewBanner(m.review);
+    if (m.outcome && m.outcome.outcome) logLine(`만든 마스터 확인: ${m.outcome.kept}/${m.outcome.total} 화면 그대로 → 가설에 ${m.outcome.outcome === 'kept' ? '유지됨' : '바뀜'} 표시`);
   }
   if (m.type === 'analysis') renderAnalysis(m.analysis, m.judge);
-  if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); renderScore(m.score); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }
+  if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); renderScore(m.score); renderReviewBanner(m.review); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }
+  if (m.type === 'reviewList') { renderReview(m.entries, m.state); renderReviewBanner(m.state); if (m.score) renderScore(m.score); }
   if (m.type === 'memory') { $('caseNote').value = JSON.stringify(m.memory); $('caseNote').select(); logLine('기억을 아래 칸에 담았습니다 — 전체 복사해서 plugin/memory.json으로'); }
   if (m.type === 'log') logLine(m.msg);
   if (m.type === 'selected') logLine(`화면 ${m.count}/${m.total}장을 선택했습니다 → ⌘C 하세요 (다른 페이지 화면은 페이지를 옮겨 다시 누르세요)`);

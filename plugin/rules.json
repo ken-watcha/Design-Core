@@ -1,54 +1,116 @@
 {
-  "version": "2026-09-18.2",
+  "version": "2026-09-18.3",
   "note": "Core 도우미 플러그인 규칙. 사례가 쌓일 때마다 이 파일만 고친다 — 플러그인은 켜질 때 GitHub main에서 이 파일을 받는다. 출처: .claude/skills/core-file-helper/SKILL.md §4-1·§6-2·§6-4, scripts/figma-write/new-core-master.md",
-
   "sources": {
     "rules": "https://raw.githubusercontent.com/ken-watcha/Design-Core/main/plugin/rules.json",
     "index": "https://raw.githubusercontent.com/ken-watcha/Design-Core/main/core-index/core-index.json"
   },
-
   "fileKind": {
     "corePageName": "🌏 마스터 파일",
-    "projectPagePatterns": ["✅ Mobile", "✅ Web", "📏 운영 가이드"],
+    "projectPagePatterns": [
+      "✅ Mobile",
+      "✅ Web",
+      "📏 운영 가이드"
+    ],
     "coverBadgeCore": "Core",
     "coverBadgeWorking": "Working"
   },
-
   "sizeClasses": {
     "APP": {
       "pagePattern": "Mobile",
       "classes": [
-        { "name": "small",  "width": 375,  "sectionPatterns": ["small", "~599"],   "desc": "~599px · 대표 375" },
-        { "name": "medium", "width": 768,  "sectionPatterns": ["medium", "600~"],  "desc": "600~799px · 대표 768" },
-        { "name": "large",  "width": 1024, "sectionPatterns": ["large", "800~"],   "desc": "800~px · 대표 1024" }
+        {
+          "name": "small",
+          "width": 375,
+          "sectionPatterns": [
+            "small",
+            "~599"
+          ],
+          "desc": "~599px · 대표 375"
+        },
+        {
+          "name": "medium",
+          "width": 768,
+          "sectionPatterns": [
+            "medium",
+            "600~"
+          ],
+          "desc": "600~799px · 대표 768"
+        },
+        {
+          "name": "large",
+          "width": 1024,
+          "sectionPatterns": [
+            "large",
+            "800~"
+          ],
+          "desc": "800~px · 대표 1024"
+        }
       ]
     },
     "WEB": {
       "pagePattern": "Web",
       "classes": [
-        { "name": "small",  "width": 375,  "sectionPatterns": ["~767"],                    "desc": "~767px · 대표 375" },
-        { "name": "medium", "width": 768,  "sectionPatterns": ["768~1280", "768~"],        "desc": "768~1280px · 양끝 768 · 1280", "extraWidths": [1280] },
-        { "name": "large",  "width": 1440, "sectionPatterns": ["1280~", "1281~"],          "desc": "1281~px · 대표 1440" }
+        {
+          "name": "small",
+          "width": 375,
+          "sectionPatterns": [
+            "~767"
+          ],
+          "desc": "~767px · 대표 375"
+        },
+        {
+          "name": "medium",
+          "width": 768,
+          "sectionPatterns": [
+            "768~1280",
+            "768~"
+          ],
+          "desc": "768~1280px · 양끝 768 · 1280",
+          "extraWidths": [
+            1280
+          ]
+        },
+        {
+          "name": "large",
+          "width": 1440,
+          "sectionPatterns": [
+            "1280~",
+            "1281~"
+          ],
+          "desc": "1281~px · 대표 1440"
+        }
       ]
     }
   },
-
   "screenPick": {
     "minHeight": 600,
-    "preferNames": ["예시", "기본", "일반"],
-    "avoidNames": ["Guide", "가이드", "Spec", "스펙", "Variation", "케이스 표"],
+    "preferNames": [
+      "예시",
+      "기본",
+      "일반"
+    ],
+    "avoidNames": [
+      "Guide",
+      "가이드",
+      "Spec",
+      "스펙",
+      "Variation",
+      "케이스 표"
+    ],
     "screenName": "<프로젝트명> 상세"
   },
-
   "masterPage": {
     "name": "🌏 마스터 파일",
     "insertIndex": 2,
     "rootPrefix": "🌏 ",
-    "sections": ["APP", "WEB"],
+    "sections": [
+      "APP",
+      "WEB"
+    ],
     "entrySection": false,
     "flowPage": false
   },
-
   "layout": {
     "rootPadding": 240,
     "sectionPadding": 60,
@@ -57,38 +119,90 @@
     "barFileHeight": 96,
     "barGroupY": 188,
     "barSizeY": 282,
-    "cardSize": [545, 198],
-    "fills": { "root": [20, 21, 23], "section": [34, 35, 38], "card": [63, 63, 63] },
+    "cardSize": [
+      545,
+      198
+    ],
+    "fills": {
+      "root": [
+        20,
+        21,
+        23
+      ],
+      "section": [
+        34,
+        35,
+        38
+      ],
+      "card": [
+        63,
+        63,
+        63
+      ]
+    },
     "radius": 60
   },
-
   "components": {
     "barBlack": "47bbf0373684baddf46f93d352bd2b55fc22a1b3",
     "barWhite": "1ea0bc150c4c7770dc927b83ba1a4d9ea41a3f38",
-    "barBlue":  "94dc30fc471367987aa2b9a461f7f00f598c9aec",
-    "badge":    "11bae7fa88bdee0d0fbed078eb01e58731f77c0c",
-    "barProps": { "title": "🔠 타이틀#2018:9", "desc": "ㄴ 📝 설명#2018:8" },
+    "barBlue": "94dc30fc471367987aa2b9a461f7f00f598c9aec",
+    "badge": "11bae7fa88bdee0d0fbed078eb01e58731f77c0c",
+    "barProps": {
+      "title": "🔠 타이틀#2018:9",
+      "desc": "ㄴ 📝 설명#2018:8"
+    },
     "barTitleTextName": "제목",
     "barDescShowTitlePrefix": "Show Title"
   },
-
   "linkCard": {
     "titleSuffix": "",
     "body": "<프로젝트명> 관련 자세한 스펙은 아래 링크를 참고해주세요!",
     "meta": "기준: <배포월> <프로젝트명> (담당: <담당자>) · 기준 문서 = 원본 프로젝트 문서",
     "badgeText": "관련 스펙 링크"
   },
-
   "trim": {
-    "deletePages": ["✅ Mobile", "✅ Web", "📏 운영 가이드", "ㄴ 로컬 컴포넌트"],
+    "deletePages": [
+      "✅ Mobile",
+      "✅ Web",
+      "📏 운영 가이드",
+      "ㄴ 로컬 컴포넌트"
+    ],
     "deleteExtraSeparators": true,
     "detachLocalInstancesFirst": true,
-    "keepPages": ["Cover", "---", "🌏 마스터 파일"]
+    "keepPages": [
+      "Cover",
+      "---",
+      "🌏 마스터 파일"
+    ]
   },
-
   "judge": {
     "note": "판별은 색인(core-index.json)의 domain·화면 이름과 프로젝트 커버 이름·페이지 텍스트를 대조. 점수가 갈리지 않으면 후보를 보여 주고 사람이 고른다.",
     "minScoreForAuto": 2,
-    "stopWords": ["고도화", "개선", "프로젝트", "project", "design", "디자인", "copy", "복사본", "final", "working", "v1", "v2", "figma", "watcha", "왓챠", "page", "name"]
+    "stopWords": [
+      "고도화",
+      "개선",
+      "프로젝트",
+      "project",
+      "design",
+      "디자인",
+      "copy",
+      "복사본",
+      "final",
+      "working",
+      "v1",
+      "v2",
+      "figma",
+      "watcha",
+      "왓챠",
+      "page",
+      "name"
+    ]
+  },
+  "review": {
+    "note": "진행 결과는 가설. 결정 안 된 실행(프로젝트)이 everyRuns개 쌓이면 검토를 요청한다. reviewers에 든 사람만 승인/거절할 수 있다(비면 누구나).",
+    "everyRuns": 3,
+    "reviewers": [
+      "Ken"
+    ]
   }
 }
