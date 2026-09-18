@@ -18,7 +18,10 @@
        (b) 환경 변수 FIGMA_TOKEN → 이 스크립트가 X-Figma-Token 헤더로 붙임
   2) 환경의 네트워크 정책이 api.figma.com 을 허용해야 한다.
      - 2026-09-09: 구 환경(naver-crawler)에서는 차단(프록시 403 connect_rejected)
-     - 2026-09-18: Design-Core 환경에서 허용 확인. v2 폴더 엔드포인트 존재 확인(404 아님). 토큰 만료만 남음
+     - 2026-09-18: Design-Core 환경에서 허용 확인. 토큰 재발급·재등록 후 v2 폴더 조회 성공(15개)
+
+폴더 조회가 안 될 때의 대안: 다른 Core의 플로우 페이지에 걸린 "○○ 코어 파일 링크" 하이퍼링크에서 파일 키를 모으거나(dump-core-file.py 참고),
+Ken이 파일 링크를 직접 준다 (2026-09-09에는 Ken이 14개 링크를 줌 → scripts/figma-rest/core-files.json).
 
 사용법:
   python3 scripts/figma-rest/list-project-files.py 591036590           # 폴더 안 파일 목록

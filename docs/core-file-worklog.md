@@ -1,26 +1,155 @@
 # 디자인 최종 시안(Core 파일) 운영안 — 워크로그
 
-> 작성 2026-09-01 · 최종 갱신 2026-09-18 · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
+> 작성 2026-09-01 · 최종 갱신 2026-09-18 (세션 8 · REST 폴더 조회 개통, 플러그인 manifest 권한) · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
 > 저장소 사본. 중계 지점은 아티팩트 https://claude.ai/code/artifact/72e9f09e-43fc-424e-ba39-fc4d80e303c5 (세션 마무리 시 둘 다 갱신)
 
-## 2026-09-18 세션 4 — REST 스크립트 점검 (Design-Core 환경)
+## 2026-09-18 세션 8 — REST 폴더 조회 개통 (토큰 재발급 · `folders:read`)
 
-- **네트워크는 열림**: Design-Core 환경에서 `api.figma.com` 연결 성공 (프록시 `connect_rejected` 없음). 프록시가 API credentials 토큰을 `X-Figma-Token`으로 붙여 주는 것도 확인 (`X-Proxy-Error: upstream auth failed: connection "Figma"` 헤더로 주입 사실이 드러남)
-- **막힌 것은 토큰 만료 하나**: `GET /v1/me`·`/v1/projects/591036590/files` → 401 `Token has expired`, `/v1/files/:key?depth=1` → 403 `Token expired`. 즉 환경에 등록된 Figma 토큰이 만료됨
-- **`projects:read`는 개인 토큰에 없음 (Ken 질문으로 확인)**: Figma가 "프로젝트"를 "폴더"로 바꾸면서 PAT 발급 화면의 권한이 `folders:read`로 바뀜. `projects:read`는 조직용 비공개 OAuth 앱에만 남은 권한이라 개인이 못 고르는 게 정상 (역할·플랜 문제 아님). 폴더 목록 엔드포인트도 `GET /v2/folders/:id/files`로 바뀌었고(구 v1 projects는 폐기 예정) 이 환경에서 v2 경로가 존재함을 확인(401, 404 아님). 포럼에는 일부 플랜에서 v2가 404를 낸다는 보고가 있어 스크립트는 v2 실패 시 v1로 자동 재시도. 근거: [Figma 개발자 문서 – 인증/권한](https://developers.figma.com/docs/rest-api/authentication/), [변경 이력](https://developers.figma.com/docs/rest-api/changelog/), [포럼: 새 Folder API 문제](https://forum.figma.com/report-a-problem-6/the-new-folder-rest-apis-doesn-t-work-57025) — 이 문서 도메인들은 환경에서 차단돼 검색 요약으로만 확인
-- **Ken이 할 일**: Figma > Settings > Security > Personal access tokens에서 재발급 — 권한 `file_content:read` + `folders:read` 둘 다, 만료 기간은 넉넉히(가능하면 만료 없음). 환경의 API credentials는 수정이 안 되므로 기존 항목 삭제 후 `api.figma.com` / 헤더 `X-Figma-Token` / 접두어 없음으로 재등록. **새 세션부터 적용**
-- 스크립트 개선: `scripts/figma-rest/list-project-files.py`에 `--check`(GET /v1/me로 토큰·네트워크만 점검) 추가, 오류 시 Figma 본문 `err`와 프록시 헤더를 그대로 보여주고 원인(만료 / 네트워크 차단 / 권한 부족 / 헤더 이름 오류)별 조치를 안내
-- **✅ REST 개통 (같은 세션 안에서 완료)**: Ken이 토큰 재발급(`file_content:read` + `folders:read`) → 환경 API 자격 증명 재등록. 첫 등록은 헤더 이름이 기본값 `Authorization`이라 401 `figd_ tokens must be passed via X-Figma-Token header` → 사용자 지정 헤더 이름을 `X-Figma-Token`, 접두사 빈칸으로 재등록하니 통과. **자격 증명 변경은 새 세션 없이 즉시 반영됨** (허용 도메인과 다름). 등록 화면 요령은 `.claude/rules/network.md`
-- **폴더 591036590 = "Design Core ✅", 파일 15개 확보** (v2 `folders:read` 엔드포인트로 성공, v1 재시도 불필요). 원본은 `core-index/folder-files.json`. 색인에 구조까지 있던 3개(SVOD·소식함·로그인/온보딩) 외 12개는 `known_but_unindexed`에 키·페이지 등록: TV / TVOD / 검색 / 결제·구독 / 나의 왓챠 / 보관함 / 스텝메이드 / 왓챠파티 / 웹툰 / 콘상페 / 프로필 / 플레이어 (⚜️ 표시는 파일명 그대로). 전부 새 형식(🌏 마스터 파일 페이지 있음)
-- **색인 오류 발견**: 색인의 "[Core] 스텝메이드" 키 `NO7uetAL9Qmk03IXWSaMej`는 폴더에 없고 파일명이 **"스텝메이드 고도화"(프로젝트 문서)**. 진짜 [Core] 스텝메이드는 `txuuBtHiDgal8pC4OIbSHF`(새 형식, 마스터 페이지 `5005:6`, 9/18 수정). 세션 2가 "구 형식"으로 적은 스텝메이드 구조 설명은 프로젝트 파일 기준이므로 교체 필요. 브랜치 B(`XIolz3S5ClSf5VEaBkwDi6`)가 어느 파일의 브랜치인지도 재확인 대상
-- **다음 작업**: 12개 파일의 마스터 페이지를 `scripts/figma/walk-page.js` → `label-texts.js`로 읽어 색인 구조 완성 (파일당 `use_figma` 호출 2~3회). 왓챠파티부터 (새 Core 규격 본보기, 다음 할 일 3번)
+- **"폴더 조회 불가(2026-09-10 확정)"는 철회.** Ken이 `projects:read`를 못 고른 이유는 권한 문제가 아니라 **Figma가 프로젝트→폴더로 개편하면서 개인 토큰(PAT) 권한 이름이 `folders:read`로 바뀐 것**. `projects:read`는 비공개 OAuth 앱 전용. 엔드포인트도 `GET /v2/folders/:id/files`(v1 projects는 폐기 예정)
+- 진단 경로: 9/18 첫 점검은 401 `Token has expired`(토큰 만료) → 재발급(`file_content:read`+`folders:read`) 후 재등록했더니 401 `figd_ tokens must be passed via X-Figma-Token header, not Authorization`(자격 증명 헤더 이름이 기본값 Authorization) → 사용자 지정 헤더 `X-Figma-Token`·접두사 빈칸으로 재등록 → `GET /v1/me` 통과. **자격 증명 변경은 새 세션 없이 즉시 반영**. 등록 화면 요령은 `.claude/rules/network.md`
+- `python3 scripts/figma-rest/list-project-files.py 591036590 --pages` → 폴더 "Design Core ✅" 파일 **15개** (v2 엔드포인트, `core-index/folder-files.json`). `core-files.json`의 14개 + **[Core] 스텝메이드 `txuuBtHiDgal8pC4OIbSHF`가 폴더 안에 있음을 확인**(다음 할 일 1의 "폴더 소속 확인" 해결). 색인의 `NO7uetAL9Qmk03IXWSaMej`는 파일명이 "스텝메이드 고도화"(프로젝트 파일)이고 폴더 밖
+- 스크립트 `list-project-files.py`: `--check`(GET /v1/me) 추가, v2→v1 자동 재시도, 오류를 원인별(만료/헤더 이름/네트워크/권한)로 안내
+- **학습 보고서 스크립트(`scripts/learning-report.py`)도 같은 토큰으로 돎** — 이번 세션의 원래 요청("학습 보고서 스크립트 REST 확인")은 토큰 만료가 막고 있었던 것. 실행 결과는 아래 세션 8 후속 항목 참고
+- **플러그인 첫 설치 오류(Ken 보고)**: `in get_currentUser: "currentuser" permission not specified in manifest.json` → `plugin/manifest.json`에 `"permissions": ["currentuser"]` 추가. 재설치(Import plugin from manifest) 필요
 
-## 다음 세션 시작점 (2026-09-09 세션 2 이후)
+## 다음 세션 시작점 (2026-09-16 · 세션 7 이후)
 
-- **저장소 구조 완료** (`ken-watcha/Design-Core`, 브랜치 `claude/core-file-helper-setup`): 지침서 스킬 `.claude/skills/core-file-helper/SKILL.md`(초안 v0.1) / Core 색인 `core-index/core-index.json` + `docs/core-index.md` / 읽기 스크립트 `scripts/figma/` / 워크로그 사본 `docs/core-file-worklog.md` / Δ 제안서 템플릿 `templates/delta-proposal.md` / 시연 기록 `docs/demo-2026-09-09-sosik.md`. 반드시 그 저장소를 소스로 시작한 세션에서 작업할 것
-- **Ken에게서 아직 못 받은 것 3개** (받으면 바로 진행): ① Core 파일 링크 목록 — 색인에 없는 왓챠파티·결제/구독 등 (폴더 안 파일 목록은 도구로 못 봄, 아래 기술 사실) ② 손으로 이관을 끝낸 과거 프로젝트 1건 (지침서 v0.2 검증용) ③ 왓챠파티 파일 링크 (새 Core 규격 본보기)
-- **실제 프로젝트 시연은 미실시** — Ken이 프로젝트 링크를 주면 `docs/demo-2026-09-09-sosik.md` 형식으로 "판별 → Δ 제안"까지 (쓰기 없이)
+- **Ken 피드백 4건 반영 완료** ("코어파일 테스트(스텝메이드)"). 요지 한 줄: **마스터는 오버뷰다 — 부품을 뜯어 늘어놓은 건 상세 스펙 몫.** 브랜치 마스터에서 바디 케이스 2장·헤더 이미지 없음·헤더 케이스 표·로딩 표·정렬 표를 내리고, APP을 WEB과 같은 한 줄 구조(⚪ 스텝메이드 상세 → 🔵 small/medium/large 각 1장)로 바꿨다. 🔵 바 설명은 폭만(`~599px · 대표 375`). 상세 `docs/demo-2026-09-10-stepmade.md` §9, 스크린샷 `docs/img/stepmade-core-master-overview-2026-09-16.png`
+- **지침서 v0.2.1**: §4-1에 오버뷰/상세 스펙 판별 질문 3개(다른 화면을 그리게 되나 / 부품 제작 규칙인가 / 모든 크기에 나란히 붙나) · §4-2의 "헤더 케이스 표"·"부분 도판 표" 두 줄 철회 · §6-2 APP/WEB 바 규격과 설명 문구 · §3-1 진입점 3단계. `.claude/lessons_log.md`에 2건
+- **진입점 확정 (Ken, 2026-09-16: "빨간원이 진입점이야")**: 스텝메이드 진입점 = **홈 최상단 피쳐링 셀(빅배너, `Featuring Cell` y158~600) + 그 아래 배너 띠(`Frame 34107` y614~694)**. SVOD·TVOD 홈 구조가 같다. 진입 섹션 마커 4개를 그 자리에 다시 찍음(`3432:33204` `3432:33207` SVOD / `3432:33210` `3560:3441` TVOD). 내가 옛 플로우 마커로 고른 하단 로우 3곳은 전부 오답. Ken의 빨간 원은 지우지 않고 라벨 옆으로 비켜 둠. 스크린샷 `docs/img/stepmade-core-entry-2026-09-16.png`
+- **그래서 무효가 된 것**: Δ #13~#15(SVOD·TVOD·검색 플로우의 "기타 상세 페이지" 입구 교체)와 시연 문서 §6-1의 "기타 상세 페이지 = 스텝메이드 자리" 결론. 전부 번호 마커 추적이 근거였다 → **보류**. 다음 일: **홈 피쳐링 셀·배너의 링크(하이퍼링크/프로토타입)를 따라가** 입구를 다시 판정
+- **프로젝트 문서에는 진입 경로가 0건**(전 페이지 "진입/유입" 텍스트 없음) — 문서로는 답이 안 나오는 항목으로 지침서에 분류해 둠
+- **TVOD 확인 1건(가벼움)**: TVOD 홈 마커 2개는 "같은 구조라서" 같은 규칙으로 찍은 것. TVOD도 진입점이 맞는지만 봐 주면 됨
+- **(9/18) 첫 실행 완료 — 복제본 `txuuBtHiDgal8pC4OIbSHF`에 `[Core] 스텝메이드` 생성** (Ken이 Duplicate → 링크 전달 → 도우미가 쓰기 5회로 뼈대·8장 복제(차이 0)·플로우·페이지 삭제). 기록 `docs/demo-2026-09-10-stepmade.md` §10. **확인 필요**: 768·1024·WEB 헤더 이미지가 스크린샷에서 초록(이미지 해시는 있음) → Ken이 에디터에서 확인. 남은 사람 손: 파일 이름/폴더 확인 · 진입 홈 사본 붙여넣기(선택) · 다른 Core 입구 Δ · 원본 커버 Final/아카이브 · 색인 갱신. 기술: `saveVersionHistoryAsync`는 이 연결에서 거부됨(Named version은 사람이) · 로컬 컴포넌트 페이지는 Ken 결정으로 인스턴스 32개 분리 후 삭제(남은 페이지 3개: Cover / --- / 🌏 마스터 파일). 플로우 페이지·입구 링크 박스도 Ken 지시로 삭제 — 새 Core 규격에서 플로우 페이지 제거, **진입 섹션도 삭제 — 진입점 기준은 Ken이 따로 잡아 줄 때까지 만들지 않는다.** 마스터 = 링크 카드 + APP 3장 + WEB 4장
+- **(9/18) 디자이너용 설치 안내를 노션에 작성**: https://app.notion.com/p/watcha/3dfa2845fc0f80e7ba31dfda32f03669 ("코어파일 업데이트 플러그인 설치 방법", Product Design Team / 코어파일 업데이트 (Test) 아래). ZIP 링크는 현재 브랜치 `claude/lucid-darwin-nlxrhv` 기준 → **main에 합친 뒤 링크를 main으로 바꿔야 함**. Figma 연결은 Ken이 다시 해서 MCP는 정상(핸들 ken), REST는 이 세션에서 여전히 만료 → 새 세션에서 학습 보고서 스크립트 확인
+- **(9/18 밤 4) Ken: "그 로그를 다른 디자이너는 볼 필요 없다 — 저장만 해 두고 나한테 보고용을 만들어 두라" → 플러그인은 검토자 아니면 학습 UI 전부 숨김(가설은 조용히 clientStorage + 파일 sharedPluginData에 저장). `scripts/learning-report.py` 신설: Core 색인 + `plugin/report-sources.json` 파일들을 REST `?depth=1&plugin_data=shared`로 읽어 가설을 모아 `docs/learning-report.md`(한눈에·번호 목록·결정된 것) 생성, `--apply "승인:1,2 거절:3"`으로 `plugin/memory.json` 반영(itemDelta 파이썬 포팅). 가짜 데이터로 생성·반영 확인. **미확인: REST가 문서 루트 sharedPluginData를 돌려주는지 — 이 세션 중 Figma 토큰 만료(403 Token expired)로 실제 호출 못 함. Ken이 Figma 연결을 다시 하면 첫 플러그인 실행 뒤 스크립트를 한 번 돌려 확인.**
+- **(9/18 밤 3) Ken: "진행 누른 게 정답은 아니다(마구 누를 수 있다)" → "바로 배우지 말고 쌓아 뒀다가 프로젝트 3개마다 나한테 리스트를 보여 주고 내가 판단" → 학습을 가설→검토→승인 구조로 재작성.** 진행 = 가설 묶음(항목: 섹션→크기 · 대표 화면 이름(제친 후보) · 낱말→Core · 페이지 구성→종류, 항목마다 근거)으로 대기함에만 저장, 기억엔 안 넣음. 빠른 진행(확인 필요 항목 안 건드리고 15초 내 / 5초 내) 표시·채점 제외. 새 Core 만든 뒤 하루 뒤 또는 다른 사람이 열면 마스터 화면 유지/바뀜을 자동 확인해 묶음에 표시. 결정 안 된 실행 3개(rules `review.everyRuns`)면 검토 배너 → 검토자(rules `review.reviewers`=["Ken"], **Figma 표시 이름과 같아야 함**)가 항목별 승인/거절/보류 → 승인만 기억. 다른 노트북 가설은 내보내기 JSON → 검토자 가져오기 → 검토 → memory.json 커밋(자동화는 ADP 등 서버 필요, 결정 대기). 단위 시험으로 가설 쌓임·검토 승인/거절/되돌림·검토자 제한·저장 3곳 일치 확인(되돌림 카운트·병합 우선순위 버그 2건 수정). rules v2026-09-18.3, memory v2. 상세 `plugin/README.md`
+- **(9/18 밤 2) Ken: "애매할 때마다 사람한테 넘기면 만드는 이유가 없다 — 계속 학습되나?" → 플러그인에 학습 층 추가.** 사람이 "진행"을 누르는 순간의 확인 결과(섹션→크기 · 대표 화면 이름 ± · 이름 낱말→Core · 페이지 구성→파일 종류)를 기억해 다음 판단에서 규칙보다 먼저 씀. 묻는 기준 = 1·2등 점수 차 1 미만만 "확인 필요", 나머지 자동 → 쓸수록 묻는 횟수가 줌. 기억 저장 3곳: clientStorage · 파일 sharedPluginData(Duplicate·브랜치에 따라감) · `plugin/memory.json` 공유본(내보내기→커밋; 자동화하려면 ADP 같은 저장 서버 필요, 결정 대기). Ken 2차 질문 "올바른 학습인지 어떻게 판단?" → **채점표**: 실행마다 제안 vs 최종 채택을 기록, 적중률(앞/뒤 절반 추세)·확인 요청·고침·**학습 오답(학습 근거 제안을 사람이 고침 → 0이어야, 생기면 더 세게 되돌림)**·판별 적중·기억 갈림 목록, 판정 한 줄. 단위 시험(가짜 계획)으로 학습·채점 동작 확인, 섹션 기억 모양 버그 1건 수정, 불용어(고도화 등) 추가(rules v2026-09-18.2). 상세 `plugin/README.md` "스스로 배우는 방식"·"채점표"
+- **(9/18 밤) Ken 결정: "우선 플러그인으로 해보자, 플랜은 Organization" → Figma 플러그인 뼈대 생성 `plugin/`** (manifest·rules.json·code.js·ui.html·README). 경위: Ken 요구 = 다른 노트북에서 각자 Figma 계정으로 도는 프로그램, 실행 중 Claude 토큰 안 씀("지금 데이터로 로직을 만들고 계속 학습+업데이트"). 데스크톱 앱(ADP로는 불가, 웹앱만) → 플러그인으로 결정. 구조: 규칙 `plugin/rules.json` + 색인 `core-index/core-index.json`을 켤 때 GitHub main에서 받음(재설치 없이 갱신) · 한 플러그인이 두 시나리오(새 Core = 분석→판별→사람이 Duplicate→복제본에 마스터 만들고 깎기 / 기존 Core = 분석→판별→Δ 선택→⌘C→브랜치 ⌘V→배치) · 계획은 `clientStorage`로 파일 간 인계 · 애매하면 멈추고 사람이 고름 → "사례 남기기" → rules.json 반영. **다음: Ken이 개발 플러그인으로 설치(Plugins → Development → Import from manifest)해 스텝메이드 프로젝트 파일에서 시험 → 안 맞는 곳 고치기.** 기존 Core 갱신(A/B)은 v1 배치까지만. 설치·흐름은 `plugin/README.md`
+- **(9/18 저녁) Ken 결정: "복제해서 깎기"로 프로그램화 진행.** 반영: 지침서 v0.2.2(§0-8 파일 경계를 코드로 넘지 않는다, §6-4 순서 교체, §6-2 진입 = 첫 화면 + 하이퍼링크), `scripts/figma-write/new-core-master.md` 전면 교체(사람: Duplicate 1클릭 → 도우미: 확인·뼈대·APP·WEB·진입·플로우·**작업 페이지 삭제**), 설계안 §4(방법 2′ 채택, 1·2 폐기), 규약 §2·§3, Routine 프롬프트, CLAUDE.md. **다음: Ken이 스텝메이드 프로젝트 파일을 Duplicate → `[Core] 스텝메이드` 링크를 주면 그 절차로 첫 실행**(브랜치 Claude Test의 마스터는 시험용으로 종료, 뼈대 `3569:3441` 삭제)
+- **(9/18) 설계 오독 발견 → 새 Core 만드는 방식 변경 대기**: Ken "진입 화면은 왜 이미지로? 복붙하면 되는데" → 파일 간 복붙이 API에 없음을 다시 설명 → 깊은 복제(REST JSON → 재구성)를 돌리다 **Ken 중단**(홈 하나에 코드 ~150KB를 다시 써 넣어야 해 토큰을 태움). 그 자리에서 드러난 것: 설계안 §4 "방법 2 = 프로젝트 파일이 Core가 된다"를 나는 "그 파일 안에 마스터 페이지"로 읽었는데 **Ken 뜻은 "새 파일을 만들어 Core로, 거기에 정리"**. 제안한 길 = **프로젝트 파일을 Ken이 Duplicate(1클릭) → 그 복제본을 `[Core] 스텝메이드`로 → 그 안에서 같은 파일 복제(clone)로 마스터를 만들고 작업 페이지 삭제**. 새 빈 파일에 채우기는 파일 경계 때문에 불가. 진입 섹션의 다른 Core 홈은 여전히 파일 경계 → Ken 붙여넣기 1회 또는 "입구는 하이퍼링크" 규격(Ken 선택 대기). **Ken이 복제 파일 링크를 주면 시작.** 브랜치에 내가 만들다 만 뼈대 `3569:3441`은 삭제 예정
+- **사실 확인 (9/18)**: `clone()`은 같은 파일 안에서는 페이지를 넘어도 됨(스텝메이드 마스터 화면 전부 그렇게 옮김). 파일 경계만 안 됨. 파일 간 자동 재구성 도구(`scripts/figma-write/build-clone-spec.py`·`clone-lib.js`·`compose-clone-job.py`)는 동작은 하지만 토큰 비용이 커서 **쓰지 않기로**(REST JSON이 곧 "클립보드"인데 붙이는 쪽 명령이 없어 노드 하나하나 재생성 = 비용). 확인된 한계: import 안 되는 컴포넌트 키 15/35(옛 키·미발행), 라이브러리 버전 차이로 오버라이드 id 접미사 불일치 → 이름 경로로 대체, 새로 만든 인스턴스는 같은 호출 안에서 하위 노드가 바로 안 잡힘(다음 호출에서 잡힘)
+- 그 밖에 열린 것은 세션 6 시작점 그대로 (Routine 미생성 · 과거 이관 사례 1건 · 로그인/온보딩 실행 재현용 브랜치)
+
+## 다음 세션 시작점 (2026-09-14 · 세션 6 이후)
+
+- **clone 함정**: GitHub 저장소의 기본 브랜치가 `claude/core-file-helper-setup`(2026-09-09 상태)이라 `git clone --single-branch` 로 받으면 옛 내용이 온다. 작업 브랜치는 **main**(세션 5 마무리 커밋 `c16fc20` 까지 정상). 세션 6이 이걸 "세션 4·5 미푸시"로 오판했다가 정정함 — 기본 브랜치를 main 으로 바꾸거나(GitHub 설정, Ken) 옛 브랜치를 지우면 재발하지 않는다
+- **세션 6은 ADP 워크스페이스(Claude Code CLI)에서 돌았다** — 환경 Design-Core 가 아니다. 차이: git 신원이 `adp-watcha` 라 `ken-watcha/Design-Core` 에 **`git push` 거부(403)** → GitHub MCP `push_files` 도 404(쓰기 권한 없음). **세션 6의 변경은 로컬 커밋(`/home/ken/repos/Design-Core` main 최상단, 세션 6 커밋)에만 있고 원격에 없다.** 새 파일 2개(검증 문서·재현 절차)와 이 워크로그의 전문은 워크로그 아티팩트에 실어 두었으니 다음 세션(환경 Design-Core)이 거기서 복원해 커밋·푸시한다. REST 토큰 미주입(`api.figma.com` 401). Figma MCP(`use_figma`·`get_screenshot`)·Notion MCP·아티팩트 DB 는 정상. 다음 세션은 **환경 Design-Core 에서 저장소 main 을 소스로** 여는 것이 맞다(푸시·REST 모두 됨)
+- **2번(설계안 3단계 A/B 검증)의 절반 완료**: 로그인/온보딩 파일럿을 도우미가 **판단 재현 → 22장/22장 일치**, 손 결과 22장 전부의 원본 프레임을 지문(글자 8개 + 자손 수)으로 찾음. 기록 `docs/verify-2026-09-14-login-onboarding.md`. **실행 재현(브랜치 복붙)은 브랜치가 없어 미실행** → Ken이 `[Core] 로그인/온보딩` 에 브랜치 "Core 도우미"를 만들어 URL을 주면 `scripts/figma-write/reproduce-master-from-flow.md` 절차(호출 5회)로 돌린다. 통과하면 규약 §2 A/B 분기 개방
+- **Ken 확인 3건**(검증 문서 §3-3): ① 입력 화면 대표 상태 — 규칙은 filled, 손 결과는 active(이름·비밀번호). 도우미 권장 = 규칙을 active 로 ② 마스터에 기존 회원 로그인(비밀번호 입력 3-1·3-2) 화면이 없음 — 파일럿 범위였나 ③ 링크 카드 기준 정보(프로젝트명·배포월·담당) 아직 빈칸
+- **v0.3 후보 규칙 4개**(검증 문서 §3-2): 프레임 이름은 문서를 믿지 말고 화면 안 제목으로 / 같은 지문 중복은 1장 / 짝표 먼저 만들고 복붙 / 문서 머리말("로그인 과정은 변경 없음")을 유지 판단 근거로. **지침서 v0.2 는 아직 손대지 않았다** — 과거 이관 사례 검증과 묶어 v0.3 으로 올린다(§4-2 의 "focus/active/filled → 대표 1장 (filled)" 줄은 Ken 답에 따라 고칠 것)
+- **Routine: 아직 없음.** Ken이 안 만들었다. 규약 `docs/runbook-core-helper.md` §4 요약: claude.ai/code → Routines → 새로 만들기: 환경 **Design-Core** · 저장소 `ken-watcha/Design-Core` main · **매시간** · 연결 **Figma + Notion** · 프롬프트 = 그 파일 내용 · 푸시 알림 켬 → "지금 실행"으로 첫 동작 확인(스텝메이드는 `완료` 라 읽기만 하고 끝나야 정상). 세션 안에서 만든 Routine 은 연결이 안 붙으니 UI 에서만
+- **과거 이관 사례 1건**: 여전히 못 받음(세션 6 프롬프트의 빈칸 그대로) → §3·§4 재검증 → v0.3 은 그때
+- 요청함(6aabb40e…) DB 상태: `requests` 1건(스텝메이드, `완료`) · `logs` 5줄. 세션 6은 쓰지 않음
+- **Ken 결정 (2026-09-14, 세션 6 후반): 팀 배포 형태 = A "Claude Code 데스크톱 앱 + 이 저장소".** "데스크톱 앱으로 만들려면?" 질문에 세 길을 비교 — A(Claude Code 앱이 껍데기·엔진·로그인·업데이트를 대신, 우리는 규칙만 관리, 만들 것 없음) / B(요청 올리기 전용 작은 Figma 플러그인, 설계안 §7-1) / C(독립 데스크톱 앱: 화면 껍데기 + Claude Agent SDK 엔진 + Figma 로그인 + Claude 키 관리 + 서명·업데이트, 개발자 몇 주 + 유지보수). C도 규칙은 저장소에서 내려받게 하면 규칙 갱신마다 재빌드는 안 하지만, 부품 4개(껍데기·엔진·로그인·배포)를 우리가 떠안는 것이 진짜 공수. Ken: "우선 A로 해보자" → 세션 6이 디자이너용 설치 안내 `docs/setup-designer-claude-code.md` 작성. 설계안 5단계(팀 공개) 완료 기준 = 디자이너 2명이 A로 실제 프로젝트 1건씩. C는 A로 돌려 본 뒤 "채팅 화면이 불편하다"가 확인될 때 그 불편만 해결하는 형태로 재검토
+- **로컬 세션 메모(9/11, Ken 맥) 합류**: 세션 6이 도는 동안 다른 세션이 워크로그 아티팩트에 "2026-09-11 로컬 세션" 섹션을 올렸고(2026-09-14 04:10 UTC), 세션 6 마무리 때 이 문서에 합쳤다. 요지: 진입 렌더 이미지 2개는 로컬 세션이 채움 / **이미지 한 변 4096px 초과는 success여도 안 붙음(`placedOnNodeId` 유무로 판별)** / 영역 설명 컴포넌트는 라이브러리에서 import 불가 확정 / 동시 편집 충돌 교훈. spike·`deep-clone.md`·지침서 §6-2 반영은 다음 Design-Core 세션 몫
+
+## 다음 세션 시작점 (2026-09-14 · 세션 5 이후)
+
+- **프로그램 A가 생겼다 = 요청함 페이지** https://claude.ai/code/artifact/6aabb40e-e80b-45f3-a76f-05f2cdee038a (📮). 링크를 붙여넣으면 Cover 페이지에서 프로젝트 이름·담당·커버 상태(Working/Final)를 읽어 보여 주고(뷰어의 Figma 연결 사용, 첫 사용 때 허용 확인), **"코어파일 업데이트" 버튼 = 실행**(Ken 결정: 제안서·승인 단계 없음). 상태 `실행 대기 → 반영 중 → 완료` / `확인 필요`(다시 실행 버튼) / `오류`. 자체 저장소(아티팩트 DB) `requests`·`logs`에 사람과 도우미가 한 일이 한 줄씩 남는다. 도우미는 세션의 Artifact 도구 `read_db`/`write_db`로 읽고 쓴다. **Notion 표 "Core 반영 요청"은 사본**(도우미가 같은 내용을 씀). 스텝메이드 건은 실제 기록으로 넣어 두었고 상태 `완료`(브랜치 머지 대기)
+- **실행 주체 = Routine** (매시간 새 세션, 환경 Design-Core). 규약 `docs/runbook-core-helper.md`, 프롬프트 `docs/routine-prompt-core-helper.txt`. **아직 Ken이 만들어야 함**: 세션 안에서 만든 Routine(`trig_01GZzAUPSzD9z9wNi49BT26L`)은 이 조직 설정상 Figma·Notion 연결을 못 담아 꺼 두었다 → claude.ai/code → Routines에서 새로 만들기(환경 Design-Core · 저장소 main · 매시간 · 연결 Figma+Notion · 프롬프트 파일 내용 · 푸시 알림). 만든 뒤 "지금 실행"으로 첫 동작 확인(스텝메이드는 완료라 읽기만 하고 끝나야 정상). 버튼이 세션을 직접 깨우는 길은 이 환경에 없어 "바로 진행"의 실제 시작은 Routine이 깨는 때
+- **열려 있는 한계 1개 = 설계안 3단계**: 기존 Core 갱신(유형 A/B) 실행이 검증 전. 지금 Routine은 A/B를 판별·Δ까지 로그에 남기고 `확인 필요`로 멈춘다. 다음 일: 로그인/온보딩 파일럿을 도우미가 재현해 손 결과와 같은지 확인 → 규약 §2의 A/B 분기를 연다
+- **지침서 v0.2 규칙 (Ken 교정에서 나온 것, 반드시 유지)**: §0-6 **복붙**(화면은 프로젝트 문서 프레임을 그대로 복제, 복제마다 B' 원본 대조로 차이 0) · §0-7 **빠뜨리지 않기**(문서의 모든 섹션·사이즈 클래스 → 수록 대조표, 문서가 커버하는 최대 폭 대표는 반드시 수록 — 1440 사건) · §6-2 🔵 크기 바에 폭 범위 설명(APP ~599/600~799/800~, WEB ~767/768~1280/1281~) · 바 폭은 내용 넣은 뒤 잰다
+- **스텝메이드 브랜치 "Claude Test"의 마스터 페이지**(`3420:6`, 루트 `3420:91`)는 교정 4건 반영 완료. 남은 것은 본 파일 쓰기(Cover·플로우·SVOD/TVOD/검색 입구)와 머지·이름·폴더(사람). 시연 문서 `docs/demo-2026-09-10-stepmade.md` §8, 스크린샷 `docs/img/stepmade-core-*-2026-09-11.png`
+- **로컬 세션 메모(9/11, Ken 맥) 합류 (2026-09-14)**: 진입 섹션의 렌더 이미지 2개(SVOD `3428:2190` 상·하 2조각, TVOD `3428:2191`)는 로컬 세션이 채운 것. 기술 사실 — **이미지 한 변 4096px 초과는 success여도 안 붙음(`placedOnNodeId` 유무로 판별)**, **영역 설명 컴포넌트는 라이브러리 자체에서 import 불가 확정(수동 재구성 규격 있음)**, **동시 편집 충돌 교훈**. 상세는 아래 "2026-09-11 로컬 세션" 섹션 — spike·deep-clone.md·지침서 §6-2 반영은 다음 Design-Core 세션 몫
+- **여전히 못 받은 것**: 과거 이관 사례 1건(프로젝트 문서 링크 + 반영된 Core 위치) → §3·§4 재검증 → v0.3
+- 기술: Figma 연결(MCP)이 세션 중 여러 번 끊겼다 붙음 → 도구 접두어가 바뀜(`mcp__Figma__`). ToolSearch로 다시 찾으면 되고 브랜치에 쓴 것은 남아 있음. 아티팩트 재발행 알림 구독은 이 조직에서 등록되지 않으므로 새 세션은 시작할 때 아티팩트를 직접 읽는다
+
+## 다음 세션 시작점 (2026-09-10 세션 4 이후)
+
+- **프로젝트의 목적 재확인 (Ken, 2026-09-10)**: 다른 디자이너들도 쓰는 프로그램으로 Core 관리의 통일성을 높이고 귀찮음을 줄이는 것, 그리고 **"전부 자동"** — 프로젝트 문서 링크를 주면 어느 Core의 어느 부분을 갱신할지 알려 주고 진행까지, 해당 Core가 없으면 운영안 규칙대로 새 Core로 등극까지. v1(Figma 플러그인, 디자이너가 파일 열고 버튼)은 Ken이 반려 → **설계안 v2** `docs/plan-core-helper-plugin.md` (아티팩트 "Core 도우미 설계안" https://claude.ai/code/artifact/49920485-4b16-47d4-b143-c7bde7ab14a5): 클라우드에서 도는 도우미(Claude Code 세션 + Routine) = 요청 창구(Notion 표/Slack) → REST 읽기 → 규칙+Claude 판단 → `use_figma`로 어느 파일이든 쓰기 + `create_new_file`로 새 파일 → 보고. **핵심 난제 = 파일 간 화면 옮기기(API 없음)** → ① 깊은 복제(속성·인스턴스·이미지 재구성, 스파이크 필요) ② 새 Core는 프로젝트 파일 안에 규격을 만들어 그 파일이 Core가 됨(소식함 선례) ③ 예외만 붙여넣기 요청. **Ken 결정 대기 4개**(설계안 §7): 요청 창구(Notion 권장) / 확인 단계 켤지 / 스파이크 허가(테스트 파일 위치) / 새 Core 이름 규칙
+- **세션 4에서 바뀐 것**: 스텝메이드는 Core가 아니라 **프로젝트 문서**("스텝메이드 상세페이지 고도화", Working, 담당 angela)였음 → 색인에서 Core 목록(14개)과 분리. Ken 확인: **Core는 14개가 전부**. 그 문서로 **실제 프로젝트 시연 1호** 완료: 판별 = 유형 C(새 Core `[Core] 스텝메이드`), Δ 15건 → `docs/demo-2026-09-10-stepmade.md`. 스텝메이드 자리(= "기타 상세 페이지")와 진입 위치는 도우미가 **번호 마커 추적**으로 스스로 판정(그 문서 §6, 도구 `scripts/figma-rest/trace-entry-markers.py`). Ken 승인만 남음(새 Core 생성 동의)
+- **Ken 답 (2026-09-10)**: ① 스파이크는 새 파일 대신 **브랜치**에서 → 스텝메이드 파일의 기존 브랜치 "Claude Test"(`XIolz3S5ClSf5VEaBkwDi6`) 사용 ② 요청 창구는 Notion **"코어파일 업데이트 (Test)"** 페이지(3d7a2845…) 아래 → **표 "Core 반영 요청" 생성** (https://app.notion.com/p/e5f0952582d1467d9c998653d359fbaf, 데이터소스 `c0f1c97d-e47a-4520-8656-6b2147b8f3ed`; 칸: 프로젝트·Figma 링크·담당·배포일·상태·판별·대상 Core·제안서·결과·실행 승인·요청일) + 스텝메이드 행 1개 ③ 제안서 실물 → 아티팩트 "스텝메이드 Δ 제안서" https://claude.ai/code/artifact/b9ca209c-36ee-4906-bd2b-22526e321534 ④ 스텝메이드를 새 Core 첫 대상으로 **승인**. 팀 전달 시 디자이너별 연결(설계안 §6-1)
+- **깊은 복제 스파이크 완료** (`docs/spike-2026-09-10-deep-clone.md`, 절차 `scripts/figma-write/deep-clone.md`): 소식함 3:642 → 브랜치 🔁 페이지 `3410:6`. 인스턴스 키 import + 세트 키 + **파일 내 같은 키 인스턴스 복제** 대체, 텍스트·중첩 변형 오버라이드 성공. 한계: 이미지 해시는 파일을 못 넘고(`getImageByHash` null) `use_figma`엔 fetch 없음·코드 50k 한도 → 30KB 초과 이미지는 자리표시+보고. 스크린샷 `docs/img/spike-deepclone-*.png`. **저녁 추가 시험**: 전용 통로 `download_assets`(원본 이미지 내려받기, 성공 95KB·256KB) → `upload_assets`(지정 노드에 채우기, 주소가 `mcp.figma.com`이라 **프록시 거부** `connect_rejected`) → **Ken에게 `mcp.figma.com` 허용 요청 중**. 허용되면 큰 이미지도 자동. 재시험 자리: 브랜치 `3413:299`(빈 사각형 `3413:300`·`3413:301`)
+- Ken 아이디어 "플러그인이 링크를 Notion에 자동으로 올리기" → 설계안 §7-1에 검토 기록
+- 실행은 배포 확정(커버 배지 Working→Final) 후 §6-4 순서로 (그 전엔 쓰기 없음). 지침서 v0.2는 과거 이관 사례 1건으로 검증한 뒤
+- **Ken 답 3건 (2026-09-10 저녁)**: ① "이미지를 왜 못 옮기지? 복붙인데" → 사람의 복붙은 클립보드를 쓰는데 프로그램엔 클립보드가 없어 다시 그려야 함; 전용 통로로 내려받기까지 성공, 올리기 주소만 막힘(위) ② "제안서가 복잡, 핵심만" → 템플릿과 스텝메이드 제안서에 **"한눈에" 5줄(어디에/무엇을/다른 Core엔/빼는 것/지금 할 일)**을 맨 위에 두고 나머지는 접음(아티팩트 재발행) ③ **토큰 `projects:read`는 Ken에게 줄 권한이 없어 불가 확정** → 폴더 훑기는 설계에서 제거(설계안 §7-1, network.md, README). 접수 창구는 Notion 표(+선택으로 플러그인)
+- 아래 세션 3 시작점의 "못 받은 것" ①(과거 이관 사례)만 여전히 대기. ②③은 세션 4에서 해소, ④(`projects:read`)는 불가로 종결
+- ~~Ken에게 요청 중: 허용 목록에 `mcp.figma.com` 추가~~ → **Ken이 추가·저장함 (2026-09-10 06:44)**. 새 세션부터 적용이라 세션 4가 Ken 요청으로 **세션 5**를 생성 (https://claude.ai/code/session_01E2g4Kz9jPPyvTorEWSvxj2): 첫 일 = 이미지 이관 재시험(브랜치 `3413:299`) → 설계안 2단계(브랜치에 스텝메이드 새 Core 뼈대) 순. 세션 4는 여기서 마무리
+
+## 다음 세션 시작점 (2026-09-09 세션 3 이후)
+
+- **저장소** `ken-watcha/Design-Core` — `main`에서 작업 (브랜치 `claude/core-file-helper-setup`과 같은 내용). 환경은 **"Design-Core"**(네트워크 Custom: `api.figma.com`·`www.figma.com` 허용 + Figma 토큰 API 자격 증명 주입) — 세션 3에서 정상 확인. 구성: 지침서 `.claude/skills/core-file-helper/SKILL.md`(v0.1 + §6 보강) / Core 색인 `core-index/core-index.json` + `docs/core-index.md`(**15개 전부**) / REST 읽기 스크립트 `scripts/figma-rest/` / MCP 읽기 스크립트 `scripts/figma/` / 템플릿 `templates/delta-proposal.md` / 시연 기록 `docs/demo-2026-09-09-sosik.md` / 실물 스크린샷 `docs/img/`
+- **Ken에게서 아직 못 받은 것** (세션 3 끝에 물어봄): ① 손으로 이관을 끝낸 **과거 프로젝트 1건**(프로젝트 문서 링크 + 반영된 Core 위치) → 지침서 §3·§4 판단 규칙 재검증 → v0.2 ② **시연용 프로젝트 문서 1건**(+ 프로젝트명·배포 예정일·담당자) → `docs/demo-2026-09-09-sosik.md` 형식으로 "판별 → Δ 제안"(쓰기 없이) ③ **스텝메이드**(`NO7uetAL9Qmk03IXWSaMej`)가 Ken의 "모든 Core 파일" 14개 목록에 없음 — 폴더에서 빠진 건지 확인 ④ (선택) Figma 토큰에 `projects:read` 범위 추가 → 폴더 조회 스크립트가 동작
+- 세션 3에서 색인은 REST로 읽었다. `use_figma`는 왓챠파티 키 발견에 1회만 사용. 다음 세션에서 시연할 때는 프로젝트 문서를 REST `nodes` 엔드포인트(`scripts/figma-rest/dump-core-file.py` 방식)나 `use_figma`로 읽으면 된다
 - 운영안 쪽 열린 항목(변화 없음): 팀 공유본 미해결 댓글 2개 / 공유본의 소유권 다이어그램 구버전 이미지 수동 교체 / 로그인·온보딩 파일럿 미결 2건 / "남은 할 일" 1~5
+
+## 2026-09-14 세션 6 — 저장소 미푸시 발견 · 로그인/온보딩 A/B 판단 재현 (진행 기록)
+
+- 세션: ADP 워크스페이스(Claude Code CLI, cwd `/home/ken/workspace/users/ken`)에서 시작. Design-Core 저장소가 없어 `/home/ken/repos/Design-Core`에 `--single-branch` clone → 기본 브랜치 `claude/core-file-helper-setup`(9/9 상태)이 내려와 "세션 4·5 미푸시"로 오판. 커밋 직전 `git fetch origin main` 으로 main(`c16fc20`, 세션 5 마무리)을 받고 나서 정정. 그 사이 워크로그를 아티팩트 원문으로 다시 써 넣었는데 세션 5 판과 내용 차이 없음(diff 로 확인) — 잃은 것 없음
+- 프롬프트의 빈칸 세 곳(Routine 이름/첫 실행·브랜치 이름·과거 이관 사례)이 그대로였음 → 셋 다 "아직 없음"으로 처리
+- **1. Routine**: 미생성. 규약 §4 요약은 위 시작점에
+- **2. A/B 검증 (판단 절반)**: `use_figma` 읽기 5회(페이지 목록 + 마스터 페이지 골격 / 플로우 페이지 골격 / 플로우 5묶음의 프레임 목록 / 마스터 22장 지문 / 플로우 후보 60장 지문). 결과: 규칙(§4-2)만으로 APP 11 · WEB 11 = 손 결과와 같은 목록. 손 결과 22장 ↔ 원본 22장 짝표 완성(지문 = 보이는 글자 8개 + 자손 수, 전부 유일 일치). 차이 1건 = 입력 대표 상태(규칙 filled ↔ 실물 active). 문서 프레임 이름 7장이 번호·오기("1", "2", "3", "22", "표시 콘텐츠 설정") → "이름은 화면 안 제목으로" 규칙 후보. 기록 `docs/verify-2026-09-14-login-onboarding.md`, 실행 절차 `scripts/figma-write/reproduce-master-from-flow.md`(호출 5회: 뼈대 → APP 복제 → WEB 복제 → 바·카드 복제 → 대조)
+- **실행 절반은 미실행**: 브랜치를 API로 만들 수 없고 Ken이 만든 브랜치도 없음. 스크린샷·쓰기 0회. Core 본 파일 무수정
+- **3. 과거 이관 사례**: 없음. 지침서 파일은 건드리지 않음
+- **후반 — 팀 배포 형태 결정(A)**: Ken "데스크톱 앱으로 만들려면?" → A/B/C 비교 → "우선 A로". 만든 것: `docs/setup-designer-claude-code.md`(설치·사용 안내 1장, 공식 문서 확인 후 작성) · `.mcp.json`(Figma 원격 연결 `https://mcp.figma.com/mcp`를 저장소에 미리 지정 — 폴더 열면 허용 확인 1번, `/mcp`에서 Authenticate) · 루트 `CLAUDE.md`(폴더를 연 세션에 도우미 역할·브랜치 전용 쓰기·"진행" 확인 규칙) · README 표 갱신. 확인된 사실: Claude Code 데스크톱 앱은 Pro/Max/Team/Enterprise 계정 필요, 폴더의 `.claude/skills`·`.claude/rules`·`CLAUDE.md`는 자동 로드, 프로젝트 `.mcp.json`은 세션 시작 시 읽고 첫 사용 때 승인 게이트. A에서는 REST 토큰이 없으므로 `scripts/figma-rest/*`는 안 되고 Figma 연결(`use_figma`)로만 읽는다. 다음: 디자이너 2명에게 실제 프로젝트 1건씩 시험(설계안 5단계)
+- 마무리: 워크로그 세션 6 기록 → 로컬 커밋. `git push` 는 `adp-watcha` 신원이라 403 → GitHub MCP `push_files` 도 404 → **원격 미반영(로컬 커밋만)**. 복원 경로 = 워크로그 아티팩트(검증 문서·재현 절차 전문 포함). 아티팩트 재발행(같은 URL, 파비콘 유지). 제안서·설계안·요청함은 내용 변화 없어 재발행 안 함
+
+### 이 세션에서 확인된 기술 사실
+
+- ADP 워크스페이스에서도 Figma MCP 는 Ken 계정(`whoami` = ken@watcha.com, Watcha org Full seat)으로 붙는다. `use_figma` 읽기 전용 코드로 파일이 열려 있지 않아도 페이지 전환·`findAll`·`getStyledTextSegments` 정상
+- 지문 대조법: 프레임 안 보이는 텍스트 앞 8개(공백 정규화, 24자) + `findAll(()=>true).length`. 로그인/온보딩 60장 후보에서 22장이 각각 1개씩 유일하게 맞았다. 이름이 아니라 지문으로 짝을 찾으면 번호 이름·오기·중복 프레임을 전부 걸러낸다
+- 플로우 페이지 루트 섹션은 54904×18115. 섹션 안 프레임을 깊이 3까지만 훑으면 5묶음 214개 항목이 응답 16KB 안에 들어온다(스크린샷 불필요)
+- 이 환경의 git 전역 신원은 `adp-watcha` — `ken-watcha` 개인 저장소에 푸시 불가. 저장소 로컬 `user.name`은 ken 으로 바꿔 두었지만 인증 자체가 서비스 계정이라 소용없음
+
+## 2026-09-11 세션 5 — 이미지 이관 해결 · 스텝메이드 새 Core 마스터 페이지(브랜치) (진행 기록)
+
+- 세션: https://claude.ai/code/session_01E2g4Kz9jPPyvTorEWSvxj2 (세션 4가 만든 세션, 환경 Design-Core, `mcp.figma.com` 허용 첫 적용)
+- **0. 이미지 이관 재시험**: 프록시 상태 페이지에서 `mcp.figma.com` 통과 확인(OPTIONS 404 = 서버 응답) → 왓챠파티 `5:14326`의 원본 2장(95KB·256KB) 내려받기 → `upload_assets(nodeIds=[3413:300, 3413:301])` → `curl -F` POST 200 + 이미지 해시. 사각형이 단색 그대로여서 본 파일까지 검색(깨끗함) → `getImageByHash(해시).getSizeAsync()`가 280×157·500×500을 돌려줘 바이트는 파일에 들어간 것 확인 → fills에 해시 지정 → 렌더 확인(`docs/img/spike-image-transfer-result-2026-09-10.png`). 다음 날 홈 롱 이미지 2장(4.8MB·4.2MB)은 자동 배치까지 됨(`placedOnNodeId`)
+- **1. 과거 이관 사례**: 아직 없음 → 마무리 보고에서 한 번만 질문, 기다리지 않고 2번 진행
+- **2. 브랜치에 마스터 페이지** (묶음 4개, `use_figma` 6회 + `upload_assets` 1회): 뼈대(페이지·루트·섹션 3개·바 12개·링크 카드) → APP(화면 6 + 표 3) → WEB(화면 3) → 진입(홈 렌더 이미지 2 + 마커 3 + 첫 화면 1). 왓챠파티 `20:29495` 실물의 좌표·컴포넌트 키를 읽어 본보기로 삼음. 판단 10개와 근거는 시연 문서 §8-1. 마커 y는 SVOD 플로우 `156:77014`·TVOD 플로우 `22:13837`에서 로우 y를 읽어 사용
+- **3. 지침서 v0.2**: §4-2 규칙 6줄(헤더 요소 표·구간 양끝·이상 동일은 설명 텍스트·부분 도판은 표·빈 상태 없으면 미수록) · §4-3 "마커 신설" · §6-2 수치·키·진입 렌더 이미지 규칙 · §6-4 방법 2 · §5 절차 문서 위치. `scripts/figma-write/new-core-master.md` 신설
+- 아티팩트 재발행: 워크로그(72e9f09e…) · 스텝메이드 Δ 제안서(b9ca209c…, §8 실행 기록 + 한눈에 갱신) · 설계안(49920485…, §4 해결·§6 2단계 진행)
+- **후반 (2026-09-11 오후~14)**: Ken 교정 4건(겹침·크기 바 폭 범위·복사본 원본 대조·데스크톱 1440) → 규칙화(§0-6·§0-7·§4-2·§6-2). "꼭 노션을 거쳐야 하나" → 창구 비교 후 **프로그램 A(요청함 아티팩트)** 도입: 링크 + 버튼, Cover 자동 읽기(mcp 능력으로 뷰어의 Figma 연결 호출, `use_figma` 읽기 전용 코드 1개), 자체 DB에 요청·로그, Notion은 사본. Ken 결정으로 제안서·승인 단계 제거(버튼 = 실행, 안전장치는 브랜치 쓰기 + Named version). Routine은 세션 안에서 만들면 연결이 안 붙어(조직 설정) Ken이 Routines 화면에서 생성해야 함 → 프롬프트를 `docs/routine-prompt-core-helper.txt`로 저장. 토큰 절약 원칙(스크린샷 1장·짧은 반환·문서 2개만 읽기)을 Routine 프롬프트에 포함
+
+### 이 세션에서 확인된 기술 사실
+
+- `upload_assets`는 브랜치 키로도 동작. 10MB 한도 안에서 4.8MB png 정상. 올리기 주소는 10분·1회용이라 `upload_assets` 호출 직후 POST
+- `download_assets`의 `export`(노드 렌더 png, `defaultScale` 2까지 확인)가 "다른 Core의 긴 화면을 참조로 놓기"에 딱 맞음 — 375×4816 프레임이 750×9632 png 4.8MB
+- 같은 파일 안 페이지 간 복제: `src.clone()` 뒤 `otherSection.appendChild(clone)`으로 다른 페이지 섹션에 옮겨짐, 좌표는 섹션 기준
+- `figma.createPage()` + `figma.root.insertChild(2, page)`로 Cover·`---` 다음 자리에 페이지 생성
+- 라이브러리 컴포넌트 import는 파일에 연결된 라이브러리만: 스크린 설명 컴포넌트(3색 키)·상태 뱃지는 됐고, 영역 설명 컴포넌트는 "not found"
+- `get_screenshot` `maxDimension` 3000까지 문제 없음(8456×5916 루트 → 3000×2108)
+- `clone()`은 같은 파일 안에서도 셀 폭·텍스트 폭이 바뀔 수 있다(HUG 재계산). 복제 뒤 원본 트리와 인덱스 순서로 대조해 `resize`/`x,y`를 원본 값으로 되돌리면 차이 0(텍스트 자동 폭은 원본 쪽 저장값이 오래된 경우가 있음)
+- 아티팩트 능력: `db`(요청·로그 저장, 세션에서 `read_db`/`write_db`로 접근) · `mcp`(페이지가 뷰어의 Figma 연결로 `use_figma`를 호출 — `callTool('Figma','use_figma',{fileKey,code,description})`, 결과는 `content[0].text`의 JSON) 확인. `create_trigger`에 `connectors`는 이 조직에서 불가 → Routine은 UI에서 생성
+
+## 2026-09-11 로컬 세션 (Ken 맥, 데스크톱 Figma MCP) — 브랜치 보조 작업 (2026-09-14 합류)
+
+- 상황: 아티팩트 최신본(당시 세션 4까지)을 읽고 이어 가려 했으나, 브랜치 "Claude Test"(`XIolz3S5ClSf5VEaBkwDi6`)에 **세션 5의 작업이 이미 진행 중**이었음(🌏 마스터 파일 페이지 `3420:6`: 링크 카드·진입/APP/WEB 섹션·화면 11장·케이스 표 완성, 9/10 이미지 시험 슬롯 `3413:299`도 채워짐). 당시 세션 5는 워크로그·저장소·노션 표를 아직 갱신하지 않은 상태였음 → 이후 세션 5 결과가 실려 이 메모를 합침(2026-09-14)
+- 로컬에서 한 것(브랜치에만): 진입 섹션의 빈 자리 2개를 Core 홈 렌더 이미지로 채움 — SVOD `3428:2190`(안에 사각형 2개 `3436:3061`·`3436:3062`, 상·하 절반) / TVOD `3428:2191`. 방법: `get_screenshot`/`download_assets`(1x) → `upload_assets` → curl POST. 이 맥에서는 `mcp.figma.com`이 바로 열림
+- **새로 확인된 한계: 이미지 한 변 4096px 초과는 업로드 응답이 success여도 노드에 안 붙는다**(`placedOnNodeId`가 응답에 없음). 2x 렌더(750×9632·750×6814)와 1x SVOD(375×4816)가 그랬음 → 1x TVOD(375×3407)는 바로 성공, SVOD는 두 조각으로 나눠 성공. 성공 응답에는 `placedOnNodeId`가 들어 있음 → 이 값으로 성공/실패를 판별할 것. `deep-clone.md` 3단계에 넣을 내용
+- **"영역 설명 컴포넌트"(진입점 마커, 키 `73a99eb…`/세트 `4654fb2…`)는 라이브러리에서 더는 못 불러온다**(`importComponentByKeyAsync` not found; 왓챠파티·콘상페 실물은 모두 이 키, remote=true). `search_design_system`에도 없음. 대안: 같은 규격(가로 오토레이아웃·간격 16·8px 바 세로 FILL·Pretendard JP Bold 18/행간 24·색 = Identity 변수 "WATCHA Brand" 키 `99010ce9…`, `importVariableByKeyAsync` 됨)으로 수동 재구성 가능 — 실제로 3개 만들었다가 아래 이유로 삭제
+- **동시 편집 충돌**: 작업 중 다른 세션(세션 5)이 같은 페이지에 마커 프레임 3개(`3432:33204`·`3432:33207`·`3432:33210`, 분홍 라벨형)를 추가하고 TVOD 프레임을 x 605→884로 옮김. 로컬이 만든 재구성 마커 3개는 중복이라 삭제하고 Figma 쓰기를 중단. 교훈: **쓰기 전에 노드 ID 최댓값/섹션 폭을 두 번 읽어 다른 세션이 활동 중인지 확인**, 활동 중이면 쓰지 않는다
+- 다음 Design-Core 세션이 할 일: 위 두 기술 사실을 `docs/spike-2026-09-10-deep-clone.md`·`scripts/figma-write/deep-clone.md`·지침서 §6-2(마커 재구성 규격)에 반영. 세션 5의 "Ken 컨펌 대기 ⓐ(진입 렌더 이미지)"를 볼 때 SVOD·TVOD 이미지가 로컬 세션이 채운 것임을 참고
+
+## 2026-09-10 세션 4 — 스텝메이드로 첫 실제 시연 (진행 기록, 세션 3과 같은 세션에서 이어짐)
+
+- Ken 질문: "스텝메이드 파일을 보고 우리가 정리해 둔 Core 중 어디에 업데이트해야 하는지 판단할 수 있나?" → 파일을 읽어 보니 커버가 `스텝메이드 / 상세페이지 고도화 · Working`, 페이지가 `✅ Mobile / ✅ Web / 📏 운영 가이드` = **프로젝트 문서**. 세션 2 색인의 "[Core] 스텝메이드(구 형식)"는 오등록 → 정정 (`.claude/lessons_log.md`)
+- 판별: Core 14개 마스터·플로우 원본에 "스텝메이드" 0건. SVOD·TVOD·검색 플로우에 "리스트 상세 페이지"/"기타 상세 페이지"라는 **빈 자리표시 프레임**만 있음(그리드+내비 바, 코어 파일 링크 없음) → 세 Core에서 들어오는데 본체가 없는 가로지르는 페이지 = **유형 C 새 Core** 제안, 확신도 보통(§0-5 질문 필요). 대안(SVOD 안에 / 보관함 안에)은 버린 이유와 함께 기록
+- Δ: 새 Core 마스터에 APP 8건(바디 3케이스 + 헤더 이미지 X + 헤더 케이스 표 + 로딩 + medium/large) · WEB 3건(375 · 768·1280 양끝 · 1281~ 미수록) · 진입 섹션 + 다른 Core 입구 교체 5프레임. 넣지 않는 것(뷰포트 전수·탭바 플로팅·더보기 팝업·제작 가이드) 명시. 링크 카드는 운영 가이드 페이지(190:69274)로. **배포 전이라 실행은 보류**
+- 지침서 갱신: §1에 "Cover 배지·페이지 이름으로 Core/프로젝트 구분" 규칙, §3-1에 "빈 자리표시 진입 프레임 = 주인 없는 화면 → 유형 C 후보"(v0.2 후보) 추가
+- 기술: 프로젝트 문서도 REST `nodes?depth=4`로 페이지 3개(각 5~10MB)를 받아 골격·라벨·텍스트를 뽑았고, 스크린샷 2장(Mobile small 108:11502 · 운영 가이드 298:20250)으로 시각 확인. 브랜치 B의 🔁 Core 반영사항 페이지(3007:6)는 템플릿 예시만 있고 실제 엔트리는 없음
+- **2차 (Ken 피드백 후)**: "질문 말고 스스로 판단" → **번호 마커 추적법** 확립. 플로우의 번호 텍스트는 진입 프레임으로 하이퍼링크(nodeID)돼 있고 마커 y 좌표 = 홈 롱 프레임의 로우 위치. TVOD 마커 12 → 기타 상세 페이지 ← 로우 "새로 올라온 콘텐츠" 더보기(스텝메이드 문서의 탭바 케이스 예시와 동일 이름) / SVOD 마커 22 → 기타 상세 ← "아직 고민 중이신가요?" 텍스트 셀 "예상별점이 높은 콘텐츠" / SVOD 마커 12 → 리스트 상세 ← "이어보기" 더보기(TVOD는 이어보기 상세 페이지로 따로 둠) → **스텝메이드 자리 = "기타 상세 페이지"**, "리스트 상세 페이지"는 다른 페이지. SVOD "왓챠 팀 큐레이션" SquareCell 로우는 마커가 아예 없는 입구 → Δ "마커 신설" 항목. 도구 `trace-entry-markers.py`(섹션 id + 홈 프레임 id → 마커·진입 프레임·출발 요소 표) 추가, 지침서 §3-1에 절차와 "문서에서 읽어 답하는 것들"(빈 상태·배포일·Core 이름) 규칙 추가
+- **저녁 (Ken 답 3건 처리)**: 이미지 이관 전용 통로 시험 — `download_assets`로 왓챠파티 `5:14326`의 원본 이미지 주소 20장(화면당 최대 20장 한도) 받아 2장 내려받기 성공, `upload_assets`로 브랜치 빈 사각형 2개(`3413:300`·`3413:301`)에 채우기 주소 받았으나 POST가 `mcp.figma.com` 프록시 거부(403 `connect_rejected`, 프록시 상태 페이지 확인). 규칙대로 우회하지 않고 Ken에게 도메인 추가 요청. `use_figma`의 `setPluginData`·`createImageAsync`는 미지원(도구 설명 명시)이라 조각 전송 우회도 없음. 문서 반영: spike 문서 한계 1 보강·최종 방법 표, `deep-clone.md` 3단계, 설계안 §4·§7-1(폴더 훑기 제거), network.md, README, lessons_log(시험 이미지가 저장소 루트에 떨어진 실수 1건)
+- 제안서 요약 우선: `templates/delta-proposal.md`와 `docs/demo-2026-09-10-stepmade.md`에 "0. 한눈에" 5줄 표 추가, 아티팩트 "스텝메이드 Δ 제안서"를 한눈에 블록 + 접힌 상세로 재발행
+
+## 2026-09-09 세션 3 — 환경 점검 · Core 색인 15개 완성 · 새 Core 규격(§6) (진행 기록)
+
+- **환경 점검**: `python3 scripts/figma-rest/list-project-files.py 591036590 --pages` → 403. 원인 분리: 네트워크는 열림(`/v1/me`가 ken 계정 반환, `www.figma.com` 200), 토큰 주입 정상, **파일 읽기(`/v1/files/:key`)는 됨**, 폴더 조회만 Figma가 `Invalid scope … requires projects:read`로 거부. 즉 프록시 문제가 아니라 **토큰 범위 문제** → Ken에게 `projects:read` 추가 요청. Figma MCP(`whoami`·`use_figma`·`get_screenshot`)와 Notion MCP 모두 붙어 있음
+- **폴더 조회 없이 Core 키 확보**: SVOD 플로우 페이지(`48:53640`)의 텍스트 하이퍼링크를 `use_figma`로 읽으니 "○○ 코어 파일 링크" 9개(콘상페·플레이어·TVOD·검색·보관함·소식함·나의 왓챠·왓챠파티·프로필)가 걸려 있었음. 이어서 Ken이 **Core 파일 링크 14개**를 채팅으로 전달(웹툰·TV·결제/구독 추가). 스텝메이드는 그 목록에 없음
+- **REST로 11개 파일의 마스터·플로우 페이지를 통째로 읽어 색인 작성** (`scripts/figma-rest/dump-core-file.py` → `build-index-entries.py` → `core-index.json` 합치기 → `build-core-index-md.py`). 묶음(⚪)·크기(🔵)는 설명 바 위치로 자동 배정. 색인 JSON에 `master.roots[]` 구조 추가(루트 섹션이 2개인 결제/구독 때문), md 생성기는 두 구조 모두 지원
+- **지침서 §6 새 Core 규격 재작성** (본보기 왓챠파티 + 실물 11개): 페이지 4개 · Cover 형식(업데이트 로그는 아직 어디에도 없음) · 마스터 = 루트 섹션 → `<이름> 진입` 섹션(가로지르는 기능만; 다른 Core의 긴 화면 + "○○ 진입점" 마커) + APP + WEB · 설명 바 3단 규칙 · 프레임 이름 규칙 · 루트 여러 개 허용 · 링크 카드 형태와 위치 · 플로우 페이지 뼈대("○○ 코어 파일 링크") · 도우미가 새 Core를 채우는 순서 5단계 · 이중 수록 주의(왓챠파티 플레이어가 플레이어·왓챠파티 양쪽에 있음)
+- **실물에서 확인된 사실**: 링크 카드 있는 파일 6개(소식함·플레이어 2장·나의 왓챠·프로필·결제/구독 3장, 모두 상태 뱃지형, 기준 정보 자리 없음) / 없는 파일 8개(SVOD·왓챠파티·콘상페·TVOD·검색·보관함·웹툰·TV) / 결제/구독은 루트 섹션 2개(🌏 결제·🌏 구독)+플로우 루트 2개 / 웹툰은 루트 섹션 없이 APP·WEB이 페이지 직속, ⚪ 묶음 없음 / TV는 새 형식 미적용(1920 프레임 4장, 플로우 비어 있음) / 콘상페 WEB은 large를 ~1079·1080~로 나눔 / 보관함 마스터가 가장 큼(APP 105·WEB 72 자식) — 자동 묶음이 어긋났을 수 있어 이관 전 실물 확인 필요
+- 스크린샷 `docs/img/`: 왓챠파티 마스터 전체(20:29495), 플레이어 링크 카드(10:10914)
+
+### 이 세션에서 확인된 기술 사실
+
+- **REST가 이 환경에서 동작한다** (토큰은 프록시가 붙임, 스크립트에는 헤더 없음). `GET /v1/files/:key?depth=1` = 페이지 목록, `GET /v1/files/:key/nodes?ids=<페이지>` = 페이지 전체 트리(마스터 페이지 5~70MB, 11개에 약 3분). `use_figma`보다 대량 읽기에 유리하고 호출당 페이지 1개 제한이 없음
+- REST 트리에서 텍스트 하이퍼링크는 `hyperlink`가 아니라 **`styleOverrideTable` 안**에 있음 (부분 서식). 인스턴스 속성값은 `componentProperties[키].value`, 설명 바 제목은 인스턴스 안 visible 텍스트 중 placeholder('제목'·'Title')를 뺀 첫 번째
+- **403 구분법**: 프록시 거부는 `X-Proxy-Error` 헤더/`connect_rejected`, Figma 거부는 본문 `{"error":true,"status":403,"message":"Invalid scope…"}`. `.claude/rules/network.md`에 추가
+- **`get_screenshot`의 URL 다운로드가 된다** (`www.figma.com/api/mcp/asset/...`, 허용 도메인) → 세션 2의 base64 방식은 이제 불필요
+- MCP 서버가 세션 중 재연결되면 도구 이름 접두어가 바뀜(`mcp__ede8b140…__use_figma` → `mcp__Figma__use_figma`). ToolSearch로 다시 찾으면 됨
+- Notion MCP로 운영안 원본(3cda2845…)과 "왓챠 피그마 구조 개편안"(349a2845…: Core 파일 목록의 원출처 — 서비스 탭 2·공통 페이지 6·공통 기능 4·플랫폼 1)을 읽을 수 있음
 
 ## 2026-09-09 세션 2 — 도우미 저장소 구축 (진행 기록)
 
@@ -35,10 +164,9 @@
 - **폴더(프로젝트 591036590) 안 파일 목록은 여전히 못 봄.** ① Figma MCP에 폴더 조회 도구가 없음 ② REST `api.figma.com`은 이 환경의 네트워크 정책이 차단(프록시 403) → 토큰이 있어도 지금 환경에선 불가. `scripts/figma-rest/list-project-files.py`는 정책이 열리고 `FIGMA_TOKEN`이 환경 변수로 들어오면 동작. 그 전까지는 **Ken이 파일 링크를 붙여넣는 방식** (파일당 링크 1개면 나머지는 자동)
 - **네트워크 정책은 Ken이 직접 풀 수 있음**: 이 세션은 환경 "naver-crawler"(네트워크 **Trusted** = 패키지 저장소만)에서 실행됨. 해결: claude.ai/code 입력창 위의 **구름 아이콘(환경 선택기)** → **Add cloud environment**로 "Design-Core" 환경을 새로 만들고 Network access를 **Custom**, Allowed domains에 `api.figma.com`·`www.figma.com`(한 줄에 하나), "Also include default list of common package managers" 체크. 토큰은 (권장) 환경을 한 번 만든 뒤 다시 열어 **API credentials**에 호스트 `api.figma.com`, 헤더 이름 `X-Figma-Token`, 접두어 비움, 값=토큰으로 등록 → 세션에서 토큰이 안 보임. (그 항목이 안 보이는 플랜이면) Environment variables에 `FIGMA_TOKEN=...`. 변경은 **새 세션**부터 적용. `scripts/figma-rest/list-project-files.py`는 두 방식 모두 지원. 문서: https://code.claude.com/docs/en/cloud-environments
 - GitHub: 세션 2 중간에 Claude GitHub 앱을 `ken-watcha/Design-Core`에 설치 → 푸시 정상 (브랜치 `claude/core-file-helper-setup`, `main`도 같은 내용으로 생성)
-- **Figma 토큰 권한 (세션 3에서 발견, 세션 2의 안내 오류)**: 폴더 안 파일 목록(`GET /v1/projects/:id/files`)은 토큰에 **`projects:read`** 권한이 있어야 함. `file_content:read`만으로는 403. 재발급 시 두 권한 모두 켜고, 환경의 API 자격 증명은 수정이 안 되므로 삭제 후 재등록. 세션 3은 그 사이 SVOD 플로우 페이지의 링크를 따라가 Core 파일 키 8개를 확보해 진행 중
-- **(9/18 세션 4) 토큰 만료 + 권한 이름 변경**: 위 재발급 토큰도 9/18 시점 `Token has expired`. 네트워크·프록시 주입은 정상이므로 남은 건 재발급뿐 (만료 기간 넉넉히). 권한은 `projects:read`가 아니라 **`folders:read`** (PAT에는 projects:read가 없음). 상세는 맨 위 "세션 4" 항목
+- **Figma 토큰 권한 (세션 3에서 발견, 세션 2의 안내 오류)**: 폴더 안 파일 목록(`GET /v1/projects/:id/files`)은 토큰에 **`projects:read`** 권한이 있어야 함. `file_content:read`만으로는 403. 재발급 시 두 권한 모두 켜고, 환경의 API 자격 증명은 수정이 안 되므로 삭제 후 재등록. 세션 3은 그 사이 SVOD 플로우 페이지의 링크를 따라가 Core 파일 키를 확보해 진행함
 - 세션 3: https://claude.ai/code/session_01QmSAzBKrijMwjXUy5cZvkp (Design-Core 환경, `main` 브랜치)
-- **스크린샷 URL 다운로드도 차단**(`www.figma.com` 403) → `get_screenshot`은 `enableBase64Response: true`로만 사용 (토큰 소모 큼, 꼭 필요한 화면만)
+- **스크린샷 URL 다운로드도 차단**(`www.figma.com` 403) → `get_screenshot`은 `enableBase64Response: true`로만 사용 (토큰 소모 큼, 꼭 필요한 화면만). **세션 3에서 정정: Design-Core 환경에서는 URL 다운로드가 됨**
 - 스크린 설명 컴포넌트 속성 키: `배경 색상`(⚫️ 어두운 회색=대분류 / ⚪️ 밝은 회색=케이스 묶음 / 🔵 파랑=크기·단계), `🔠 타이틀#2018:9`, `ㄴ 📝 설명#2018:8`, `🪐 뱃지#2018:10`
 - Core 소식함 링크 카드 실물(42:15817)은 텍스트 2개 + "ㄴ 상태 뱃지" 인스턴스(42:15820) 안의 "관련 스펙 링크" 텍스트에 하이퍼링크. 로그인/온보딩 카드(91:7)는 텍스트 2개(제목에 하이퍼링크 + 기준 정보 자리). 두 형태가 다름 → 공용 컴포넌트화 때 통일 필요
 
@@ -50,10 +178,10 @@
 | Spotify Ways of Working 한글판 | [Figma 파일](https://www.figma.com/design/8cc6sX7zJUNU9my6Pp1XLR/Spotify-Ways-of-Working--Community-?node-id=137-2) | 36장 전체 번역 완료 (202개 노드), 목업·고유명사는 의도적 영어 유지 |
 | Spotify 정리 문서 | [아티팩트](https://claude.ai/code/artifact/d2e03073-4af8-444b-acd7-c5b87fcb3a55) | 한글 요약 문서 (팀 공유용) |
 | 실험 브랜치 A | Core SVOD 브랜치 (fileKey `RmBwg6sqNizQu8kSz3YsxM`) | **폐기 권장** — 섹션화 실험은 최종 결론과 불일치, 머지 금지 |
-| 실험 브랜치 B | 스텝메이드 브랜치 (fileKey `XIolz3S5ClSf5VEaBkwDi6`) | 🔁 Core 반영사항(Δ) 페이지(3007:6)와 📚 Spotify 구조 다이어그램(3024:6)만 유효 |
+| 실험 브랜치 B | 스텝메이드 브랜치 "Claude Test" (fileKey `XIolz3S5ClSf5VEaBkwDi6`) | 🔁 Δ 페이지(3007:6)·📚 다이어그램(3024:6) + **세션 5의 🌏 마스터 파일 페이지(3420:6, Ken 컨펌 대기)** |
 | 링크 카드 실물 | [Core 소식함](https://www.figma.com/design/MyrNGU07TEOXg6glOTG9jh/?node-id=18-10400) | Ken이 직접 만든 원형 — 공용 컴포넌트화 후보 |
-| **도우미 코드 저장소** | [ken-watcha/Design-Core](https://github.com/ken-watcha/Design-Core) | 2026-09-09 Ken 지정. 구조 잡기 완료 (README 참고) |
-| **Core 파일 폴더** | [Figma 팀 폴더](https://www.figma.com/files/1014901253946075002/folder/591036590) | 프로젝트 ID 591036590. MCP로는 폴더 안 파일 목록 조회 불가, 파일 링크를 개별로 받아야 함 |
+| **도우미 코드 저장소** | [ken-watcha/Design-Core](https://github.com/ken-watcha/Design-Core) | 2026-09-09 Ken 지정. 구조 잡기 완료 (README 참고). 작업 브랜치 main (기본 브랜치는 옛 것 — 세션 6 시작점 "clone 함정") |
+| **Core 파일 폴더** | [Figma 팀 폴더](https://www.figma.com/files/1014901253946075002/folder/591036590) | 프로젝트 ID 591036590. **15개 색인 완료(세션 3)** — 파일 키 목록은 `scripts/figma-rest/core-files.json`. 폴더 자체 조회는 토큰에 `projects:read` 범위가 붙으면 가능 |
 
 ## 프로젝트 한 줄 요약
 
@@ -86,7 +214,7 @@
 
 ## 진행된 파일럿
 
-- **[Core] 로그인/온보딩** (fileKey `irS8OlYuyQmW0aL4DR3cy5`): 새 수록 기준 첫 적용 완료 (2026-09-02). 기존 🌊 플로우 페이지(~400노드, 폭 5.5만px)는 기준 문서 역할로 두고, 새 `🌏 마스터 파일` 페이지(노드 91:6, 페이지 89:21432)에 대표 22장(APP 11 + WEB 11) + 스펙 링크 카드(플로우 페이지로 하이퍼링크) 배치. 라벨은 스크린 설명 컴포넌트(라이브러리) 인스턴스 — 플랫폼 바 ⚪️ 밝은 회색 / 단계 바 🔵 파랑, 섹션 스타일은 소식함과 동일(루트 fill 20,21,23 / APP·WEB 34,35,38 / radius 60, 내부 상단 여백 60). 원본 페이지는 무수정(복제만). 판단 기록: 갈래 시작 바텀시트 3개는 동일 화면이라 1장으로, 애플 갈래는 특유 화면 없어 미수록, focus/active/filled 입력 상태는 대표 1장만, 인증은 기본+시간 초과만. 마감 정리(9/2): 시안·설명 바 간격을 가로세로 모두 32px 그리드로 재배치(행 높이는 행 내 최대 프레임 바닥 + 32 기준 — WEB 입력 화면은 980h로 720h와 섞여 있음), 섹션 가장자리 여백 60 유지. **미결 2건**: ① 링크 카드 기준 정보(프로젝트명·배포일·담당자) 기입 — Ken 몫 ② 온보딩 화면("표시 콘텐츠 설정" 프레임들이 실물과 이름 불일치) 확인 후 추가 여부
+- **[Core] 로그인/온보딩** (fileKey `irS8OlYuyQmW0aL4DR3cy5`): 새 수록 기준 첫 적용 완료 (2026-09-02). 기존 🌊 플로우 페이지(~400노드, 폭 5.5만px)는 기준 문서 역할로 두고, 새 `🌏 마스터 파일` 페이지(노드 91:6, 페이지 89:21432)에 대표 22장(APP 11 + WEB 11) + 스펙 링크 카드(플로우 페이지로 하이퍼링크) 배치. 라벨은 스크린 설명 컴포넌트(라이브러리) 인스턴스 — 플랫폼 바 ⚪️ 밝은 회색 / 단계 바 🔵 파랑, 섹션 스타일은 소식함과 동일(루트 fill 20,21,23 / APP·WEB 34,35,38 / radius 60, 내부 상단 여백 60). 원본 페이지는 무수정(복제만). 판단 기록: 갈래 시작 바텀시트 3개는 동일 화면이라 1장으로, 애플 갈래는 특유 화면 없어 미수록, focus/active/filled 입력 상태는 대표 1장만, 인증은 기본+시간 초과만. 마감 정리(9/2): 시안·설명 바 간격을 가로세로 모두 32px 그리드로 재배치(행 높이는 행 내 최대 프레임 바닥 + 32 기준 — WEB 입력 화면은 980h로 720h와 섞여 있음), 섹션 가장자리 여백 60 유지. **미결 2건**: ① 링크 카드 기준 정보(프로젝트명·배포일·담당자) 기입 — Ken 몫 ② 온보딩 화면("표시 콘텐츠 설정" 프레임들이 실물과 이름 불일치) 확인 후 추가 여부. **세션 6 검증**: 도우미가 규칙만으로 같은 22장을 골랐고 원본 짝표까지 완성(`docs/verify-2026-09-14-login-onboarding.md`)
 
 ## 코어파일 자동 생성 도우미 (2026-09-09 킥오프)
 
@@ -112,9 +240,9 @@
 
 ### 다음 할 일 (우선순위순)
 
-1. ~~Core 색인 작성~~ 구조까지 완료 3개(세션 2). ~~Ken에게 링크 받기~~ **세션 4에서 REST로 폴더 전체 15개 키·페이지 확보** → 남은 것: 12개 파일 마스터 페이지 구조 색인 + 스텝메이드 항목 교체
-2. Ken에게 **손으로 이관을 끝낸 과거 프로젝트 1건** 받기 (프로젝트 문서 + 반영된 Core 위치) → 지침서 v0.1의 판단 규칙 재검증 → v0.2
-3. **왓챠파티 파일**로 "새 Core 만드는 케이스"의 파일 규격 정리 (지침서 §6 보강)
+1. ~~Core 색인 작성~~ **15개 전부 완료(세션 3)**. ~~스텝메이드의 폴더 소속만 확인 필요~~ 세션 8에서 REST 폴더 조회로 확인 완료
+2. Ken에게 **손으로 이관을 끝낸 과거 프로젝트 1건** 받기 (프로젝트 문서 + 반영된 Core 위치) → 지침서 v0.1의 판단 규칙 재검증 → v0.2 (세션 3 끝에 요청함)
+3. ~~**왓챠파티 파일**로 "새 Core 만드는 케이스"의 파일 규격 정리~~ **완료(세션 3, 지침서 §6)**
 4. ~~Design-Core 저장소 구조 잡기~~ **완료(세션 2)**
 5. 실제 프로젝트 1건으로 **판별 → Δ 제안까지 시연** (쓰기 없이). 자가 검증(소식함)은 완료, 실제 프로젝트는 링크 대기. Ken 승인 후 실행 단계 구현
 6. 실행 단계: 이관(껍데기 유지 교체·링크 카드 갱신·커버 로그·아카이브)과 새 Core 생성(플러그인 API로 파일 생성은 불가 → 템플릿 파일 복제는 Ken 수동, 내용 채우기는 도우미). 쓰기 스크립트는 `scripts/figma-write/`에 (아직 없음)
@@ -132,8 +260,9 @@
 - **원본 파일 직접 수정 금지** — 반드시 브랜치(또는 사본)에서. 배치 작업은 배치마다 Ken 컨펌
 - 보고 시 항상 해당 node-id까지 포함한 Figma 링크 동봉
 - Ken의 반려에는 이유가 있음 — 제안 전에 "누가 언제 관리하나", "기존 이관 방식(복사-붙여넣기)과 충돌하나"를 먼저 검증할 것
-- 도우미도 같은 원칙: **판단(제안)과 실행을 분리**하고, 실행은 Ken 승인 뒤에만
-- **네트워크(2026-09-09 Ken 결정)**: Design-Core 환경은 "사용자 지정" 허용 목록(`api.figma.com`, `www.figma.com` + 패키지 저장소). 막힌 도메인이 생기면 우회하지 말고 Ken에게 도메인 이름을 적어 추가 요청 → Ken이 환경 설정에서 추가 → 새 세션부터 적용. 저장소 `.claude/rules/network.md`에 같은 내용
+- 도우미도 같은 원칙: **판단(제안)과 실행을 분리**하고, 실행은 Ken 승인 뒤에만 (프로그램 A에서는 버튼이 곧 승인)
+- **네트워크(2026-09-09 Ken 결정)**: Design-Core 환경은 "사용자 지정" 허용 목록(`api.figma.com`, `www.figma.com`, `mcp.figma.com` + 패키지 저장소). 막힌 도메인이 생기면 우회하지 말고 Ken에게 도메인 이름을 적어 추가 요청 → Ken이 환경 설정에서 추가 → 새 세션부터 적용. 저장소 `.claude/rules/network.md`에 같은 내용
+- **동시 편집 주의 (로컬 세션 교훈, 2026-09-11)**: 같은 브랜치·페이지에 두 세션이 동시에 쓰면 충돌함. 쓰기 전에 노드 상태를 두 번 읽어 다른 세션의 활동 여부를 확인하고, 활동 중이면 쓰지 않는다
 
 ## 기술 메모 (Figma MCP)
 
@@ -146,7 +275,9 @@
 - SECTION 노드도 fills·cornerRadius 지정 가능 (Core 컨테이너 스타일: 루트 20,21,23 / 하위 34,35,38 / radius 60)
 - 스크린 설명 컴포넌트는 내용 폭으로 hug됨 — 텍스트 변경 후 `layoutSizingHorizontal='FIXED'` + resize 재적용 필요. 색 변형은 `setProperties({'배경 색상': '🔵 파랑'})`, 제목은 내부 '제목' 텍스트 노드 직접 수정
 - get_metadata 결과가 큰 페이지(마스터 페이지 13만 자)는 파일로 저장되므로 스크립트로 깊이 2~3까지만 추려 볼 것 (저장소 `scripts/outline.py`)
-- 스크린 설명 컴포넌트 인스턴스의 속성 키: `🪐 뱃지#2018:10` / `🔠 타이틀#2018:9` / `ㄴ 📝 설명#2018:8` (불리언) / `배경 색상` (`⚫️ 어두운 회색` = 파일·대분류 바, `⚪️ 밝은 회색` = 케이스 묶음 바, `🔵 파랑` = 크기·단계 바)
+- 스크린 설명 컴포넌트 인스턴스의 속성 키: `🪐 뱃지#2018:10` / `🔠 타이틀#2018:9` / `ㄴ 📝 설명#2018:8` (불리언) / `배경 색상` (`⚫️ 어두운 회색` = 파일·대분류 바, `⚪️ 밝은 회색` = 케이스 묶음 바, `🔵 파랑` = 크기·단계 바). 컴포넌트 키(세션 5): ⚫ `47bbf037…` / ⚪ `1ea0bc15…` / 🔵 `94dc30fc…`, 세트 `022c72c2…`; 상태 뱃지 `11bae7fa…`; 영역 설명 컴포넌트 `73a99eba…`(세트 `4654fb2f…`, 스텝메이드 파일에선 import 불가 — **로컬 세션 확인: 라이브러리 자체에서 import 불가 확정, 수동 재구성 규격은 로컬 세션 섹션 참고**). 전체 키는 지침서 §6-2
+- 이미지 이관(세션 5 확정): `download_assets` → curl → `upload_assets(nodeIds)` → `curl -F` → 응답 해시로 fills 확인/지정. 절차 `scripts/figma-write/deep-clone.md` 3단계. **추가(로컬 세션): 한 변 4096px 초과는 success여도 안 붙음 — `placedOnNodeId` 유무로 판별, 초과분은 조각으로 분할**
+- 지문 대조(세션 6): 복붙할 원본을 이름이 아니라 "보이는 글자 8개 + 자손 수"로 찾는다. 유일하면 확정, 여럿이면 이름으로, 없으면 사람에게
 
 ## 세션 간 동기화 체계
 

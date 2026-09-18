@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 12px/1.5 -apple-system, "Pretendard", sans-serif; margin: 0; padding: 14px; color: var(--figma-color-text, #222); background: var(--figma-color-bg, #fff); }
+  h1 { font-size: 14px; margin: 0 0 6px; }
+  h2 { font-size: 12px; margin: 14px 0 6px; opacity: .8; }
+  .muted { opacity: .65; }
+  .box { border: 1px solid var(--figma-color-border, #ddd); border-radius: 8px; padding: 10px; margin: 8px 0; }
+  .row { display: flex; gap: 8px; align-items: center; margin: 4px 0; flex-wrap: wrap; }
+  button { border: 0; border-radius: 6px; padding: 8px 12px; font-size: 12px; cursor: pointer; background: var(--figma-color-bg-brand, #0d99ff); color: #fff; }
+  button.secondary { background: var(--figma-color-bg-secondary, #eee); color: var(--figma-color-text, #222); }
+  button:disabled { opacity: .4; cursor: default; }
+  select, input { font-size: 12px; padding: 4px 6px; border-radius: 6px; border: 1px solid var(--figma-color-border, #ccc); background: transparent; color: inherit; max-width: 100%; }
+  table { border-collapse: collapse; width: 100%; }
+  td, th { text-align: left; padding: 3px 4px; border-bottom: 1px solid var(--figma-color-border, #eee); vertical-align: top; }
+  pre { white-space: pre-wrap; font-size: 11px; background: var(--figma-color-bg-secondary, #f5f5f5); padding: 8px; border-radius: 6px; max-height: 160px; overflow: auto; }
+  .warn { color: #c47a00; } .err { color: #d33; } .ok { color: #1a9d4b; }
+  a { color: var(--figma-color-text-brand, #0d99ff); }
+  textarea { width: 100%; height: 90px; font-size: 11px; }
+</style>
+</head>
+<body>
+<h1>Core 도우미 <span id="ver" class="muted"></span></h1>
+<div id="status" class="muted">규칙을 받아오는 중…</div>
+<div id="score" class="muted" style="margin:4px 0 8px"></div>
+<div id="reviewBanner" class="box" style="display:none">
+  <div><b id="reviewTitle"></b> <span id="reviewSub" class="muted"></span></div>
+  <div class="row"><button id="btnReview" class="secondary">학습 검토 열기</button></div>
+</div>
+
+<!-- 화면 0: 학습 검토 (검토자) -->
+<div id="s-review" style="display:none">
+  <div class="box">
+    <div><b>학습 검토</b> — 진행 결과는 가설입니다. 승인한 항목만 다음부터 자동 판단에 쓰입니다. <span id="reviewWho" class="muted"></span></div>
+    <div class="row"><button id="btnReviewBack" class="secondary">돌아가기</button><button id="btnReviewAll" class="secondary">결정된 것도 보기</button></div>
+  </div>
+  <div id="reviewList"></div>
+</div>
+<div id="s-unknown" style="display:none" class="box">
+  <div>이 파일의 페이지 구성을 모릅니다. 어느 쪽인지 골라 주면 <b>이 구성을 기억</b>해 다음부터는 묻지 않습니다.</div>
+  <div class="row"><button id="btnKindProject" class="secondary">프로젝트 문서다</button><button id="btnKindCore" class="secondary">Core 파일이다</button></div>
+</div>
+
+<!-- 화면 1: 분석·판별 (프로젝트 파일) -->
+<div id="s-analyze" style="display:none">
+  <div class="box">
+    <div><b id="fileName"></b> <span id="kindLabel" class="muted"></span></div>
+    <div class="row"><button id="btnAnalyze">분석하기</button><span class="muted">문서를 읽기만 합니다</span></div>
+  </div>
+  <div id="analysis" style="display:none">
+    <h2>대표 화면 (오버뷰: 크기마다 1장)</h2>
+    <div id="picks"></div>
+    <h2>수록 대조표</h2>
+    <table id="coverage"></table>
+    <div id="missing" class="warn"></div>
+    <h2>판별</h2>
+    <div id="judge" class="box"></div>
+    <div class="row">
+      <label>프로젝트명 <input id="projName" size="14"></label>
+      <label>배포월 <input id="relMonth" size="7" placeholder="2026.10"></label>
+      <label>담당 <input id="owner" size="8"></label>
+    </div>
+    <div class="row">
+      <button id="btnNew">새 Core로 진행</button>
+      <button id="btnUpdate" class="secondary">기존 Core 업데이트로 진행</button>
+    </div>
+  </div>
+</div>
+
+<!-- 화면 2: 다음에 할 일 (계획 저장됨) -->
+<div id="s-plan" style="display:none">
+  <div class="box">
+    <div><b>계획 저장됨</b> — <span id="planSummary"></span></div>
+    <div id="nextNew" style="display:none">
+      <h2>새 Core 만들기 — 다음 단계</h2>
+      <ol>
+        <li>이 파일을 우클릭 → <b>Duplicate</b> → 이름 <code>[Core] <span class="pn"></span></code> → Core 폴더로 이동</li>
+        <li>복제본을 열고 이 플러그인을 다시 실행 → 아래 버튼이 활성화됩니다</li>
+      </ol>
+      <button id="btnBuild" disabled>복제본에 Core 만들기</button>
+      <span id="buildHint" class="muted"></span>
+    </div>
+    <div id="nextUpdate" style="display:none">
+      <h2>기존 Core 업데이트 — 다음 단계</h2>
+      <ol>
+        <li><button id="btnSelect" class="secondary">Δ 화면 선택</button> → <b>⌘C</b></li>
+        <li>Core 파일 <span class="cn"></span>의 브랜치 "Core 도우미"를 열고 🌏 마스터 파일 페이지에서 <b>⌘V</b></li>
+        <li>붙여 넣은 상태 그대로 플러그인 실행 → 아래 버튼</li>
+      </ol>
+      <button id="btnPlace" disabled>붙여 넣은 화면 배치</button>
+      <span id="placeHint" class="muted"></span>
+    </div>
+    <div class="row"><button id="btnClear" class="secondary">계획 지우기</button></div>
+  </div>
+</div>
+
+<h2>진행 기록</h2>
+<pre id="log"></pre>
+<div id="result"></div>
+
+<details id="learnBox" style="margin-top:10px; display:none"><summary class="muted">학습 채점표 · 내보내기 · 가져오기 (검토자만 보임)</summary>
+  <div id="scoreDetail" class="muted" style="margin:6px 0"></div>
+  <div class="row"><button id="btnExport" class="secondary">기억 내보내기</button><span class="muted">복사해서 검토자에게 보내거나 저장소 <code>plugin/memory.json</code>에 올립니다</span></div>
+  <textarea id="caseNote" placeholder="내보낸 기억 JSON이 여기 담깁니다. 다른 사람이 보낸 JSON을 붙여 넣고 '가져오기'를 누르면 그쪽 가설이 이쪽 대기함에 합쳐집니다"></textarea>
+  <div class="row"><button id="btnImport" class="secondary">붙여 넣은 기억 가져오기</button></div>
+</details>
+
+<script>
+// main을 먼저, 없으면 개발 브랜치(main에 아직 안 합쳐졌을 때). 합쳐지면 뒤 항목은 저절로 안 쓰인다.
+const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/';
+const BRANCHES = ['main', 'claude/lucid-darwin-nlxrhv'];
+const RULES_URL = BRANCHES.map(b => RAW + b + '/plugin/rules.json');
+const INDEX_URL = BRANCHES.map(b => RAW + b + '/core-index/core-index.json');
+const MEMORY_URL = BRANCHES.map(b => RAW + b + '/plugin/memory.json');   // 여러 노트북의 학습을 합친 공유 기억
+const $ = (id) => document.getElementById(id);
+const send = (type, payload) => parent.postMessage({ pluginMessage: Object.assign({ type }, payload || {}) }, '*');
+let STATE = { kind: null, plan: null, analysis: null, judge: null };
+
+async function fetchJson(urls) {
+  for (const url of [].concat(urls)) {
+    try { const r = await fetch(url, { cache: 'no-store' }); if (r.ok) return await r.json(); } catch (e) { /* 다음 후보 */ }
+  }
+  return null;
+}
+(async () => {
+  const [rules, index, memory] = await Promise.all([fetchJson(RULES_URL), fetchJson(INDEX_URL), fetchJson(MEMORY_URL)]);
+  if (!rules) $('status').textContent = '규칙을 GitHub에서 못 받았습니다 — 마지막으로 받은 규칙으로 시도합니다';
+  send('init', { rules, index, memory });
+})();
+
+function logLine(s) { $('log').textContent += s + '\n'; $('log').scrollTop = 1e9; }
+function show(kind, plan) {
+  $('s-review').style.display = 'none';
+  $('s-analyze').style.display = kind === 'project' && !plan ? '' : 'none';
+  $('s-plan').style.display = plan ? '' : 'none';
+  if (plan) {
+    $('planSummary').textContent = `${plan.projectName} · ${plan.mode === 'new' ? '새 Core' : '기존 Core ' + (plan.targetCore || '') + ' 업데이트'} · 화면 ${plan.screenCount}장`;
+    document.querySelectorAll('.pn').forEach(e => e.textContent = plan.projectName);
+    document.querySelectorAll('.cn').forEach(e => e.textContent = plan.targetCore || '');
+    $('nextNew').style.display = plan.mode === 'new' ? '' : 'none';
+    $('nextUpdate').style.display = plan.mode === 'update' ? '' : 'none';
+    const inCopy = kind === 'project' && STATE.fileName !== plan.sourceFileName;
+    $('btnBuild').disabled = !(plan.mode === 'new' && kind === 'project' && (inCopy || /Copy|복사/.test(STATE.fileName || '')));
+    $('buildHint').textContent = $('btnBuild').disabled ? '(복제본을 연 뒤 활성화)' : '이 파일이 복제본이면 누르세요';
+    $('btnPlace').disabled = !(plan.mode === 'update' && kind === 'core');
+    $('placeHint').textContent = $('btnPlace').disabled ? '(Core 파일에서 활성화)' : '';
+  }
+}
+
+function renderAnalysis(a, j) {
+  STATE.analysis = a; STATE.judge = j;
+  STATE.analysisAt = Date.now(); STATE.touchedUnsure = false;   // 얼마나 살펴보고 "진행"을 누르는지 재기 위한 시작점
+  $('analysis').style.display = '';
+  let html = '';
+  for (const platform of Object.keys(a.platforms)) {
+    html += `<div class="box"><b>${platform}</b>`;
+    for (const e of a.platforms[platform]) {
+      for (const p of e.picks) {
+        p.proposed = p.chosen;   // 채점용: 플러그인이 제안한 것을 남겨 둔다 (사람이 바꾸면 chosen만 바뀜)
+        const opts = p.candidates.map(c => `<option value="${c.id}" ${c.id === p.chosen ? 'selected' : ''}>${c.name} (${c.w}×${c.h})${c.learned ? ' ★' : ''}</option>`).join('');
+        const tag = !p.candidates.length ? '' : p.sure ? `<span class="ok">자동${p.basis === '학습' ? '·학습' : ''}</span>` : `<span class="warn">확인 필요</span>`;
+        html += `<div class="row"><span style="width:110px">🔵 ${e.cls} ${p.width}px</span>` + (p.candidates.length ? `<select data-platform="${platform}" data-cls="${e.cls}" data-width="${p.width}">${opts}</select> <a href="#" data-sel="${p.chosen}">보기</a> ${tag}` : `<span class="err">후보 없음</span>`) + `</div>`;
+      }
+      html += `<div class="muted" style="margin-left:110px">${e.section ? '섹션: ' + e.section.name + ' (' + e.section.basis + ')' : '섹션 못 찾음'} · ${e.desc}</div>`;
+    }
+    html += '</div>';
+  }
+  const unsure = (a.unsure || 0) + a.coverage.filter(c => !c.to).length;
+  html = `<div class="${unsure ? 'warn' : 'ok'}">${unsure ? `확인할 항목 ${unsure}개 — 고르면 다음부터 기억합니다` : '전부 자동으로 골랐습니다 — 틀린 게 있으면 바꿔 주세요 (바꾼 것도 배웁니다)'}</div>` + html;
+  $('picks').innerHTML = html;
+  $('picks').querySelectorAll('select').forEach(s => s.addEventListener('change', (ev) => {
+    const { platform, cls, width } = ev.target.dataset;
+    const e = a.platforms[platform].find(x => x.cls === cls); const p = e.picks.find(x => x.width == width); p.chosen = ev.target.value; STATE.touchedUnsure = true;
+  }));
+  $('picks').querySelectorAll('a[data-sel]').forEach(el => el.addEventListener('click', (ev) => { ev.preventDefault(); STATE.touchedUnsure = true; send('select', { id: el.dataset.sel }); }));
+  const clsNames = (pf) => (STATE.rulesClasses && STATE.rulesClasses[pf]) || ['small', 'medium', 'large'];
+  $('coverage').innerHTML = '<tr><th>문서 섹션</th><th>마스터 위치</th></tr>' + a.coverage.map((c, i) => `<tr><td>${c.section}</td><td class="${c.to ? '' : 'warn'}">${c.to ? c.to + ' <span class="muted">(' + c.basis + ')</span>' : `<select data-cov="${i}"><option value="">어느 크기?</option>${clsNames(c.platform).map(n => `<option>${n}</option>`).join('')}<option value="skip">마스터에 안 넣음</option></select> <span class="muted">${c.note}</span>`}</td></tr>`).join('');
+  $('coverage').querySelectorAll('select[data-cov]').forEach(s => s.addEventListener('change', (ev) => { const c = a.coverage[+ev.target.dataset.cov]; c.userCls = ev.target.value && ev.target.value !== 'skip' ? ev.target.value : null; c.userSkip = ev.target.value === 'skip'; STATE.touchedUnsure = true; }));
+  $('missing').textContent = a.missing.length ? '⚠ ' + a.missing.join(' · ') : '';
+  if (j) {
+    const cands = j.candidates.map(c => `<div>· ${c.name} <span class="muted">(${c.total}점: ${c.hits.join(', ')})</span></div>`).join('') || '<div class="muted">색인·학습에 맞는 Core 없음</div>';
+    $('judge').innerHTML = `<div><b>${j.suggestion === 'new' ? '새 Core' : '기존 Core 업데이트'}</b> 로 보임 <span class="${j.sure ? 'ok' : 'warn'}">${j.sure ? '(자동)' : '(확인 필요)'}</span> — ${j.reason}</div>${cands}<div class="row"><label>기존 Core 이름 <select id="targetCore"><option value="">(선택)</option>${j.candidates.map(c => `<option ${j.sure && j.suggestion === 'update' && c === j.candidates[0] ? 'selected' : ''}>${c.name}</option>`).join('')}</select></label></div>`;
+  }
+  $('projName').value = a.cover.nameEN.replace(/\n.*/, '') || a.fileName.replace(/\s*\(Copy\)|\s*고도화.*/g, '');
+  $('owner').value = a.cover.owner;
+}
+function renderScore(s) {
+  if (!s) return;
+  const pct = s.picks ? Math.round(s.hit / s.picks * 100) + '%' : '-';
+  $('score').textContent = `승인된 기억 ${s.total}건 · 최근 살펴본 ${s.runs}회 적중 ${s.hit}/${s.picks} (${pct}) · ${s.verdict}`;
+  const trend = s.early != null ? `적중률 앞 절반 ${Math.round(s.early * 100)}% → 뒤 절반 ${Math.round(s.late * 100)}%` : '추세는 4회 이상부터';
+  $('scoreDetail').innerHTML = `<div>${trend} · 확인 요청 ${s.unsure}건 · 사람이 고친 ${s.fixed}건(그중 승인된 기억의 오답 ${s.fixedLearned}) · 판별 적중 ${s.judgeHit}/${s.judged} · 빠른 진행 ${s.careless}회</div><div>가설 ${s.items}건 중 승인 ${s.approved} · 거절 ${s.rejected} · 만든 마스터 유지 ${s.kept} / 바뀜 ${s.changed}</div>` + (s.conflicts.length ? `<div class="warn">기억이 갈리는 항목:<br>${s.conflicts.join('<br>')}</div>` : '');
+}
+
+function makePlan(mode) {
+  const a = STATE.analysis;
+  let count = 0; for (const pl of Object.values(a.platforms)) for (const e of pl) for (const p of e.picks) if (p.chosen) count++;
+  const j = STATE.judge || {};
+  return { mode, projectName: $('projName').value.trim(), releaseMonth: $('relMonth').value.trim(), owner: $('owner').value.trim(),
+    targetCore: mode === 'update' ? ($('targetCore') && $('targetCore').value) : null,
+    judgeWords: j.judgeWords || '', judgeProposed: j.suggestion || null, judgeBasis: j.sure ? '자동' : '확인',
+    sourceFileName: a.fileName, sourceFileKey: a.fileKey, sourceUrl: a.fileKey ? `https://www.figma.com/design/${a.fileKey}/` : '',
+    platforms: a.platforms, coverage: a.coverage, screenCount: count, savedAt: new Date().toISOString() };
+}
+
+$('btnAnalyze').onclick = () => { $('log').textContent = ''; send('analyze'); };
+const care = () => { const a = STATE.analysis || {}; return { seconds: Math.round((Date.now() - (STATE.analysisAt || Date.now())) / 1000), touchedUnsure: !!STATE.touchedUnsure, unsureCount: (a.unsure || 0) + ((a.coverage || []).filter(c => !c.to).length) }; };
+$('btnNew').onclick = () => send('savePlan', { plan: makePlan('new'), care: care() });
+$('btnUpdate').onclick = () => { if (!$('targetCore').value) return alert('업데이트할 기존 Core를 고르세요'); send('savePlan', { plan: makePlan('update'), care: care() }); };
+$('btnClear').onclick = () => send('clearPlan');
+$('btnBuild').onclick = () => { $('btnBuild').disabled = true; $('log').textContent = ''; send('buildNewCore'); };
+$('btnSelect').onclick = () => send('selectPlanned');
+$('btnPlace').onclick = () => { $('log').textContent = ''; send('placePasted'); };
+$('btnKindProject').onclick = () => send('learnKind', { kind: 'project' });
+$('btnKindCore').onclick = () => send('learnKind', { kind: 'core' });
+$('btnExport').onclick = () => send('exportMemory');
+$('btnImport').onclick = () => { const t = $('caseNote').value.trim(); if (!t) return alert('붙여 넣은 JSON이 없습니다'); try { JSON.parse(t); } catch (e) { return alert('JSON이 아닙니다'); } send('importPending', { json: t }); };
+$('btnReview').onclick = () => send('review', {});
+$('btnReviewAll').onclick = () => send('review', { all: true });
+$('btnReviewBack').onclick = () => show(STATE.kind, STATE.plan);
+
+function renderReview(entries, st) {
+  $('s-analyze').style.display = 'none'; $('s-plan').style.display = 'none'; $('s-review').style.display = '';
+  $('reviewWho').textContent = st.reviewer ? `검토자: ${st.user}` : `지금 사용자 ${st.user}는 검토자가 아닙니다 — 보기만 됩니다. "기억 내보내기"로 검토자에게 보내 주세요`;
+  if (!entries.length) { $('reviewList').innerHTML = '<div class="box muted">검토할 가설이 없습니다</div>'; return; }
+  const tag = (t, cls) => `<span class="${cls || 'muted'}" style="margin-left:6px">${t}</span>`;
+  $('reviewList').innerHTML = entries.slice().reverse().map(e => {
+    const head = `<div><b>${e.file}</b> ${tag(e.date.slice(0, 10))} ${tag(e.user)} ${e.mode === 'kind' ? tag('파일 종류') : tag(e.mode === 'new' ? '새 Core' : '기존 Core 업데이트')}`
+      + (e.careless ? tag('⚠ 빠른 진행 ' + e.seconds + '초', 'warn') : tag(e.seconds + '초 살펴봄'))
+      + (e.outcome === 'kept' ? tag('✓ 만든 마스터 그대로 유지됨', 'ok') : e.outcome === 'changed' ? tag('✗ 만든 마스터가 나중에 바뀜', 'err') : '') + `</div>`;
+    const rows = e.items.map(it => {
+      const state = it.decision === 'approve' ? '<span class="ok">승인</span>' : it.decision === 'reject' ? '<span class="err">거절</span>' : '<span class="warn">대기</span>';
+      const btn = (d, label) => `<button class="secondary" data-e="${e.id}" data-k="${it.key}" data-d="${d}" ${!st.reviewer || it.decision === d ? 'disabled' : ''}>${label}</button>`;
+      return `<tr><td>${it.text}<div class="muted">${it.note || ''}${it.rejectedBefore ? ' · 이전에 거절됨 ' + it.rejectedBefore + '회' : ''}</div></td><td style="white-space:nowrap">${state} ${btn('approve', '승인')} ${btn('reject', '거절')} ${it.decision ? btn('hold', '되돌림') : ''}</td></tr>`;
+    }).join('');
+    const all = st.reviewer && e.items.some(i => !i.decision) ? `<div class="row"><button class="secondary" data-all="${e.id}">이 묶음 나머지 모두 승인</button></div>` : '';
+    return `<div class="box">${head}<table>${rows}</table>${all}</div>`;
+  }).join('');
+  $('reviewList').querySelectorAll('button[data-k]').forEach(b => b.onclick = () => send('decide', { decisions: [{ entryId: b.dataset.e, key: b.dataset.k, decision: b.dataset.d }] }));
+  $('reviewList').querySelectorAll('button[data-all]').forEach(b => b.onclick = () => { const e = entries.find(x => x.id === b.dataset.all); send('decide', { decisions: e.items.filter(i => !i.decision).map(i => ({ entryId: e.id, key: i.key, decision: 'approve' })) }); });
+}
+function renderReviewBanner(st) {
+  if (!st) return;
+  $('reviewBanner').style.display = st.openRuns && st.reviewer ? '' : 'none';
+  $('reviewTitle').textContent = st.due ? `학습 검토할 때입니다 — 프로젝트 ${st.openRuns}개, 가설 ${st.openItems}건` : `가설 대기 중 — 프로젝트 ${st.openRuns}/${st.every}개`;
+  $('reviewSub').textContent = st.reviewer ? '' : `(검토자 ${st.user} 아님 — 보기만)`;
+}
+
+onmessage = (ev) => {
+  const m = ev.data.pluginMessage; if (!m) return;
+  if (m.type === 'ready') {
+    STATE.kind = m.kind; STATE.plan = m.plan; STATE.fileName = m.fileName; STATE.rulesClasses = m.classes;
+    $('ver').textContent = 'v' + m.rulesVersion + (m.hasIndex ? '' : ' · 색인 없음');
+    $('status').textContent = ''; $('fileName').textContent = m.fileName;
+    $('kindLabel').textContent = m.kind === 'project' ? '— 프로젝트 문서' : m.kind === 'core' ? '— Core 파일' : '— 종류를 모르겠음(규칙에 없는 페이지 구성)';
+    $('s-unknown').style.display = m.kind === 'unknown' ? '' : 'none';
+    STATE.reviewer = !!(m.review && m.review.reviewer);
+    $('learnBox').style.display = STATE.reviewer ? '' : 'none'; $('score').style.display = STATE.reviewer ? '' : 'none';
+    show(m.kind, m.plan); renderScore(m.score); renderReviewBanner(m.review);
+    if (STATE.reviewer && m.outcome && m.outcome.outcome) logLine(`만든 마스터 확인: ${m.outcome.kept}/${m.outcome.total} 화면 그대로 → 가설에 ${m.outcome.outcome === 'kept' ? '유지됨' : '바뀜'} 표시`);
+  }
+  if (m.type === 'analysis') renderAnalysis(m.analysis, m.judge);
+  if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); renderScore(m.score); renderReviewBanner(m.review); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }
+  if (m.type === 'reviewList') { renderReview(m.entries, m.state); renderReviewBanner(m.state); if (m.score) renderScore(m.score); }
+  if (m.type === 'memory') { $('caseNote').value = JSON.stringify(m.memory); $('caseNote').select(); logLine('기억을 아래 칸에 담았습니다 — 전체 복사해서 plugin/memory.json으로'); }
+  if (m.type === 'log') logLine(m.msg);
+  if (m.type === 'selected') logLine(`화면 ${m.count}/${m.total}장을 선택했습니다 → ⌘C 하세요 (다른 페이지 화면은 페이지를 옮겨 다시 누르세요)`);
+  if (m.type === 'done') { logLine('완료'); $('result').innerHTML = `<div class="box ok">${JSON.stringify(m.result)}</div>`; }
+  if (m.type === 'error') { logLine('오류: ' + m.msg); $('btnBuild').disabled = false; }
+};
+</script>
+</body>
+</html>
