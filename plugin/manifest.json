@@ -6,6 +6,7 @@
   "ui": "ui.html",
   "editorType": ["figma"],
   "documentAccess": "dynamic-page",
+  "permissions": ["currentuser"],
   "networkAccess": {
     "allowedDomains": ["https://raw.githubusercontent.com"],
     "reasoning": "규칙(rules.json)과 Core 색인(core-index.json)을 GitHub ken-watcha/Design-Core main에서 내려받아 재설치 없이 갱신한다"
