@@ -88,13 +88,21 @@
 </details>
 
 <script>
-const RULES_URL = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/plugin/rules.json';
-const INDEX_URL = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/core-index/core-index.json';
+// main을 먼저, 없으면 개발 브랜치(main에 아직 안 합쳐졌을 때). 합쳐지면 뒤 항목은 저절로 안 쓰인다.
+const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/';
+const BRANCHES = ['main', 'claude/lucid-darwin-nlxrhv'];
+const RULES_URL = BRANCHES.map(b => RAW + b + '/plugin/rules.json');
+const INDEX_URL = BRANCHES.map(b => RAW + b + '/core-index/core-index.json');
 const $ = (id) => document.getElementById(id);
 const send = (type, payload) => parent.postMessage({ pluginMessage: Object.assign({ type }, payload || {}) }, '*');
 let STATE = { kind: null, plan: null, analysis: null, judge: null };
 
-async function fetchJson(url) { try { const r = await fetch(url, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return await r.json(); } catch (e) { return null; } }
+async function fetchJson(urls) {
+  for (const url of [].concat(urls)) {
+    try { const r = await fetch(url, { cache: 'no-store' }); if (r.ok) return await r.json(); } catch (e) { /* 다음 후보 */ }
+  }
+  return null;
+}
 (async () => {
   const [rules, index] = await Promise.all([fetchJson(RULES_URL), fetchJson(INDEX_URL)]);
   if (!rules) $('status').textContent = '규칙을 GitHub에서 못 받았습니다 — 마지막으로 받은 규칙으로 시도합니다';
