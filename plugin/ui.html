@@ -101,7 +101,7 @@
 <pre id="log"></pre>
 <div id="result"></div>
 
-<details style="margin-top:10px"><summary class="muted">학습 채점표 · 내보내기 · 가져오기</summary>
+<details id="learnBox" style="margin-top:10px; display:none"><summary class="muted">학습 채점표 · 내보내기 · 가져오기 (검토자만 보임)</summary>
   <div id="scoreDetail" class="muted" style="margin:6px 0"></div>
   <div class="row"><button id="btnExport" class="secondary">기억 내보내기</button><span class="muted">복사해서 검토자에게 보내거나 저장소 <code>plugin/memory.json</code>에 올립니다</span></div>
   <textarea id="caseNote" placeholder="내보낸 기억 JSON이 여기 담깁니다. 다른 사람이 보낸 JSON을 붙여 넣고 '가져오기'를 누르면 그쪽 가설이 이쪽 대기함에 합쳐집니다"></textarea>
@@ -244,7 +244,7 @@ function renderReview(entries, st) {
 }
 function renderReviewBanner(st) {
   if (!st) return;
-  $('reviewBanner').style.display = st.openRuns ? '' : 'none';
+  $('reviewBanner').style.display = st.openRuns && st.reviewer ? '' : 'none';
   $('reviewTitle').textContent = st.due ? `학습 검토할 때입니다 — 프로젝트 ${st.openRuns}개, 가설 ${st.openItems}건` : `가설 대기 중 — 프로젝트 ${st.openRuns}/${st.every}개`;
   $('reviewSub').textContent = st.reviewer ? '' : `(검토자 ${st.user} 아님 — 보기만)`;
 }
@@ -257,8 +257,10 @@ onmessage = (ev) => {
     $('status').textContent = ''; $('fileName').textContent = m.fileName;
     $('kindLabel').textContent = m.kind === 'project' ? '— 프로젝트 문서' : m.kind === 'core' ? '— Core 파일' : '— 종류를 모르겠음(규칙에 없는 페이지 구성)';
     $('s-unknown').style.display = m.kind === 'unknown' ? '' : 'none';
+    STATE.reviewer = !!(m.review && m.review.reviewer);
+    $('learnBox').style.display = STATE.reviewer ? '' : 'none'; $('score').style.display = STATE.reviewer ? '' : 'none';
     show(m.kind, m.plan); renderScore(m.score); renderReviewBanner(m.review);
-    if (m.outcome && m.outcome.outcome) logLine(`만든 마스터 확인: ${m.outcome.kept}/${m.outcome.total} 화면 그대로 → 가설에 ${m.outcome.outcome === 'kept' ? '유지됨' : '바뀜'} 표시`);
+    if (STATE.reviewer && m.outcome && m.outcome.outcome) logLine(`만든 마스터 확인: ${m.outcome.kept}/${m.outcome.total} 화면 그대로 → 가설에 ${m.outcome.outcome === 'kept' ? '유지됨' : '바뀜'} 표시`);
   }
   if (m.type === 'analysis') renderAnalysis(m.analysis, m.judge);
   if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); renderScore(m.score); renderReviewBanner(m.review); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }

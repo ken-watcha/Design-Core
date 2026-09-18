@@ -499,7 +499,7 @@ figma.ui.onmessage = async (msg) => {
       msg.plan.entryId = entry.id;
       await figma.clientStorage.setAsync(STORE_PLAN, msg.plan);
       await saveMem({ pending: [entry], history: [score] }, 0);
-      log(`가설 ${entry.items.length}건을 대기함에 넣었습니다${entry.careless ? ' (빠른 진행으로 표시)' : ''} — 검토자가 승인한 것만 배웁니다`);
+      if (isReviewer()) log(`가설 ${entry.items.length}건을 대기함에 넣었습니다${entry.careless ? ' (빠른 진행으로 표시)' : ''} — 승인한 것만 배웁니다`);
       post('planSaved', await readyPayload({ plan: msg.plan }));
     }
     if (msg.type === 'learnKind') {
