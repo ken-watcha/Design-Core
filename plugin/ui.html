@@ -25,6 +25,11 @@
 <body>
 <h1>Core 도우미 <span id="ver" class="muted"></span></h1>
 <div id="status" class="muted">규칙을 받아오는 중…</div>
+<div id="score" class="muted" style="margin:4px 0 8px"></div>
+<div id="s-unknown" style="display:none" class="box">
+  <div>이 파일의 페이지 구성을 모릅니다. 어느 쪽인지 골라 주면 <b>이 구성을 기억</b>해 다음부터는 묻지 않습니다.</div>
+  <div class="row"><button id="btnKindProject" class="secondary">프로젝트 문서다</button><button id="btnKindCore" class="secondary">Core 파일이다</button></div>
+</div>
 
 <!-- 화면 1: 분석·판별 (프로젝트 파일) -->
 <div id="s-analyze" style="display:none">
@@ -83,7 +88,9 @@
 <pre id="log"></pre>
 <div id="result"></div>
 
-<details style="margin-top:10px"><summary class="muted">사례 남기기 (규칙을 다듬을 때 Ken/도우미에게 붙여 넣기)</summary>
+<details style="margin-top:10px"><summary class="muted">학습 채점표 · 내보내기</summary>
+  <div id="scoreDetail" class="muted" style="margin:6px 0"></div>
+  <div class="row"><button id="btnExport" class="secondary">기억 내보내기</button><span class="muted">복사해서 저장소 <code>plugin/memory.json</code>에 올리면 모든 노트북이 같이 배운 게 됩니다</span></div>
   <textarea id="caseNote" readonly></textarea>
 </details>
 
@@ -93,6 +100,7 @@ const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/';
 const BRANCHES = ['main', 'claude/lucid-darwin-nlxrhv'];
 const RULES_URL = BRANCHES.map(b => RAW + b + '/plugin/rules.json');
 const INDEX_URL = BRANCHES.map(b => RAW + b + '/core-index/core-index.json');
+const MEMORY_URL = BRANCHES.map(b => RAW + b + '/plugin/memory.json');   // 여러 노트북의 학습을 합친 공유 기억
 const $ = (id) => document.getElementById(id);
 const send = (type, payload) => parent.postMessage({ pluginMessage: Object.assign({ type }, payload || {}) }, '*');
 let STATE = { kind: null, plan: null, analysis: null, judge: null };
@@ -104,9 +112,9 @@ async function fetchJson(urls) {
   return null;
 }
 (async () => {
-  const [rules, index] = await Promise.all([fetchJson(RULES_URL), fetchJson(INDEX_URL)]);
+  const [rules, index, memory] = await Promise.all([fetchJson(RULES_URL), fetchJson(INDEX_URL), fetchJson(MEMORY_URL)]);
   if (!rules) $('status').textContent = '규칙을 GitHub에서 못 받았습니다 — 마지막으로 받은 규칙으로 시도합니다';
-  send('init', { rules, index });
+  send('init', { rules, index, memory });
 })();
 
 function logLine(s) { $('log').textContent += s + '\n'; $('log').scrollTop = 1e9; }
@@ -135,35 +143,49 @@ function renderAnalysis(a, j) {
     html += `<div class="box"><b>${platform}</b>`;
     for (const e of a.platforms[platform]) {
       for (const p of e.picks) {
-        const opts = p.candidates.map(c => `<option value="${c.id}" ${c.id === p.chosen ? 'selected' : ''}>${c.name} (${c.w}×${c.h})</option>`).join('');
-        html += `<div class="row"><span style="width:110px">🔵 ${e.cls} ${p.width}px</span>` + (p.candidates.length ? `<select data-platform="${platform}" data-cls="${e.cls}" data-width="${p.width}">${opts}</select> <a href="#" data-sel="${p.chosen}">보기</a>` : `<span class="err">후보 없음</span>`) + `</div>`;
+        p.proposed = p.chosen;   // 채점용: 플러그인이 제안한 것을 남겨 둔다 (사람이 바꾸면 chosen만 바뀜)
+        const opts = p.candidates.map(c => `<option value="${c.id}" ${c.id === p.chosen ? 'selected' : ''}>${c.name} (${c.w}×${c.h})${c.learned ? ' ★' : ''}</option>`).join('');
+        const tag = !p.candidates.length ? '' : p.sure ? `<span class="ok">자동${p.basis === '학습' ? '·학습' : ''}</span>` : `<span class="warn">확인 필요</span>`;
+        html += `<div class="row"><span style="width:110px">🔵 ${e.cls} ${p.width}px</span>` + (p.candidates.length ? `<select data-platform="${platform}" data-cls="${e.cls}" data-width="${p.width}">${opts}</select> <a href="#" data-sel="${p.chosen}">보기</a> ${tag}` : `<span class="err">후보 없음</span>`) + `</div>`;
       }
-      html += `<div class="muted" style="margin-left:110px">${e.section ? '섹션: ' + e.section.name : '섹션 못 찾음'} · ${e.desc}</div>`;
+      html += `<div class="muted" style="margin-left:110px">${e.section ? '섹션: ' + e.section.name + ' (' + e.section.basis + ')' : '섹션 못 찾음'} · ${e.desc}</div>`;
     }
     html += '</div>';
   }
+  const unsure = (a.unsure || 0) + a.coverage.filter(c => !c.to).length;
+  html = `<div class="${unsure ? 'warn' : 'ok'}">${unsure ? `확인할 항목 ${unsure}개 — 고르면 다음부터 기억합니다` : '전부 자동으로 골랐습니다 — 틀린 게 있으면 바꿔 주세요 (바꾼 것도 배웁니다)'}</div>` + html;
   $('picks').innerHTML = html;
   $('picks').querySelectorAll('select').forEach(s => s.addEventListener('change', (ev) => {
     const { platform, cls, width } = ev.target.dataset;
     const e = a.platforms[platform].find(x => x.cls === cls); const p = e.picks.find(x => x.width == width); p.chosen = ev.target.value;
   }));
   $('picks').querySelectorAll('a[data-sel]').forEach(el => el.addEventListener('click', (ev) => { ev.preventDefault(); send('select', { id: el.dataset.sel }); }));
-  $('coverage').innerHTML = '<tr><th>문서 섹션</th><th>마스터 위치</th></tr>' + a.coverage.map(c => `<tr><td>${c.section}</td><td class="${/미수록/.test(c.to) ? 'warn' : ''}">${c.to}</td></tr>`).join('');
+  const clsNames = (pf) => (STATE.rulesClasses && STATE.rulesClasses[pf]) || ['small', 'medium', 'large'];
+  $('coverage').innerHTML = '<tr><th>문서 섹션</th><th>마스터 위치</th></tr>' + a.coverage.map((c, i) => `<tr><td>${c.section}</td><td class="${c.to ? '' : 'warn'}">${c.to ? c.to + ' <span class="muted">(' + c.basis + ')</span>' : `<select data-cov="${i}"><option value="">어느 크기?</option>${clsNames(c.platform).map(n => `<option>${n}</option>`).join('')}<option value="skip">마스터에 안 넣음</option></select> <span class="muted">${c.note}</span>`}</td></tr>`).join('');
+  $('coverage').querySelectorAll('select[data-cov]').forEach(s => s.addEventListener('change', (ev) => { const c = a.coverage[+ev.target.dataset.cov]; c.userCls = ev.target.value && ev.target.value !== 'skip' ? ev.target.value : null; c.userSkip = ev.target.value === 'skip'; }));
   $('missing').textContent = a.missing.length ? '⚠ ' + a.missing.join(' · ') : '';
   if (j) {
-    const cands = j.candidates.map(c => `<div>· ${c.name} <span class="muted">(${c.score}점: ${c.hits.join(', ')})</span></div>`).join('') || '<div class="muted">색인에 맞는 Core 없음</div>';
-    $('judge').innerHTML = `<div><b>${j.suggestion === 'new' ? '새 Core' : '기존 Core 업데이트'}</b> 로 보임 — ${j.reason}</div>${cands}<div class="row"><label>기존 Core 이름 <select id="targetCore"><option value="">(선택)</option>${j.candidates.map(c => `<option>${c.name}</option>`).join('')}</select></label></div>`;
+    const cands = j.candidates.map(c => `<div>· ${c.name} <span class="muted">(${c.total}점: ${c.hits.join(', ')})</span></div>`).join('') || '<div class="muted">색인·학습에 맞는 Core 없음</div>';
+    $('judge').innerHTML = `<div><b>${j.suggestion === 'new' ? '새 Core' : '기존 Core 업데이트'}</b> 로 보임 <span class="${j.sure ? 'ok' : 'warn'}">${j.sure ? '(자동)' : '(확인 필요)'}</span> — ${j.reason}</div>${cands}<div class="row"><label>기존 Core 이름 <select id="targetCore"><option value="">(선택)</option>${j.candidates.map(c => `<option ${j.sure && j.suggestion === 'update' && c === j.candidates[0] ? 'selected' : ''}>${c.name}</option>`).join('')}</select></label></div>`;
   }
   $('projName').value = a.cover.nameEN.replace(/\n.*/, '') || a.fileName.replace(/\s*\(Copy\)|\s*고도화.*/g, '');
   $('owner').value = a.cover.owner;
-  $('caseNote').value = JSON.stringify({ file: a.fileName, cover: a.cover, sections: a.sections.map(s => s.platform + ' > ' + s.name), missing: a.missing, judge: j }, null, 1);
+}
+function renderScore(s) {
+  if (!s) return;
+  const pct = s.picks ? Math.round(s.hit / s.picks * 100) + '%' : '-';
+  $('score').textContent = `학습 ${s.total}건 · 최근 ${s.runs}회 적중 ${s.hit}/${s.picks} (${pct}) · ${s.verdict}`;
+  const trend = s.early != null ? `적중률 앞 절반 ${Math.round(s.early * 100)}% → 뒤 절반 ${Math.round(s.late * 100)}%` : '추세는 4회 이상부터';
+  $('scoreDetail').innerHTML = `<div>${trend} · 확인 요청 ${s.unsure}건 · 사람이 고친 ${s.fixed}건(그중 학습 오답 ${s.fixedLearned}) · 판별 적중 ${s.judgeHit}/${s.judged}</div>` + (s.conflicts.length ? `<div class="warn">기억이 갈리는 항목:<br>${s.conflicts.join('<br>')}</div>` : '');
 }
 
 function makePlan(mode) {
   const a = STATE.analysis;
   let count = 0; for (const pl of Object.values(a.platforms)) for (const e of pl) for (const p of e.picks) if (p.chosen) count++;
+  const j = STATE.judge || {};
   return { mode, projectName: $('projName').value.trim(), releaseMonth: $('relMonth').value.trim(), owner: $('owner').value.trim(),
     targetCore: mode === 'update' ? ($('targetCore') && $('targetCore').value) : null,
+    judgeWords: j.judgeWords || '', judgeProposed: j.suggestion || null, judgeBasis: j.sure ? '자동' : '확인',
     sourceFileName: a.fileName, sourceFileKey: a.fileKey, sourceUrl: a.fileKey ? `https://www.figma.com/design/${a.fileKey}/` : '',
     platforms: a.platforms, coverage: a.coverage, screenCount: count, savedAt: new Date().toISOString() };
 }
@@ -175,19 +197,23 @@ $('btnClear').onclick = () => send('clearPlan');
 $('btnBuild').onclick = () => { $('btnBuild').disabled = true; $('log').textContent = ''; send('buildNewCore'); };
 $('btnSelect').onclick = () => send('selectPlanned');
 $('btnPlace').onclick = () => { $('log').textContent = ''; send('placePasted'); };
+$('btnKindProject').onclick = () => send('learnKind', { kind: 'project' });
+$('btnKindCore').onclick = () => send('learnKind', { kind: 'core' });
+$('btnExport').onclick = () => send('exportMemory');
 
 onmessage = (ev) => {
   const m = ev.data.pluginMessage; if (!m) return;
   if (m.type === 'ready') {
-    STATE.kind = m.kind; STATE.plan = m.plan; STATE.fileName = m.fileName;
+    STATE.kind = m.kind; STATE.plan = m.plan; STATE.fileName = m.fileName; STATE.rulesClasses = m.classes;
     $('ver').textContent = 'v' + m.rulesVersion + (m.hasIndex ? '' : ' · 색인 없음');
     $('status').textContent = ''; $('fileName').textContent = m.fileName;
     $('kindLabel').textContent = m.kind === 'project' ? '— 프로젝트 문서' : m.kind === 'core' ? '— Core 파일' : '— 종류를 모르겠음(규칙에 없는 페이지 구성)';
-    show(m.kind, m.plan);
-    if (m.kind === 'unknown') logLine('이 파일의 페이지 구성이 규칙에 없습니다. "사례 남기기"를 Ken에게 보내 주세요.');
+    $('s-unknown').style.display = m.kind === 'unknown' ? '' : 'none';
+    show(m.kind, m.plan); renderScore(m.score);
   }
   if (m.type === 'analysis') renderAnalysis(m.analysis, m.judge);
-  if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }
+  if (m.type === 'planSaved') { STATE.plan = m.plan; show(STATE.kind, m.plan); renderScore(m.score); logLine('계획을 저장했습니다. 다음 단계를 따라 주세요.'); }
+  if (m.type === 'memory') { $('caseNote').value = JSON.stringify(m.memory); $('caseNote').select(); logLine('기억을 아래 칸에 담았습니다 — 전체 복사해서 plugin/memory.json으로'); }
   if (m.type === 'log') logLine(m.msg);
   if (m.type === 'selected') logLine(`화면 ${m.count}/${m.total}장을 선택했습니다 → ⌘C 하세요 (다른 페이지 화면은 페이지를 옮겨 다시 누르세요)`);
   if (m.type === 'done') { logLine('완료'); $('result').innerHTML = `<div class="box ok">${JSON.stringify(m.result)}</div>`; }

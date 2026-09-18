@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-18.1",
+  "version": "2026-09-18.2",
   "note": "Core 도우미 플러그인 규칙. 사례가 쌓일 때마다 이 파일만 고친다 — 플러그인은 켜질 때 GitHub main에서 이 파일을 받는다. 출처: .claude/skills/core-file-helper/SKILL.md §4-1·§6-2·§6-4, scripts/figma-write/new-core-master.md",
 
   "sources": {
@@ -88,6 +88,7 @@
 
   "judge": {
     "note": "판별은 색인(core-index.json)의 domain·화면 이름과 프로젝트 커버 이름·페이지 텍스트를 대조. 점수가 갈리지 않으면 후보를 보여 주고 사람이 고른다.",
-    "minScoreForAuto": 2
+    "minScoreForAuto": 2,
+    "stopWords": ["고도화", "개선", "프로젝트", "project", "design", "디자인", "copy", "복사본", "final", "working", "v1", "v2", "figma", "watcha", "왓챠", "page", "name"]
   }
 }
