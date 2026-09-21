@@ -70,7 +70,7 @@ async function saveMem(delta, countAs) {
   figma.root.setSharedPluginData(PD_NS, PD_KEY, JSON.stringify(mergeMem(inFile, delta)));
 }
 const scaleMem = (d, w) => { const out = JSON.parse(JSON.stringify(d)); const deep = (x) => { for (const k in x) { if (typeof x[k] === 'number') x[k] = Math.round(x[k] * w * 1000) / 1000; else if (x[k] && typeof x[k] === 'object') deep(x[k]); } }; for (const f of TABLES) if (out[f]) deep(out[f]); return out; };
-const userName = () => (figma.currentUser && figma.currentUser.name) || '(이름 없음)';
+const userName = () => { try { return (figma.currentUser && figma.currentUser.name) || '(이름 없음)'; } catch (e) { return '(이름 없음)'; } };
 const isReviewer = () => { const r = ((RULES.review && RULES.review.reviewers) || []).map(x => String(x).trim().toLowerCase()); return !r.length || r.includes(userName().trim().toLowerCase()); };
 
 // 가설 항목 → 기억 조각. 승인될 때만 이 조각이 기억에 더해진다
