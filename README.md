@@ -21,7 +21,7 @@
 | `docs/verify-2026-09-14-login-onboarding.md` · `scripts/figma-write/reproduce-master-from-flow.md` | 설계안 3단계(유형 A/B) 검증 — 로그인/온보딩 파일럿 판단 재현 22/22 + 브랜치 재현 절차 | 세션 6(ADP 워크스페이스)이 작성, 세션 5가 아티팩트에서 복원해 커밋 |
 | `docs/img/` | 실물 스크린샷 (왓챠파티 마스터, 링크 카드) | |
 | `templates/delta-proposal.md` | Δ 제안서 템플릿 | |
-| `scripts/figma-rest/` | **Figma REST 읽기 스크립트** — `core-files.json`(Core 키 목록) · `dump-core-file.py`(페이지 통째 받기) · `build-index-entries.py`(색인 항목 생성) · `trace-entry-markers.py`(플로우 번호 마커 → 진입 프레임 → 홈의 로우/셀 추적: 빈 자리표시 프레임의 정체·진입 위치 판정) · `list-project-files.py`(폴더 조회, 토큰에 `projects:read` 필요) | Design-Core 환경에서 동작 (토큰은 프록시가 붙임) |
+| `scripts/figma-rest/` | **Figma REST 읽기 스크립트** — `core-files.json`(Core 키 목록) · `dump-core-file.py`(페이지 통째 받기) · `build-index-entries.py`(색인 항목 생성) · `trace-entry-markers.py`(플로우 번호 마커 → 진입 프레임 → 홈의 로우/셀 추적: 빈 자리표시 프레임의 정체·진입 위치 판정) · `list-project-files.py`(폴더 조회 — 2026-09-18 개통, 토큰 권한 `folders:read`, `--check`로 점검) · `../../core-index/folder-files.json`(폴더 15개 조회 원본) | Design-Core 환경에서 동작 (토큰은 프록시가 붙임) |
 | `scripts/figma/` | Figma MCP 읽기 전용 스크립트 (`use_figma`에 붙여넣기) | 페이지 목록·골격·설명 바·링크 카드 |
 | `scripts/outline.py` | `get_metadata` 큰 결과 요약 | |
 
@@ -29,7 +29,7 @@
 
 - 네트워크 **Custom** 허용 목록: `api.figma.com`, `www.figma.com`, `mcp.figma.com` + 기본 패키지 저장소
 - Figma 토큰: 환경의 API 자격 증명(호스트 `api.figma.com`, 헤더 `X-Figma-Token`)으로 주입. 채팅에 붙이지 않는다
-- 폴더 안 파일 목록 조회는 토큰 범위 `projects:read`가 있어야 하는데 **Ken에게 줄 권한이 없어 불가(2026-09-10 확정)** → 파일 키는 `scripts/figma-rest/core-files.json`에 고정
+- 폴더 안 파일 목록 조회: ~~`projects:read` 불가(2026-09-10)~~ → **2026-09-18 개통.** 개인 토큰 권한 이름이 `folders:read`로 바뀐 것이었음(`GET /v2/folders/:id/files`). `python3 scripts/figma-rest/list-project-files.py 591036590 --pages`. 파일 키 고정본은 여전히 `scripts/figma-rest/core-files.json`
 - 파일 간 이미지 이관(`download_assets` → `upload_assets` → 해시를 채우기에 지정)은 `mcp.figma.com` 허용 후 동작 확인(2026-09-10 세션 5). 절차는 `scripts/figma-write/deep-clone.md` 3단계
 
 ## 흐름 (1차: Claude 도우미)

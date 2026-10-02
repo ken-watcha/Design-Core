@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'">
+<title>Core 도우미</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <h1>Core 도우미</h1>
+  <div id="setup" class="setup">준비 상태 확인 중…</div>
+</header>
+<main>
+  <section class="panel">
+    <form id="form">
+      <label for="url">프로젝트 문서 Figma 링크</label>
+      <div class="row">
+        <input id="url" type="url" placeholder="https://www.figma.com/design/…" required autocomplete="off">
+        <button id="go" type="submit">분석</button>
+      </div>
+      <p class="hint" id="hint">링크를 넣고 분석을 누르면 어느 Core에 넣을지, 크기마다 어떤 화면을 대표로 넣을지 보여 줍니다. 분석은 읽기만 합니다.</p>
+    </form>
+  </section>
+  <section id="result"></section>
+</main>
+<footer id="footer"></footer>
+<script src="renderer.js"></script>
+</body>
+</html>
