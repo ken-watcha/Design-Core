@@ -1,7 +1,15 @@
 # 디자인 최종 시안(Core 파일) 운영안 — 워크로그
 
-> 작성 2026-09-01 · 최종 갱신 2026-09-18 (세션 8 · REST 폴더 조회 개통, 플러그인 manifest 권한) · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
+> 작성 2026-09-01 · 최종 갱신 2026-10-02 (플러그인 → 데스크톱 앱 전환) · 이 문서는 새 Claude 세션이 이어서 작업하기 위한 인수인계 기록
 > 저장소 사본. 중계 지점은 아티팩트 https://claude.ai/code/artifact/72e9f09e-43fc-424e-ba39-fc4d80e303c5 (세션 마무리 시 둘 다 갱신)
+
+## 2026-10-02 — 플러그인 → 데스크톱 앱 전환 (프로젝트 스레드 "코어파일 업데이트")
+
+- 현황 정리: 9/16~9/21 작업이 미병합 브랜치에만 있었음 → PR #1(`claude/project-thread-9wy6z2` → main)로 합치기 요청. REST 폴더 조회·학습 보고서 정상 동작 확인(대기 가설 0건 = 플러그인 진행 기록 없음 또는 sharedPluginData 미반환, 미구분)
+- **Ken 결정: "해봤을 때 플러그인은 아닌 것 같다 → 프로그램으로" → "데스크톱 앱, 팀 내부용이라 로그인 없이" → "Claude 엔진 내장(A), 각자의 Claude 계정"**
+- 확인한 사실: Figma MCP 동적 등록(`POST api.figma.com/v1/oauth/mcp/register`)을 우리 앱 이름으로 시도 → Figma 403. 밖의 프로그램이 Figma에 쓰는 길은 허가된 클라이언트(Claude Code 등)뿐 → 앱은 각자 노트북의 Claude Code를 `claude -p`로 불러 `use_figma` 전달만 시키고, 판단은 앱 규칙 코드가 한다
+- **`app/` v0.1(분석까지, 읽기만)**: Electron 앱. 플러그인 `analyze()`·`judge()` 이식. 실제 스텝메이드 문서에 분석 코드를 돌려(use_figma, 읽기 전용) 판별 "새 Core → [Core] 스텝메이드"·크기 7자리 후보·미수록 1개 확인, 그 결과를 고정 자료로 엔진 시험·화면 스크린샷(`docs/img/app-v0.1-2026-10-02.png`). 설계 `docs/plan-core-helper-program.md`, 설치 `app/README.md`
+- **다음**: Ken 맥에서 첫 실행(Claude Code 로그인·Figma 연결·`npm start`) → `claude -p` 경유 확인 → v0.2 새 Core 만들기(플러그인 `buildNewCore()` 이식) → `.app` 묶음 배포
 
 ## 2026-09-18 세션 8 — REST 폴더 조회 개통 (토큰 재발급 · `folders:read`)
 
