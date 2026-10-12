@@ -11,7 +11,7 @@ async function showSetup() {
     if (s.claude && s.figma) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
     else if (!s.claude) el.innerHTML = `<span class="bad">● Claude Code 필요</span> · 설치·로그인 안내는 README 1단계`;
     else el.innerHTML = `<span class="bad">● Figma 연결 필요</span> · README 2단계 (터미널에서 claude → /mcp → figma → Authenticate)`;
-    el.title = s.detail || '';
+    el.title = s.detail || '누르면 다시 확인';
   } catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; }
 }
 
@@ -47,14 +47,55 @@ function render(r) {
   const cov = (a.coverage || []).map(c => `<tr><td>${esc(c.section)}</td><td>${c.to ? esc(c.to) : '<span class="pill warn">미수록</span>'}</td><td class="muted">${esc(c.note)}</td></tr>`).join('');
   const covHtml = `<section class="panel"><h2>수록 대조표</h2><p class="hint" style="margin-top:0">문서의 섹션이 하나도 빠지지 않았는지 확인합니다.</p><table><tr><th>문서 섹션</th><th>Core에서 들어갈 자리</th><th></th></tr>${cov}</table>
     ${a.missing.length ? `<p class="muted">못 찾은 것: ${esc(a.missing.join(' · '))}</p>` : ''}</section>`;
-  const next = `<section class="panel"><h2>다음 단계</h2><p class="muted">${v.suggestion === 'new' ? 'Figma에서 이 프로젝트 파일을 File → Duplicate 한 뒤, 복제본 링크로 "새 Core 만들기"를 실행합니다. (다음 버전에서 열림)' : '해당 Core의 브랜치 "Core 도우미"에 반영합니다. (다음 버전에서 열림)'}</p>
-    ${r.costUsd != null ? `<p class="hint">이번 분석에 쓴 Claude 사용량: 약 $${Number(r.costUsd).toFixed(3)}</p>` : ''}</section>`;
+  const cost = r.costUsd != null ? `<p class="hint">이번 분석에 쓴 Claude 사용량: 약 $${Number(r.costUsd).toFixed(3)}</p>` : '';
+  const next = v.suggestion === 'new' ? `<section class="panel" id="build"><h2>다음 단계 · 새 Core 만들기</h2>
+    <ol class="steps"><li>Figma에서 이 프로젝트 파일을 <b>File → Duplicate</b> 합니다.</li>
+    <li>복제본 이름을 <b>${esc(v.target)}</b> 로 바꿉니다.</li>
+    <li>복제본 링크를 아래에 넣고 <b>확인</b>을 누릅니다. (읽기만)</li></ol>
+    <div class="row"><input id="dup" type="url" placeholder="복제본 링크 https://www.figma.com/design/…" autocomplete="off"><button id="check" type="button">확인</button></div>
+    <div id="buildOut"></div>${cost}</section>`
+    : `<section class="panel"><h2>다음 단계</h2><p class="muted">해당 Core의 브랜치 "Core 도우미"에 반영합니다. (다음 버전에서 열림)</p>${cost}</section>`;
   $('#result').innerHTML = verdictHtml + picksHtml + covHtml + next;
   document.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => window.core.open(b.dataset.open)));
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
   }));
+  if ($('#check')) $('#check').addEventListener('click', checkDup);
+}
+
+// 새 Core 만들기: 확인(읽기만) → 사람이 "진행" → 쓰기
+async function checkDup() {
+  const out = $('#buildOut'), dup = $('#dup').value.trim();
+  $('#check').disabled = true; out.innerHTML = '<p class="spinner">복제본을 확인하는 중… (읽기만)</p>';
+  try {
+    const c = await window.core.build(dup, current, true);
+    const k = c.check || {};
+    if (!c.ok) { out.innerHTML = `<p class="bad">아직 진행할 수 없어요</p><ul>${(k.problems || [c.error]).map(p => `<li>${esc(p)}</li>`).join('')}</ul>`; return; }
+    out.innerHTML = `<p><span class="pill ok">확인됨</span> ${esc(k.fileName)} · 대표 화면 ${k.screens}개</p>
+      <p class="muted">진행하면 이 복제본에만 씁니다: 버전 저장 → "🌏 마스터 파일" 페이지에 화면 ${k.screens}개 복제·원본 대조 → 프로젝트 페이지 정리(✅ Mobile·✅ Web·📏 운영 가이드 삭제). 원본 프로젝트 문서와 다른 Core 파일은 건드리지 않습니다.</p>
+      <button id="run" type="button">진행</button>`;
+    $('#run').addEventListener('click', () => runBuild(dup));
+  } catch (e) { out.innerHTML = `<p class="bad">확인하지 못했습니다</p><p class="muted">${esc(e.message)}</p>`; }
+  finally { $('#check').disabled = false; }
+}
+
+async function runBuild(dup) {
+  const out = $('#buildOut');
+  if (!confirm('복제본에 새 Core 마스터를 만듭니다. 진행할까요?')) return;
+  out.innerHTML = '<p class="spinner">새 Core를 만드는 중… (화면 수에 따라 몇 분 걸릴 수 있어요)</p>';
+  try {
+    const b = await window.core.build(dup, current, false);
+    if (!b.ok) { out.innerHTML = `<p class="bad">만들지 못했습니다</p><p class="muted">${esc(b.error || (b.check && b.check.problems || []).join(' · '))}</p>`; return; }
+    const rows = b.screens.map(s => `<tr><td>${esc(s.platform)} ${esc(s.cls)}</td><td>${s.width}px</td><td>${s.left === 0 ? '<span class="pill ok">차이 0</span>' : `<span class="pill warn">차이 ${s.left}</span>`}</td>
+      <td><button class="link" data-open="${esc(nodeUrl(b.fileKey, s.id))}">보기</button></td></tr>`).join('');
+    out.innerHTML = `<p><span class="pill ok">완료</span> <button class="link" data-open="${esc(nodeUrl(b.fileKey, b.rootId))}">Figma에서 마스터 보기</button></p>
+      <table><tr><th>크기</th><th>폭</th><th>원본 대조</th><th></th></tr>${rows}</table>
+      <p class="muted">지운 페이지: ${esc((b.removedPages || []).join(', ') || '없음')} · 남은 페이지: ${esc((b.pages || []).join(' / '))}</p>
+      ${(b.logs || []).length ? `<p class="hint">${esc(b.logs.join(' · '))}</p>` : ''}
+      ${b.costUsd != null ? `<p class="hint">Claude 사용량: 약 $${Number(b.costUsd).toFixed(3)}</p>` : ''}`;
+    out.querySelectorAll('[data-open]').forEach(x => x.addEventListener('click', () => window.core.open(x.dataset.open)));
+  } catch (e) { out.innerHTML = `<p class="bad">만들지 못했습니다</p><p class="muted">${esc(e.message)}</p>`; }
 }
 
 $('#form').addEventListener('submit', async (ev) => {
@@ -67,5 +108,7 @@ $('#form').addEventListener('submit', async (ev) => {
   finally { $('#go').disabled = false; }
 });
 
+// 상태 글자를 누르면 다시 확인 (중간에 로그인했을 때)
+$('#setup').addEventListener('click', () => { $('#setup').textContent = '준비 상태 확인 중…'; showSetup(); });
 showSetup();
 showKnowledge();

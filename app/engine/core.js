@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { buildAnalyzeCode } = require('./figma-analyze');
 const { judge } = require('./judge');
+const { buildNewCoreCode } = require('./figma-build');
 const { runFigma } = require('./claude-runner');
 
 const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/';
@@ -32,4 +33,15 @@ async function analyzeProject(url, knowledge, runner = runFigma) {
   return { analysis: data, verdict, costUsd, fileKey };
 }
 
-module.exports = { loadKnowledge, analyzeProject, parseFigmaUrl };
+// 새 Core 만들기: 복제본 링크에 계획을 실행. dryRun이면 확인만(쓰지 않음)
+async function buildNewCore(dupUrl, plan, knowledge, { dryRun }, runner = runFigma) {
+  const fileKey = parseFigmaUrl(dupUrl);
+  if (!fileKey) throw new Error('Figma 디자인 파일 링크가 아닙니다');
+  if (fileKey === plan.sourceFileKey) throw new Error('원본 프로젝트 파일 링크입니다. Duplicate한 [Core] 복제본 링크를 넣어 주세요');
+  const code = buildNewCoreCode(knowledge.rules, plan, { dryRun });
+  const desc = dryRun ? 'Core 도우미: 복제본 확인 (읽기 전용)' : 'Core 도우미: 복제본에 새 Core 마스터 만들기';
+  const { data, costUsd } = await runner(fileKey, code, desc, dryRun ? undefined : { timeoutMs: 900000 });
+  return Object.assign({ fileKey, costUsd }, data);
+}
+
+module.exports = { loadKnowledge, analyzeProject, buildNewCore, parseFigmaUrl };

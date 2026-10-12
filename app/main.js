@@ -1,8 +1,9 @@
 // Core 도우미 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const { loadKnowledge, analyzeProject } = require('./engine/core');
+const { loadKnowledge, analyzeProject, buildNewCore } = require('./engine/core');
 const { checkSetup } = require('./engine/claude-runner');
+const { planFromAnalysis } = require('./engine/figma-build');
 
 let knowledge = null;
 
@@ -22,6 +23,10 @@ ipcMain.handle('knowledge', async () => {
 ipcMain.handle('analyze', async (_e, url) => {
   if (!knowledge) knowledge = await loadKnowledge();
   return analyzeProject(url, knowledge);
+});
+ipcMain.handle('build', async (_e, dupUrl, analyzed, dryRun) => {
+  if (!knowledge) knowledge = await loadKnowledge();
+  return buildNewCore(dupUrl, planFromAnalysis(analyzed), knowledge, { dryRun: !!dryRun });
 });
 ipcMain.handle('open', (_e, url) => { if (/^https:\/\/(www\.)?figma\.com\//.test(url)) shell.openExternal(url); });
 

@@ -45,7 +45,7 @@ async function ask(prompt, tools, opts) {
 }
 
 // Figma에서 플러그인 API 코드 1회 실행
-function runFigma(fileKey, code, description) {
+function runFigma(fileKey, code, description, opts) {
   return ask([
     `Call the ${TOOLS.useFigma} tool exactly once with:`,
     `- fileKey: ${fileKey}`,
@@ -54,7 +54,7 @@ function runFigma(fileKey, code, description) {
     `- code: the exact contents between <code> and </code> below, unchanged.`,
     `Then reply with ONLY the tool's raw result (JSON), nothing else. If the tool errors, reply with {"error": "<message>"}.`,
     '<code>', code, '</code>'
-  ].join('\n'), [TOOLS.useFigma]);
+  ].join('\n'), [TOOLS.useFigma], opts);
 }
 
 // 준비 상태: Claude Code 설치·로그인 + Figma 연결. whoami 한 번으로 둘 다 확인된다

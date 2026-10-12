@@ -6,6 +6,7 @@ header { display:flex; align-items:center; gap:16px; padding:16px 24px; border-b
 h1 { font-size:18px; margin:0; }
 h2 { font-size:15px; margin:0 0 10px; }
 .setup { font-size:13px; color:var(--muted); -webkit-app-region:no-drag; }
+.setup { cursor:pointer; }
 .setup .ok { color:var(--ok); } .setup .bad { color:var(--bad); }
 main { max-width:1040px; margin:0 auto; padding:20px 24px 48px; display:flex; flex-direction:column; gap:16px; }
 .panel { background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:16px 18px; }
@@ -28,3 +29,7 @@ select { font:inherit; color:var(--text); background:var(--bg); border:1px solid
 .spinner { color:var(--muted); }
 footer { text-align:center; color:var(--muted); font-size:12px; padding:0 0 20px; }
 #result { display:flex; flex-direction:column; gap:16px; }
+p.bad { color:var(--bad); font-weight:600; }
+ol.steps { margin:0 0 12px; padding-left:20px; line-height:1.7; }
+#buildOut { margin-top:12px; }
+#buildOut button#run { margin-top:4px; }
