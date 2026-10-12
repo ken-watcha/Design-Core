@@ -47,13 +47,16 @@ const fixture = require('./fixture-stepmade.json');
   assert((await checkWorkplace(st, bareUrl, k, async (key) => { assert.strictEqual(key, 'BBBBBBBBBBBBBBBBBBBBBB'); return { data: coreRead, costUsd: 0 }; })).ok, '브랜치 주소(본 파일 키 없음) 허용');
   assert(!(await checkWorkplace(st, bareUrl, k, async () => ({ data: Object.assign({}, coreRead, { masterPageId: '1:1' }), costUsd: 0 }))).ok, '다른 Core 파일 거절');
   console.log('Δ:', JSON.stringify(w.delta.summary), '· Core와 같은 후보로 맞춘 칸', w.preferred);
-  assert.strictEqual(w.delta.summary.keep, 6, '9/18 Core와 같은 화면 6칸 유지');
-  assert.strictEqual(w.delta.summary.replace, 1, 'WEB 768 한 칸만 교체 (Core 화면이 문서에 없음)');
+  // WEB 768: Core 화면은 문서 "Guide"(768×753)에서 가이드 표시 사각형 1개만 지운 것 → 거의 같음 = 유지 (2026-10-12 윤우 지적)
+  assert.strictEqual(w.delta.summary.keep, 7, '9/18 Core와 같은 화면 7칸 유지');
+  assert.strictEqual(w.delta.summary.replace, 0, '교체 없음');
+  const web768 = w.delta.rows.find(r => r.platform === 'WEB' && r.width === 768);
+  assert(web768 && web768.action === '유지' && /거의 같음/.test(web768.why), 'WEB 768은 거의 같음으로 유지');
   assert.strictEqual(w.delta.summary.missing, 1, '더보기 팝업 미수록');
   // 반영: 교체 1건만 계획에 들어가는지
   let sent = null;
   await applyUpdate(st, w, k, async (key, code) => { if (/const PLAN/.test(code) && !sent) sent = code; return { data: code.includes('UPDATE') || /applyUpdate|step: 'update'/.test(code) ? { done: [], notFound: [], cardUpdated: false } : coreRead, costUsd: 0 }; });
-  assert(/"action":"교체"/.test(sent) && !/"action":"유지"/.test(sent), '반영 계획엔 교체·추가만');
+  assert(!/"action":"유지"/.test(sent || ''), '반영 계획엔 유지가 들어가지 않음');
   // 새 Core: 원본 파일·이미 Core인 파일 거절, 만든 뒤 로컬 색인에 추가
   const indexNoCore = Object.assign({}, index, { files: index.files.filter(f => !/스텝메이드/.test(f.name)) });
   const stNew = await analyzeProject('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', { rules, index: indexNoCore, memory: {} }, async () => ({ data: JSON.parse(JSON.stringify(analysisSig)), costUsd: 0 }));
