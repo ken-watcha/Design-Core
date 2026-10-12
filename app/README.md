@@ -1,10 +1,15 @@
-# Core 도우미 — 데스크톱 앱 (v0.1, 2026-10-02)
+# Core 도우미 — 데스크톱 앱 (v0.2, 2026-10-12)
 
 플러그인을 대신하는 팀 내부용 맥 앱. **앱 로그인은 없다.** Figma는 각자 노트북의 Claude Code(각자의 Claude 계정)를 거쳐 연결한다. Figma가 디자인 쓰기를 허가한 연결이 Claude Code라서 이 방식이다(우리 앱을 Figma에 직접 등록하는 것은 Figma가 거절, 2026-10-02 시험).
 
 - **판단은 앱이 규칙으로 한다**: 규칙 `plugin/rules.json`, 색인 `core-index/core-index.json`을 실행할 때마다 GitHub main에서 받는다(못 받으면 앱에 든 사본). 규칙을 고쳐 푸시하면 다음 실행부터 반영된다.
 - **Claude는 전달만 한다**: 앱이 만든 Figma 코드를 `use_figma`로 그대로 실행하고 결과를 돌려준다.
-- v0.1 = **분석까지(읽기만)**: 링크 → 판별(기존 Core / 새 Core) · 크기별 대표 화면 · 수록 대조표. 새 Core 만들기·기존 Core 반영은 다음 버전.
+- v0.1 = **분석까지(읽기만)**: 링크 → 판별(기존 Core / 새 Core) · 크기별 대표 화면 · 수록 대조표.
+- v0.2 = **두 길 모두 실행** (Ken 2026-10-12: "판단도, 어디서 할지 제안도 앱이"):
+  - 📍 작업 위치 제안 → 사람이 그 자리를 준비(1클릭)하고 링크를 주면 앱이 검사(원본·Core 본 파일·이미 Core인 복사본은 거절)
+  - **새 Core**: 프로젝트 파일 Duplicate 복제본에 마스터 만들기(화면 복제 + 원본 대조) → 작업 페이지 깎기 → 만든 Core를 로컬 색인(`~/.core-helper/index-local.json`)에 추가해 다음 판별부터 "기존 Core"로 잡음
+  - **기존 Core 갱신**: Core 파일 브랜치 "Core 도우미"의 마스터를 읽어 Δ 표(유지·교체·추가·미수록, 화면 내용 지문으로 비교) → 사람이 원본에서 교체·추가할 화면을 ⌘C/⌘V 1회 → [반영]: 교체는 껍데기(이름·위치·node-id) 유지하고 속만 바꿈, 추가는 🔵 바와 함께 배치, 링크 카드 기준 날짜 갱신. Merge는 사람
+  - 색인 = GitHub main + 앱 사본에만 있는 Core + 로컬 추가분
 
 ## 설치 (디자이너, 처음 한 번)
 
@@ -23,11 +28,20 @@
 | `engine/figma-analyze.js` | Figma 안에서 돌 분석 코드 생성 (플러그인 `analyze()` 이식, 읽기 전용) |
 | `engine/judge.js` | 판별 (플러그인 `judge()` 이식) |
 | `engine/claude-runner.js` | 각자의 Claude Code를 `claude -p`로 불러 Figma 코드 실행 · 준비 상태 확인(whoami) |
-| `engine/core.js` | 규칙·색인 받기, 분석 순서 |
+| `engine/core.js` | 규칙·색인 받기, 분석 → 작업 위치 확인 → 새 Core 만들기 / 기존 Core 반영 순서 |
+| `engine/place.js` | 📍 작업 위치 제안·링크 검사 |
+| `engine/figma-core-read.js` | Core 마스터 읽기(설명 바·크기 칸·화면 지문, 읽기 전용) |
+| `engine/signature.js` | 화면 내용 지문(크기·노드 수·글자·이미지) — 프로젝트 화면 ↔ Core 화면 비교 |
+| `engine/delta.js` | Δ 표(유지·교체·추가·미수록), Core에 이미 있는 화면과 같은 후보 우선 |
+| `engine/figma-write.js` | 쓰기 코드: 새 Core 만들기·깎기(플러그인 `buildNewCore()` 이식), 기존 Core 반영 |
+| `engine/index-store.js` | 색인 합치기·로컬 추가분 |
 | `mcp.json` | Figma 연결 주소 |
 | `test/` | 엔진 시험 (`npm test`). 실제 스텝메이드 문서 분석 결과를 고정 자료로 씀 |
 
 ## 확인된 것 / 아직 아닌 것
+
+- (v0.2, 2026-10-12) Ken 맥에서 실제 확인: 색인에 [Core] 스텝메이드를 올리자 스텝메이드 프로젝트 → "기존 Core 갱신 → [Core] 스텝메이드". Δ = 유지 6 · 교체 1(WEB 768: Core에 든 768×753 화면이 지금 문서에 없음) · 미수록 1(더보기 팝업). 새 Core 길은 시험 복제본 `oW6dtgS3ye54JSlAAH1ke2`에 실제로 만들어 9/18 [Core] 스텝메이드와 위치·섹션 크기·화면 6/7 동일(나머지 1 = 같은 WEB 768) 확인(`docs/img/app-v0.2-new-core-test-2026-10-12.png`). 사용량 약 $1.3
+- (v0.2) 기존 Core 반영(브랜치 쓰기)은 아직 실물 미확인 — 브랜치 "Core 도우미"가 생기면 첫 확인
 
 - 분석 코드를 실제 스텝메이드 프로젝트 문서(`NO7uetAL9Qmk03IXWSaMej`)에 돌려 판별 "새 Core → [Core] 스텝메이드"(시연 1호와 같음), 크기 7자리 전부 후보 찾음, 미수록 섹션 1개("더보기 팝업") 표시 확인
 - 화면은 그 결과로 그려 확인(`docs/img/app-v0.1-2026-10-02.png`)

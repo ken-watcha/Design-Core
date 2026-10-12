@@ -28,3 +28,6 @@ select { font:inherit; color:var(--text); background:var(--bg); border:1px solid
 .spinner { color:var(--muted); }
 footer { text-align:center; color:var(--muted); font-size:12px; padding:0 0 20px; }
 #result { display:flex; flex-direction:column; gap:16px; }
+.setup { cursor:pointer; }
+ol, ul { margin:8px 0; padding-left:20px; }
+li { margin:3px 0; }

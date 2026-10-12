@@ -1,7 +1,7 @@
 {
  "_meta": {
   "title": "Core 파일 색인",
-  "updated": "2026-09-10",
+  "updated": "2026-10-12",
   "how_to_read": "file → pages → (master page) sections → groups(설명 바 제목) → screens. 모든 id는 Figma node-id. 링크는 https://www.figma.com/design/<fileKey>/?node-id=<id with '-'> 형태. 세션 3 항목: master.roots[] → sections[] → groups[](⚫ 대분류가 여럿이면 subgroups[] 아래 ⚪ 묶음) → screens[](size_label = 🔵 크기 바 제목). link_cards[]는 카드 프레임 id + 하이퍼링크 대상.",
   "coverage": "Core 폴더(591036590)의 파일 14개 전부 수록 — 2026-09-09 Ken이 링크 14개를 확인해 줌(SVOD·소식함·로그인/온보딩·나의 왓챠·웹툰·TV·콘상페·플레이어·왓챠파티·보관함·TVOD·검색·프로필·결제/구독). 스텝메이드는 Core가 아니라 프로젝트 문서로 판명(2026-09-10) → related_files로 이동. 세션 2에 읽은 3개는 sections 구조, 세션 3에 읽은 11개는 master.roots 구조.",
   "folder": "https://www.figma.com/files/1014901253946075002/folder/591036590",
@@ -5229,15 +5229,91 @@
      }
     ]
    }
-  }
- ],
- "known_but_unindexed": [
+  },
   {
-   "name": "[Core] 스텝메이드 (또는 리스트 상세) — 아직 없음",
-   "key": null,
-   "note": "스텝메이드 상세는 SVOD·TVOD·검색에서 들어오는데 본체가 있는 Core가 없음 → 새 Core 제안 중 (docs/demo-2026-09-10-stepmade.md). Ken 확인 대기"
+   "name": "[Core] 스텝메이드",
+   "key": "txuuBtHiDgal8pC4OIbSHF",
+   "url": "https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/",
+   "format": "new",
+   "domain": [
+    "스텝메이드",
+    "스텝메이드 상세",
+    "큐레이션·기획전 상세 페이지 (홈 피쳐링 셀·배너에서 진입)"
+   ],
+   "pages": [
+    {
+     "name": "Cover"
+    },
+    {
+     "name": "---"
+    },
+    {
+     "name": "🌏 마스터 파일"
+    }
+   ],
+   "master": {
+    "page": "5005:6",
+    "root_section": {
+     "id": "5005:98",
+     "name": "🌏 스텝메이드"
+    },
+    "link_card": {
+     "id": "5005:99",
+     "name": "📎 스펙 링크 카드"
+    },
+    "screens": {
+     "APP": [
+      {
+       "id": "5005:1137",
+       "name": "스텝메이드 상세",
+       "size": "375x1142",
+       "size_label": "small"
+      },
+      {
+       "id": "5005:1423",
+       "name": "스텝메이드 상세",
+       "size": "768x1000",
+       "size_label": "medium"
+      },
+      {
+       "id": "5005:1982",
+       "name": "스텝메이드 상세",
+       "size": "1024x1124",
+       "size_label": "large"
+      }
+     ],
+     "WEB": [
+      {
+       "id": "5005:2609",
+       "name": "스텝메이드 상세",
+       "size": "375x812",
+       "size_label": "small"
+      },
+      {
+       "id": "5005:3062",
+       "name": "스텝메이드 상세",
+       "size": "768x753",
+       "size_label": "medium"
+      },
+      {
+       "id": "5005:3415",
+       "name": "스텝메이드 상세",
+       "size": "1280x847",
+       "size_label": "medium"
+      },
+      {
+       "id": "5005:3816",
+       "name": "스텝메이드 상세",
+       "size": "1440x1052",
+       "size_label": "large"
+      }
+     ]
+    }
+   },
+   "origin": "프로젝트 \"스텝메이드 상세페이지 고도화\" 문서(NO7uetAL9Qmk03IXWSaMej)를 복제해 깎은 새 Core (2026-09-18). 링크 카드가 그 문서를 가리킴"
   }
  ],
+ "known_but_unindexed": [],
  "related_files": [
   {
    "name": "소식함 (Notification) 프로젝트 문서",

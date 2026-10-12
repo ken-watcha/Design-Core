@@ -1,10 +1,12 @@
 // Core 도우미 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
+// 화면은 진행 상태(state: 분석 결과 + 판별 + 작업 위치)를 들고 있다가 단계마다 통째로 넘긴다.
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const { loadKnowledge, analyzeProject } = require('./engine/core');
+const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
 const { checkSetup } = require('./engine/claude-runner');
 
 let knowledge = null;
+const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledge());
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -19,10 +21,10 @@ ipcMain.handle('knowledge', async () => {
   knowledge = await loadKnowledge();
   return { from: knowledge.from, rulesVersion: knowledge.rulesVersion, cores: knowledge.index.files.length };
 });
-ipcMain.handle('analyze', async (_e, url) => {
-  if (!knowledge) knowledge = await loadKnowledge();
-  return analyzeProject(url, knowledge);
-});
+ipcMain.handle('analyze', async (_e, url) => analyzeProject(url, await ensureKnowledge()));
+ipcMain.handle('checkWorkplace', async (_e, state, url) => checkWorkplace(state, url, await ensureKnowledge()));
+ipcMain.handle('buildNewCore', async (_e, state, work) => buildNewCore(state, work, await ensureKnowledge()));
+ipcMain.handle('applyUpdate', async (_e, state, work) => applyUpdate(state, work, await ensureKnowledge()));
 ipcMain.handle('open', (_e, url) => { if (/^https:\/\/(www\.)?figma\.com\//.test(url)) shell.openExternal(url); });
 
 app.whenReady().then(createWindow);
