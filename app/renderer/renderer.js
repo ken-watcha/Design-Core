@@ -88,8 +88,8 @@ function render(r) {
   const chosenNote = (p, c, n) => {
     if (p.basis === 'Core와 같음') return '<b>선택한 이유</b> 지금 Core에 들어 있는 화면과 같아요.';
     if (/거의/.test(p.basis || '')) return '<b>선택한 이유</b> 지금 Core에 들어 있는 화면과 거의 같아요.';
-    const r = [nameRule(c, p.width), n > 1 && !p.sure ? '후보끼리 점수가 같아서 문서에서 가장 위에 있는 화면을 골랐어요' : ''].filter(Boolean);
-    return `<b>선택한 이유</b> ${esc(r.join(' · ') || '이 폭에서 이름 규칙에 가장 잘 맞아요')}`;
+    const r = [nameRule(c, p.width), n > 1 && !p.sure ? '이름만으로는 후보끼리 구분이 안 돼서, 문서에서 가장 위에 있는 화면을 골랐어요' : ''].filter(Boolean);
+    return `<b>선택한 이유</b> ${esc(r.join(' · ') || '이름이 대표 화면 이름 규칙에 가장 잘 맞아요')}`;
   };
   const otherNote = (p, c, s) => {
     const diff = [];
@@ -100,7 +100,7 @@ function render(r) {
       if (onlyS.length) diff.push(`선택된 화면에만 있는 글자: ${q(onlyS)}`);
       if (!onlyC.length && !onlyS.length && c.h === s.h) diff.push('글자와 크기는 같아요. 이미지나 색만 다를 수 있어요.');
     }
-    const whyNot = (c.score != null && s.score != null && c.score < s.score) ? `선택된 화면은 ${nameRule(s, p.width) || '이름 규칙 점수가 더 높아요'}` : c.y > s.y ? '점수가 같아서 문서에서 더 위에 있는 화면을 선택했어요' : '점수가 같아요';
+    const whyNot = (c.score != null && s.score != null && c.score < s.score) ? `선택된 화면은 ${nameRule(s, p.width) || '이름이 대표 화면 이름 규칙에 더 잘 맞아요'}` : c.y > s.y ? '이름만으로는 구분이 안 돼서, 문서에서 더 위에 있는 화면을 선택했어요' : '이름만으로는 구분이 안 돼요';
     return `<b>다른 점</b> ${diff.length ? diff.join(' · ') : '확인하지 못했어요'}<br><b>선택되지 않은 이유</b> ${esc(whyNot)}`;
   };
   document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
