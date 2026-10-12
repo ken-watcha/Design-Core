@@ -1,5 +1,5 @@
 {
-  "version": "2026-09-18.3",
+  "version": "2026-10-12.1",
   "note": "Core 도우미 플러그인 규칙. 사례가 쌓일 때마다 이 파일만 고친다 — 플러그인은 켜질 때 GitHub main에서 이 파일을 받는다. 출처: .claude/skills/core-file-helper/SKILL.md §4-1·§6-2·§6-4, scripts/figma-write/new-core-master.md",
   "sources": {
     "rules": "https://raw.githubusercontent.com/ken-watcha/Design-Core/main/plugin/rules.json",
@@ -98,7 +98,11 @@
       "Variation",
       "케이스 표"
     ],
-    "screenName": "<프로젝트명> 상세"
+    "screenName": "<프로젝트명> 상세",
+    "strongNames": [
+      "대표"
+    ],
+    "note": "strongNames(+3): 디자이너가 직접 \"대표\"라고 붙인 화면. preferNames(+2). 이름에 폭 숫자가 들어가면 +1. 점수가 같으면 문서에서 가장 위에 있는 화면. (2026-10-12 윤우: 앱이 골라라)"
   },
   "masterPage": {
     "name": "🌏 마스터 파일",
@@ -176,7 +180,7 @@
     ]
   },
   "judge": {
-    "note": "판별은 색인(core-index.json)의 domain·화면 이름과 프로젝트 커버 이름·페이지 텍스트를 대조. 점수가 갈리지 않으면 후보를 보여 주고 사람이 고른다.",
+    "note": "판별은 색인(core-index.json)의 domain·화면 이름과 프로젝트 커버 이름·페이지 텍스트를 대조. 점수가 갈리지 않으면 후보를 보여 주고 사람이 고른다. 2026-10-12: 2점 이상 맞는 Core가 없으면 묻지 않고 새 Core로 정한다. 2점 이상 후보가 비길 때만 사람에게 묻는다.",
     "minScoreForAuto": 2,
     "stopWords": [
       "고도화",
@@ -195,7 +199,9 @@
       "watcha",
       "왓챠",
       "page",
-      "name"
+      "name",
+      "컴포넌트",
+      "component"
     ]
   },
   "review": {

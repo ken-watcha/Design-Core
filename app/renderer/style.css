@@ -21,10 +21,10 @@ button.link { background:none; color:var(--accent); padding:0; font-weight:500; 
 .hint { color:var(--muted); font-size:13px; margin:8px 0 0; }
 .verdict { display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; }
 .big { font-size:17px; font-weight:700; }
-.pill { display:inline-flex; align-items:center; justify-content:center; height:22px; padding:0 10px; border-radius:11px; white-space:nowrap; font-size:12px; line-height:1; font-weight:600; letter-spacing:-.01em; vertical-align:middle; background:var(--bg); flex:none; }
+.pill { display:inline-flex; align-items:center; justify-content:center; height:22px; padding:0 10px; border-radius:11px; white-space:nowrap; font-size:12px; line-height:1; font-weight:600; vertical-align:middle; background:var(--bg); flex:none; }
 .pill.ok { color:var(--ok); } .pill.warn { color:var(--warn); } .pill.bad { color:var(--bad); }
 table { width:100%; border-collapse:collapse; font-size:13px; }
-th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
 th { color:var(--muted); font-weight:500; }
 select { font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:4px 6px; max-width:100%; }
 .muted { color:var(--muted); }
@@ -42,7 +42,7 @@ label.check input { flex:none; padding:0; border:none; margin-right:6px; }
 .conclusion ul { margin:6px 0 0; color:var(--muted); font-size:13px; }
 /* Δ 표: 태그 칸 폭 고정, 줄 전체가 눌리는 단추 */
 table.delta td, table.picks td { vertical-align:middle; }
-table.picks .tag { width:150px; } table.picks .go { width:64px; text-align:right; }
+table.picks .tag { width:150px; } table.picks .go { width:96px; text-align:right; white-space:nowrap; }
 button.link.plain { text-decoration:none; font-weight:600; }
 .hint.lead { margin:-2px 0 12px; line-height:1.65; } .hint.lead b { color:var(--text); font-weight:600; }
 table.delta .act { width:68px; text-align:center; }
@@ -60,7 +60,7 @@ table.delta tr.pick:hover td { background:var(--bg); }
 .cmp-cols.n1 { grid-template-columns:1fr; }
 .cmp-cols figure { margin:0; display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); }
 .cmp-cols figure:last-child { border-right:0; }
-.cmp-cols figcaption { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; padding:10px 16px; font-size:13px; border-bottom:1px solid var(--line); }
+.cmp-cols figcaption { display:flex; align-items:center; min-height:48px; gap:8px; flex-wrap:wrap; padding:10px 16px; font-size:13px; border-bottom:1px solid var(--line); }
 .shot { flex:1; min-height:0; overflow:auto; background:var(--bg); padding:16px; }
 .shot img { display:block; max-width:100%; height:auto; margin:0 auto; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
 .shot .spinner, .shot .empty { color:var(--muted); font-size:13px; text-align:center; padding-top:40px; }
@@ -74,3 +74,18 @@ body.home label[for="url"] { display:none; }
 body.home .row input { padding:14px 18px; font-size:15px; border-radius:12px; background:var(--surface); }
 body.home .row button { padding:0 24px; border-radius:12px; }
 body.home #hint { text-align:center; margin-top:12px; text-wrap:balance; }
+.h2-sub { font-size:13px; font-weight:500; margin-left:6px; }
+.cmp-cols.n3 { grid-template-columns:1fr 1fr 1fr; }
+.cmp-cols figcaption .choose { order:9; margin-left:auto; padding:5px 12px; font-size:12px; border-radius:7px; }
+.pick-why { font-size:12px; margin-top:4px; }
+.pick-why:empty { display:none; }
+select.quiet { background:transparent; }
+/* 오른쪽 끝 '보기/비교' — 표 가장자리에서 띄우고 아이콘 크기 맞춤 */
+td.go { padding-right:16px !important; }
+td.go button, td.go .go-in { display:inline-flex; align-items:center; gap:2px; }
+.chev { width:16px; height:16px; flex:none; }
+/* 수직 가운데 정렬 (2026-10-12 윤우) — 글자 줄높이와 태그·버튼 높이를 맞춘다 */
+button.link { line-height:20px; }
+.pill { line-height:22px; padding-top:1px; }
+td > .muted, td > div { line-height:1.5; }
+.verdict { align-items:center; }

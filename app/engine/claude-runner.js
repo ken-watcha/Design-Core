@@ -35,8 +35,9 @@ function extractJson(text) {
   return JSON.parse(text.slice(a, b + 1));
 }
 
-async function ask(prompt, tools, opts) {
-  const raw = await runClaude(['-p', '--output-format', 'json', '--mcp-config', MCP_CONFIG, '--strict-mcp-config', '--allowedTools', ...tools], prompt, opts);
+async function ask(prompt, tools, opts = {}) {
+  const model = opts.model ? ['--model', opts.model] : [];
+  const raw = await runClaude(['-p', '--output-format', 'json', ...model, '--mcp-config', MCP_CONFIG, '--strict-mcp-config', '--allowedTools', ...tools], prompt, opts);
   const env = JSON.parse(raw);
   if (env.is_error) throw new Error(env.result || 'Claude 실행 오류');
   const data = extractJson(env.result || '');
@@ -75,11 +76,16 @@ async function checkSetup() {
 // 프레임 하나만 그린다. 길쭉한 화면도 글자가 보이게, 폭 기준 2배(최대 폭 1600)로 받는다.
 const shotSize = (it) => it.w && it.h ? Math.min(8000, Math.round(Math.max(it.w, it.h) * Math.min(2, 1600 / it.w))) : 1600;
 async function screenshots(items) {
-  const { data, costUsd } = await ask([
-    `Call the ${TOOLS.shot} tool once for each item below, in order, with the given maxDimension (do not set enableBase64Response).`,
+  const prompt = [
+    `Call the ${TOOLS.shot} tool once for each item below with the given maxDimension (do not set enableBase64Response). Make all the calls at once, in parallel, in a single message.`,
     ...items.map((it, i) => `${i + 1}. fileKey: ${it.fileKey}, nodeId: ${it.nodeId}, maxDimension: ${shotSize(it)}`),
     `Then reply with ONLY {"urls": ["<image_url of item 1>", ...]} in the same order. Use null for an item whose call failed.`
-  ].join('\n'), [TOOLS.shot], { timeoutMs: 180000 });
+  ].join('\n');
+  // 그림 주소 받기는 판단이 필요 없어 빠른 모델로 (2026-10-12 윤우: 너무 오래 걸림). 그 모델을 못 쓰면 기본 모델로 다시.
+  let res;
+  try { res = await ask(prompt, [TOOLS.shot], { timeoutMs: 180000, model: 'haiku' }); }
+  catch (e) { res = await ask(prompt, [TOOLS.shot], { timeoutMs: 180000 }); }
+  const { data, costUsd } = res;
   const urls = data.urls || [];
   const images = await Promise.all(items.map(async (_, i) => {
     const u = urls[i];
