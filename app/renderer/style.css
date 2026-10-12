@@ -98,9 +98,10 @@ td > .muted, td > div { line-height:1.5; }
 .cap-note { order:2; flex-basis:100%; font-size:12px; line-height:1.6; color:var(--muted); }
 .cap-note b { color:var(--text); font-weight:600; margin-right:4px; }
 
-/* 그림 빨리 받기(토큰) */
-.fast { margin-left:auto; font-size:13px; font-weight:500; color:var(--muted); -webkit-app-region:no-drag; }
-.fast.on { color:var(--ok); }
+/* 피그마 토큰 연결 */
+button.fast { margin-left:auto; font-size:13px; font-weight:500; color:var(--muted); -webkit-app-region:no-drag; }
+button.fast.on { color:var(--ok); } button.fast.off { color:var(--bad); }
+.tok .alert { background:color-mix(in srgb, var(--bad) 14%, transparent); color:var(--bad); border-radius:8px; padding:8px 12px; font-size:13px; margin:4px 0 10px; }
 .tok { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 22px; width:min(520px, 100%); }
 .tok h2 { margin-bottom:6px; }
 .tok ol { margin:8px 0 14px; padding-left:18px; color:var(--muted); font-size:13px; }

@@ -117,6 +117,7 @@ function render(r) {
 
 $('#form').addEventListener('submit', async (ev) => {
   ev.preventDefault();
+  if (!(await needToken())) return;
   work = null;
   const url = $('#url').value.trim();
   $('#go').disabled = true;
@@ -128,34 +129,46 @@ $('#form').addEventListener('submit', async (ev) => {
   finally { $('#go').disabled = false; }
 });
 
-// ---------- 그림 빨리 받기 (Figma 토큰) ----------
-// 토큰이 있으면 화면 그림을 Claude 없이 Figma에서 바로 받는다 (2026-10-12 윤우 결정)
+// ---------- 피그마 토큰 연결 (필수) ----------
+// 화면 그림을 Figma에서 바로 받는 데 쓴다. 연결 전에는 분석·확인·반영을 막고 연결 창을 띄운다 (2026-10-12 윤우 결정)
+let tokenOn = false;
 async function showFast() {
-  try { const s = await window.core.tokenStatus(); const b = $('#fast'); b.textContent = s.on ? '그림 빨리 받기 켜짐' : '그림 빨리 받기'; b.classList.toggle('on', !!s.on); } catch (e) {}
+  try { const s = await window.core.tokenStatus(); tokenOn = !!s.on; } catch (e) {}
+  const b = $('#fast'); b.textContent = tokenOn ? '피그마 토큰 연결 완료' : '피그마 토큰 연결 필요';
+  b.classList.toggle('on', tokenOn); b.classList.toggle('off', !tokenOn);
 }
-$('#fast').addEventListener('click', async () => {
-  const s = await window.core.tokenStatus().catch(() => ({ on: false }));
+async function needToken() {
+  if (!tokenOn) await showFast();
+  if (tokenOn) return true;
+  openToken(true); return false;
+}
+function openToken(blocked) {
   const back = document.createElement('div'); back.className = 'cmp-back';
-  back.innerHTML = `<section class="tok"><h2>그림 빨리 받기</h2>
-    <p class="muted">Figma 토큰을 한 번 넣어 두면, 후보·비교 화면 그림을 Claude를 거치지 않고 몇 초 안에 받아요. 토큰은 이 맥에만 암호화해 저장되고, 채팅에는 붙이지 마세요.</p>
+  back.innerHTML = `<section class="tok"><h2>${tokenOn ? '피그마 토큰 연결 완료' : '피그마 토큰 연결 필요'}</h2>
+    ${blocked ? '<p class="alert">피그마 토큰을 먼저 연결해 주세요. 연결해야 다음 단계로 넘어갈 수 있어요.</p>' : ''}
+    <p class="muted">이 앱은 피그마 토큰으로 화면 그림을 바로 받아요. 처음 한 번만 연결하면 되고, 토큰은 이 맥에만 암호화해 저장돼요. 채팅에는 붙이지 마세요.</p>
     <ol><li>Figma 왼쪽 위 계정 → Settings → Security</li><li>Personal access tokens → Generate new token</li><li>권한은 <b>File content: Read only</b> 하나면 돼요</li><li>만든 토큰을 아래에 붙여 넣기</li></ol>
-    <div class="row"><input id="tokIn" type="password" placeholder="${s.on ? '저장된 토큰이 있어요 · 바꾸려면 새로 붙여 넣기' : 'figd_…'}" autocomplete="off"><button id="tokSave" type="button">저장</button></div>
-    <div class="msg muted" id="tokMsg">${s.on ? '켜져 있어요.' : ''}</div>
-    <div class="foot">${s.on ? '<button class="link" id="tokOff" type="button">끄고 토큰 지우기</button>' : '<span></span>'}<button class="link plain" id="tokClose" type="button">닫기</button></div></section>`;
+    <div class="row"><input id="tokIn" type="password" placeholder="${tokenOn ? '연결된 토큰이 있어요 · 바꾸려면 새로 붙여 넣기' : 'figd_…'}" autocomplete="off"><button id="tokSave" type="button">연결</button></div>
+    <div class="msg muted" id="tokMsg"></div>
+    <div class="foot">${tokenOn ? '<button class="link" id="tokOff" type="button">연결 끊고 토큰 지우기</button>' : '<span></span>'}<button class="link plain" id="tokClose" type="button">닫기</button></div></section>`;
   document.body.appendChild(back);
   const close = () => back.remove();
   back.addEventListener('click', (e) => { if (e.target === back) close(); });
   back.querySelector('#tokClose').addEventListener('click', close);
+  back.querySelector('#tokIn').focus();
   const msg = (t, cls) => { const m = back.querySelector('#tokMsg'); m.textContent = t; m.className = 'msg ' + (cls || 'muted'); };
-  back.querySelector('#tokSave').addEventListener('click', async () => {
+  const save = async () => {
     const v = back.querySelector('#tokIn').value.trim(); if (!v) return msg('토큰을 붙여 넣어 주세요.', 'bad');
     msg('확인 중…');
-    try { const r = await window.core.tokenSave(v); msg(`켜졌어요 · Figma ${r.who && r.who.handle || ''}`, 'ok'); showFast(); setTimeout(close, 900); }
+    try { const r = await window.core.tokenSave(v); msg(`연결됐어요 · Figma ${r.who && r.who.handle || ''}`, 'ok'); await showFast(); setTimeout(close, 900); }
     catch (e) { msg(String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 'bad'); }
-  });
+  };
+  back.querySelector('#tokSave').addEventListener('click', save);
+  back.querySelector('#tokIn').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
   const off = back.querySelector('#tokOff');
-  if (off) off.addEventListener('click', async () => { await window.core.tokenClear(); showFast(); close(); });
-});
+  if (off) off.addEventListener('click', async () => { await window.core.tokenClear(); await showFast(); close(); });
+}
+$('#fast').addEventListener('click', async () => { await showFast(); openToken(false); });
 showFast();
 
 $('#setup').addEventListener('click', () => { $('#setup').textContent = '준비 상태 다시 확인 중…'; showSetup(); });
@@ -217,6 +230,7 @@ function placeHtml(r) {
 
 async function onPlace(ev) {
   ev.preventDefault();
+  if (!(await needToken())) return;
   const url = $('#placeUrl').value.trim();
   $('#placeGo').disabled = true; $('#work').innerHTML = progressHtml('place', '작업 위치를 확인하고 바뀔 내용을 비교하고 있어요'); startProgress('place');
   try {
@@ -358,6 +372,7 @@ async function openViewer({ pill, title, why, sides }) {
 }
 
 async function onApply() {
+  if (!(await needToken())) return;
   $('#applyGo').disabled = true;
   const keep = $('#work').innerHTML;
   $('#work').insertAdjacentHTML('beforeend', progressHtml('apply', '브랜치에 반영하고 있어요', 'applyBusy')); startProgress('apply');
@@ -387,6 +402,7 @@ function showBuild() {
 }
 
 async function onBuild() {
+  if (!(await needToken())) return;
   $('#buildGo').disabled = true;
   $('#work').insertAdjacentHTML('beforeend', progressHtml('build', '새 Core를 만들고 있어요', 'buildBusy')); startProgress('build');
   try {
