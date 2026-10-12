@@ -1032,7 +1032,8 @@
 ## [Core] 스텝메이드
 
 - 파일: https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/ (키 `txuuBtHiDgal8pC4OIbSHF`, 형식: new, 최종 수정 2026-09-18)
-- 다루는 영역: 스텝메이드 상세 페이지(APP small/medium/large, WEB small/medium/large)
+- 다루는 영역: 스텝메이드 / 스텝메이드 상세 / 큐레이션·기획전 상세 페이지 (홈 피쳐링 셀·배너에서 진입) / 스텝메이드 상세 페이지(APP small/medium/large, WEB small/medium/large)
+- 출처: 프로젝트 "스텝메이드 상세페이지 고도화" 문서(NO7uetAL9Qmk03IXWSaMej)를 복제해 깎은 새 Core (2026-09-18). 링크 카드가 그 문서를 가리킴
 - 메모: 2026-09-18 프로젝트 문서 '스텝메이드 상세페이지 고도화'(NO7uetAL9Qmk03IXWSaMej)를 Duplicate해 만든 첫 새 Core. 새 규격: 플로우 페이지 없음, 마스터 = 링크 카드 + APP 3장 + WEB 4장. 진입은 홈 피쳐링 셀·배너(SVOD·TVOD)
 
 ### 페이지

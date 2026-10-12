@@ -1,8 +1,7 @@
 // 엔진 시험 (Figma·Claude 없이): 분석 코드가 문법상 돌고, 실제 스텝메이드 분석 결과(2026-10-02 use_figma로 받은 것)로 판별이 나오는지
 const assert = require('assert');
 const { buildAnalyzeCode } = require('../engine/figma-analyze');
-const { analyzeProject, buildNewCore, parseFigmaUrl } = require('../engine/core');
-const { buildNewCoreCode, planFromAnalysis } = require('../engine/figma-build');
+const { analyzeProject, parseFigmaUrl } = require('../engine/core');
 const { extractJson } = require('../engine/claude-runner');
 const rules = require('../../plugin/rules.json');
 const index = require('../../core-index/core-index.json');
@@ -19,33 +18,57 @@ const fixture = require('./fixture-stepmade.json');
   const r = await analyzeProject('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', { rules, index, memory: {} }, fake);
   assert.strictEqual(r.analysis.kind, 'project');
   assert(r.verdict, '판별 결과');
-  // 2026-10-12: 9/18에 이 문서로 만든 [Core] 스텝메이드가 색인에 있으니 기존 Core 갱신이 맞다
-  assert.strictEqual(r.verdict.suggestion, 'update');
-  assert.strictEqual(r.verdict.target, '[Core] 스텝메이드');
   console.log('판별:', r.verdict.suggestion, r.verdict.target, '·', r.verdict.reason);
-  // 새 Core 만들기: 계획 → 코드(문법·크기), 원본 링크 거부, 확인/진행 구분
-  const plan = planFromAnalysis(r);
-  assert.strictEqual(plan.sourceFileKey, 'NO7uetAL9Qmk03IXWSaMej');
-  assert.strictEqual(plan.projectName, '스텝메이드');
-  for (const mode of ['pasted', 'duplicate']) for (const dry of [true, false]) {
-    const bc = buildNewCoreCode(rules, plan, { dryRun: dry, mode });
-    new (Object.getPrototypeOf(async function () {}).constructor)('figma', bc);
-    assert(bc.length < 50000, 'use_figma 코드 한도 50KB (' + bc.length + ')');
-    assert(bc.includes('const DRY_RUN = ' + dry) && bc.includes('const MODE = "' + mode + '"'));
-  }
-  assert.throws(() => buildNewCoreCode(rules, plan, { dryRun: true, mode: 'redraw' }));
-  assert(buildNewCoreCode(rules, Object.assign({}, plan, { versionSavedByHuman: true }), { dryRun: false }).includes('"versionSavedByHuman":true'), '사람이 저장한 버전 표시가 실려 감');
-  // 붙여 넣은 쪽에서 짝을 찾을 수 있게 고른 화면마다 이름·크기가 실려 간다
-  const picks = Object.values(plan.platforms).flat().flatMap(e => e.picks).filter(p => p.chosen);
-  const sentPlan = JSON.parse(/const PLAN = (.*);/.exec(buildNewCoreCode(rules, plan, { dryRun: true }))[1]);
-  const sentPicks = Object.values(sentPlan.platforms).flat().flatMap(e => e.picks).filter(p => p.chosen);
-  assert.strictEqual(sentPicks.length, picks.length);
-  assert(sentPicks.every(p => p.fp && p.fp.name && p.fp.w && p.fp.h), '화면 이름·크기');
-  await assert.rejects(buildNewCore('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', plan, { rules }, { dryRun: true }, async () => assert.fail('원본에 실행하면 안 됨')), /원본/);
+  // --- v0.2: 작업 위치 · Δ · 쓰기 코드 ---
+  const os = require('os'), path = require('path'), fs = require('fs');
+  const { checkWorkplace, buildNewCore, applyUpdate } = require('../engine/core');
+  const { buildCoreReadCode } = require('../engine/figma-core-read');
+  const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('../engine/figma-write');
+  const { checkLink } = require('../engine/place');
+  const { mergeIndex } = require('../engine/index-store');
+  const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
+  for (const c of [buildCoreReadCode(rules), buildNewCoreCode(rules, {}), trimNewCoreCode(rules, {}), applyUpdateCode(rules, {})]) { new AsyncFn('figma', c); assert(c.length < 50000); }
+
+  const coreRead = require('./fixture-core-stepmade.json');
+  const analysisSig = require('./fixture-stepmade-sig.json');
+  const indexWithCore = mergeIndex(index, null, [{ name: '[Core] 스텝메이드', key: coreRead.fileKey, url: 'u', domain: ['스텝메이드'] }]).index;
+  const k = { rules, index: indexWithCore, memory: {} };
+  const st = await analyzeProject('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', k, async () => ({ data: JSON.parse(JSON.stringify(analysisSig)), costUsd: 0 }));
+  assert.strictEqual(st.verdict.suggestion, 'update', '[Core] 스텝메이드가 색인에 있으면 갱신');
+  assert.strictEqual(st.place.kind, 'branch');
+  // 링크 검사: 본 파일·다른 파일 브랜치는 거절
+  assert(!checkLink(st.place, 'https://www.figma.com/design/' + coreRead.fileKey + '/x').ok, 'Core 본 파일 거절');
+  assert(!checkLink(st.place, 'https://www.figma.com/design/AAAAAAAAAAAAAAAAAAAAAA/branch/BBBBBBBBBBBBBBBBBBBBBB/x').ok, '다른 파일 브랜치 거절');
+  const branchUrl = 'https://www.figma.com/design/' + coreRead.fileKey + '/branch/BBBBBBBBBBBBBBBBBBBBBB/x';
+  const w = await checkWorkplace(st, branchUrl, k, async (key) => { assert.strictEqual(key, 'BBBBBBBBBBBBBBBBBBBBBB'); return { data: coreRead, costUsd: 0 }; });
+  assert(w.ok, w.why);
+  console.log('Δ:', JSON.stringify(w.delta.summary), '· Core와 같은 후보로 맞춘 칸', w.preferred);
+  assert.strictEqual(w.delta.summary.keep, 6, '9/18 Core와 같은 화면 6칸 유지');
+  assert.strictEqual(w.delta.summary.replace, 1, 'WEB 768 한 칸만 교체 (Core 화면이 문서에 없음)');
+  assert.strictEqual(w.delta.summary.missing, 1, '더보기 팝업 미수록');
+  // 반영: 교체 1건만 계획에 들어가는지
   let sent = null;
-  const fakeBuild = async (k, c, d) => { sent = { k, c, d }; return { data: { dryRun: true, ok: true, check: { screens: 3, problems: [] } }, costUsd: 0 }; };
-  const chk = await buildNewCore('https://www.figma.com/design/DUPDUPDUPDUPDUPDUPDUPD/x', plan, { rules }, { dryRun: true }, fakeBuild);
-  assert(chk.ok && sent.k === 'DUPDUPDUPDUPDUPDUPDUPD' && /읽기 전용/.test(sent.d) && sent.c.includes('const DRY_RUN = true') && sent.c.includes('const MODE = "pasted"'), '기본은 붙여 넣기');
-  console.log('새 Core 계획:', plan.projectName, '· 코드', buildNewCoreCode(rules, plan, { dryRun: false }).length, 'B');
+  await applyUpdate(st, w, k, async (key, code) => { if (/const PLAN/.test(code) && !sent) sent = code; return { data: code.includes('UPDATE') || /applyUpdate|step: 'update'/.test(code) ? { done: [], notFound: [], cardUpdated: false } : coreRead, costUsd: 0 }; });
+  assert(/"action":"교체"/.test(sent) && !/"action":"유지"/.test(sent), '반영 계획엔 교체·추가만');
+  // 새 Core: 원본 파일·이미 Core인 파일 거절, 만든 뒤 로컬 색인에 추가
+  const indexNoCore = Object.assign({}, index, { files: index.files.filter(f => !/스텝메이드/.test(f.name)) });
+  const stNew = await analyzeProject('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', { rules, index: indexNoCore, memory: {} }, async () => ({ data: JSON.parse(JSON.stringify(analysisSig)), costUsd: 0 }));
+  assert.strictEqual(stNew.place.kind, 'duplicate');
+  assert(!checkLink(stNew.place, 'https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x').ok, '원본 거절');
+  const dupUrl = 'https://www.figma.com/design/CCCCCCCCCCCCCCCCCCCCCC/x';
+  const bad = await checkWorkplace(stNew, dupUrl, k, async () => ({ data: coreRead, costUsd: 0 }));
+  assert(!bad.ok, '이미 마스터가 있는 파일 거절');
+  const wn = await checkWorkplace(stNew, dupUrl, k, async () => ({ data: { isCore: false, pages: analysisSig.pages, platforms: {} }, costUsd: 0 }));
+  assert(wn.ok, wn.why);
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'core-helper-'));
+  process.env.HOME = home;
+  const store = require('../engine/index-store');
+  const calls = [];
+  const kk = { rules, index: JSON.parse(JSON.stringify(indexNoCore)), memory: {} };
+  const built = await buildNewCore(stNew, wn, kk, async (key, code, desc) => { calls.push(desc); return { data: /깎기/.test(desc) ? { removed: [], detached: 0, pages: [] } : /확인/.test(desc) ? Object.assign({}, coreRead, { fileKey: 'CCCCCCCCCCCCCCCCCCCCCC' }) : { screens: [], rootId: '1:1' }, costUsd: 0 }; });
+  assert.deepStrictEqual(calls.length, 3, '만들기 → 깎기 → 확인');
+  assert(kk.index.files.some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '새 Core를 색인에 추가');
+  assert(built.core);
+  assert(store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '로컬 추가분 파일에 기록');
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });

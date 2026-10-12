@@ -5236,6 +5236,9 @@
    "url": "https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/",
    "format": "new",
    "domain": [
+    "스텝메이드",
+    "스텝메이드 상세",
+    "큐레이션·기획전 상세 페이지 (홈 피쳐링 셀·배너에서 진입)",
     "스텝메이드 상세 페이지(APP small/medium/large, WEB small/medium/large)"
    ],
    "last_modified": "2026-09-18",
@@ -5364,7 +5367,8 @@
    },
    "source_projects": [
     "NO7uetAL9Qmk03IXWSaMej"
-   ]
+   ],
+   "origin": "프로젝트 \"스텝메이드 상세페이지 고도화\" 문서(NO7uetAL9Qmk03IXWSaMej)를 복제해 깎은 새 Core (2026-09-18). 링크 카드가 그 문서를 가리킴"
   }
  ],
  "known_but_unindexed": [],

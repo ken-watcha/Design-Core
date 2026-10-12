@@ -1,28 +1,12 @@
 // Core 도우미 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
+// 화면은 진행 상태(state: 분석 결과 + 판별 + 작업 위치)를 들고 있다가 단계마다 통째로 넘긴다.
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
-const { loadKnowledge, analyzeProject, buildNewCore } = require('./engine/core');
+const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
 const { checkSetup } = require('./engine/claude-runner');
-const { planFromAnalysis } = require('./engine/figma-build');
 
 let knowledge = null;
-const fs = require('fs');
-
-// 앱이 만든 새 Core를 이 노트북의 Core 목록에 바로 더한다 (팀 공용 색인 core-index.json은 저장소에서 갱신)
-const localCoresPath = () => path.join(app.getPath('userData'), 'local-cores.json');
-const readLocalCores = () => { try { return JSON.parse(fs.readFileSync(localCoresPath(), 'utf8')); } catch (e) { return []; } };
-function withLocalCores(k) {
-  const have = new Set(k.index.files.map(f => f.key));
-  const extra = readLocalCores().filter(f => !have.has(f.key));
-  k.index = Object.assign({}, k.index, { files: k.index.files.concat(extra) });
-  k.localCores = extra.length;
-  return k;
-}
-function rememberCore(entry) {
-  const list = readLocalCores().filter(f => f.key !== entry.key).concat([entry]);
-  fs.mkdirSync(path.dirname(localCoresPath()), { recursive: true });
-  fs.writeFileSync(localCoresPath(), JSON.stringify(list, null, 1));
-}
+const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledge());
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -34,23 +18,13 @@ function createWindow() {
 
 ipcMain.handle('setup', async () => checkSetup());
 ipcMain.handle('knowledge', async () => {
-  knowledge = withLocalCores(await loadKnowledge());
-  return { from: knowledge.from, rulesVersion: knowledge.rulesVersion, cores: knowledge.index.files.length, localCores: knowledge.localCores };
+  knowledge = await loadKnowledge();
+  return { from: knowledge.from, rulesVersion: knowledge.rulesVersion, cores: knowledge.index.files.length };
 });
-ipcMain.handle('analyze', async (_e, url) => {
-  if (!knowledge) knowledge = withLocalCores(await loadKnowledge());
-  return analyzeProject(url, knowledge);
-});
-ipcMain.handle('build', async (_e, coreUrl, analyzed, dryRun, mode, versionSaved) => {
-  if (!knowledge) knowledge = withLocalCores(await loadKnowledge());
-  const plan = Object.assign(planFromAnalysis(analyzed), { versionSavedByHuman: !!versionSaved });
-  const r = await buildNewCore(coreUrl, plan, knowledge, { dryRun: !!dryRun, mode: mode === 'duplicate' ? 'duplicate' : 'pasted' });
-  if (!dryRun && r.ok) {
-    rememberCore({ name: r.check.fileName, key: r.fileKey, url: `https://www.figma.com/design/${r.fileKey}/`, format: 'new', domain: [plan.projectName], source_projects: [plan.sourceFileKey], local: true, created: new Date().toISOString().slice(0, 10) });
-    knowledge = null; r.addedToLocalIndex = true;
-  }
-  return r;
-});
+ipcMain.handle('analyze', async (_e, url) => analyzeProject(url, await ensureKnowledge()));
+ipcMain.handle('checkWorkplace', async (_e, state, url) => checkWorkplace(state, url, await ensureKnowledge()));
+ipcMain.handle('buildNewCore', async (_e, state, work) => buildNewCore(state, work, await ensureKnowledge()));
+ipcMain.handle('applyUpdate', async (_e, state, work) => applyUpdate(state, work, await ensureKnowledge()));
 ipcMain.handle('open', (_e, url) => { if (/^https:\/\/(www\.)?figma\.com\//.test(url)) shell.openExternal(url); });
 
 app.whenReady().then(createWindow);

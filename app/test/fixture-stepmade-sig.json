@@ -1,0 +1,790 @@
+{
+ "kind": "project",
+ "cover": {
+  "nameEN": "스텝메이드 상세페이지 고도화",
+  "nameKR": "스텝메이드 상세페이지 고도화 I angela",
+  "owner": "",
+  "badge": "Working"
+ },
+ "fileName": "Document",
+ "fileKey": "NO7uetAL9Qmk03IXWSaMej",
+ "pages": [
+  "cover",
+  "---",
+  "✅ Mobile",
+  "ㄴ 로컬 컴포넌트",
+  "✅ Web",
+  "ㄴ 로컬 컴포넌트",
+  "---",
+  "📏 운영 가이드 "
+ ],
+ "platforms": {
+  "APP": [
+   {
+    "cls": "small",
+    "desc": "~599px · 대표 375",
+    "section": {
+     "id": "108:11502",
+     "name": "Mobile- small",
+     "basis": "규칙"
+    },
+    "picks": [
+     {
+      "width": 375,
+      "chosen": "148:22768",
+      "candidates": [
+       {
+        "id": "148:22768",
+        "name": "예시",
+        "w": 375,
+        "h": 812,
+        "y": 403,
+        "score": 3,
+        "learned": 0,
+        "sig": "323286b6:174"
+       },
+       {
+        "id": "148:23472",
+        "name": "예시",
+        "w": 375,
+        "h": 812,
+        "y": 403,
+        "score": 3,
+        "learned": 0,
+        "sig": "5ecbfc8a:160"
+       },
+       {
+        "id": "145:14912",
+        "name": "예시",
+        "w": 375,
+        "h": 1228,
+        "y": 1333,
+        "score": 3,
+        "learned": 0,
+        "sig": "ab793060:176"
+       },
+       {
+        "id": "145:15873",
+        "name": "예시",
+        "w": 375,
+        "h": 1138,
+        "y": 1333,
+        "score": 3,
+        "learned": 0,
+        "sig": "6b01d0a6:173"
+       },
+       {
+        "id": "190:69277",
+        "name": "예시 (탭바 플로팅)",
+        "w": 375,
+        "h": 812,
+        "y": 1333,
+        "score": 3,
+        "learned": 0,
+        "sig": "7cdbd3a6:150"
+       },
+       {
+        "id": "148:18407",
+        "name": "예시",
+        "w": 375,
+        "h": 1142,
+        "y": 1333,
+        "score": 3,
+        "learned": 0,
+        "sig": "2fd5f657:160"
+       },
+       {
+        "id": "149:26689",
+        "name": "375",
+        "w": 375,
+        "h": 1000,
+        "y": 3768,
+        "score": 3,
+        "learned": 0,
+        "sig": "5382ce4c:173"
+       },
+       {
+        "id": "149:27279",
+        "name": "375",
+        "w": 375,
+        "h": 1000,
+        "y": 3768,
+        "score": 3,
+        "learned": 0,
+        "sig": "77c727f4:176"
+       },
+       {
+        "id": "149:26992",
+        "name": "375",
+        "w": 375,
+        "h": 1000,
+        "y": 3768,
+        "score": 3,
+        "learned": 0,
+        "sig": "7b9ee8d0:160"
+       },
+       {
+        "id": "149:24025",
+        "name": "375",
+        "w": 375,
+        "h": 1000,
+        "y": 3768,
+        "score": 3,
+        "learned": 0,
+        "sig": "db1f5813:280"
+       }
+      ],
+      "sure": false,
+      "basis": "규칙"
+     }
+    ]
+   },
+   {
+    "cls": "medium",
+    "desc": "600~799px · 대표 768",
+    "section": {
+     "id": "149:32628",
+     "name": "Mobile - medium",
+     "basis": "규칙"
+    },
+    "picks": [
+     {
+      "width": 768,
+      "chosen": "166:24310",
+      "candidates": [
+       {
+        "id": "166:24310",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 404,
+        "score": 3,
+        "learned": 0,
+        "sig": "88bc03f4:163"
+       },
+       {
+        "id": "166:24647",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 416,
+        "score": 3,
+        "learned": 0,
+        "sig": "bdd2126d:159"
+       },
+       {
+        "id": "173:7425",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 1290,
+        "score": 3,
+        "learned": 0,
+        "sig": "88bc03f4:163"
+       },
+       {
+        "id": "173:8064",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 1290,
+        "score": 3,
+        "learned": 0,
+        "sig": "7cd4fba0:228"
+       },
+       {
+        "id": "173:7728",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 1290,
+        "score": 3,
+        "learned": 0,
+        "sig": "c7ac0179:159"
+       },
+       {
+        "id": "169:25440",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 3125,
+        "score": 3,
+        "learned": 0,
+        "sig": "b6841f9:213"
+       },
+       {
+        "id": "190:41896",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 3125,
+        "score": 3,
+        "learned": 0,
+        "sig": "57d4ae00:228"
+       },
+       {
+        "id": "190:42223",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 3125,
+        "score": 3,
+        "learned": 0,
+        "sig": "c7ac0179:159"
+       },
+       {
+        "id": "190:42513",
+        "name": "768",
+        "w": 768,
+        "h": 1000,
+        "y": 3125,
+        "score": 3,
+        "learned": 0,
+        "sig": "88bc03f4:163"
+       },
+       {
+        "id": "171:30636",
+        "name": "Guide",
+        "w": 768,
+        "h": 1000,
+        "y": 95,
+        "score": -2,
+        "learned": 0,
+        "sig": "88bc03f4:164"
+       }
+      ],
+      "sure": false,
+      "basis": "규칙"
+     }
+    ]
+   },
+   {
+    "cls": "large",
+    "desc": "800~px · 대표 1024",
+    "section": {
+     "id": "190:44334",
+     "name": "Mobile - large",
+     "basis": "규칙"
+    },
+    "picks": [
+     {
+      "width": 1024,
+      "chosen": "190:52779",
+      "candidates": [
+       {
+        "id": "190:52779",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 395,
+        "score": 3,
+        "learned": 0,
+        "sig": "1c47629:191"
+       },
+       {
+        "id": "190:53135",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 395,
+        "score": 3,
+        "learned": 0,
+        "sig": "691eac2f:181"
+       },
+       {
+        "id": "190:53517",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 1670,
+        "score": 3,
+        "learned": 0,
+        "sig": "1c47629:191"
+       },
+       {
+        "id": "190:53869",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 1670,
+        "score": 3,
+        "learned": 0,
+        "sig": "691eac2f:181"
+       },
+       {
+        "id": "190:54240",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 1685,
+        "score": 3,
+        "learned": 0,
+        "sig": "be5ffeb9:246"
+       },
+       {
+        "id": "190:55590",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 3576,
+        "score": 3,
+        "learned": 0,
+        "sig": "1c47629:191"
+       },
+       {
+        "id": "190:55942",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 3580,
+        "score": 3,
+        "learned": 0,
+        "sig": "89d7d419:201"
+       },
+       {
+        "id": "190:56980",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 3580,
+        "score": 3,
+        "learned": 0,
+        "sig": "988445fd:214"
+       },
+       {
+        "id": "190:56308",
+        "name": "1024",
+        "w": 1024,
+        "h": 1124,
+        "y": 3580,
+        "score": 3,
+        "learned": 0,
+        "sig": "691eac2f:181"
+       },
+       {
+        "id": "190:48344",
+        "name": "Guide",
+        "w": 1024,
+        "h": 1124,
+        "y": 83,
+        "score": -2,
+        "learned": 0,
+        "sig": "1c47629:192"
+       }
+      ],
+      "sure": false,
+      "basis": "규칙"
+     }
+    ]
+   }
+  ],
+  "WEB": [
+   {
+    "cls": "small",
+    "desc": "~767px · 대표 375",
+    "section": {
+     "id": "190:69586",
+     "name": "~767",
+     "basis": "규칙"
+    },
+    "picks": [
+     {
+      "width": 375,
+      "chosen": "190:76811",
+      "candidates": [
+       {
+        "id": "190:76811",
+        "name": "예시",
+        "w": 375,
+        "h": 812,
+        "y": -1935,
+        "score": 3,
+        "learned": 0,
+        "sig": "fe9e0fb0:123"
+       },
+       {
+        "id": "190:77064",
+        "name": "예시",
+        "w": 375,
+        "h": 812,
+        "y": -1935,
+        "score": 3,
+        "learned": 0,
+        "sig": "1207b8a9:111"
+       },
+       {
+        "id": "190:78370",
+        "name": "예시",
+        "w": 375,
+        "h": 1116,
+        "y": -1032,
+        "score": 3,
+        "learned": 0,
+        "sig": "b3a45d9e:112"
+       },
+       {
+        "id": "190:69732",
+        "name": "예시 (탭바 플로팅)",
+        "w": 375,
+        "h": 812,
+        "y": -1005,
+        "score": 3,
+        "learned": 0,
+        "sig": "a670e0e0:100"
+       },
+       {
+        "id": "190:77345",
+        "name": "예시",
+        "w": 375,
+        "h": 812,
+        "y": -1005,
+        "score": 3,
+        "learned": 0,
+        "sig": "fe9e0fb0:123"
+       },
+       {
+        "id": "190:77594",
+        "name": "예시",
+        "w": 375,
+        "h": 812,
+        "y": -1005,
+        "score": 3,
+        "learned": 0,
+        "sig": "1207b8a9:111"
+       },
+       {
+        "id": "190:79328",
+        "name": "375",
+        "w": 375,
+        "h": 812,
+        "y": 987,
+        "score": 3,
+        "learned": 0,
+        "sig": "185272ee:110"
+       },
+       {
+        "id": "190:79587",
+        "name": "375",
+        "w": 375,
+        "h": 812,
+        "y": 987,
+        "score": 3,
+        "learned": 0,
+        "sig": "1207b8a9:111"
+       },
+       {
+        "id": "190:79079",
+        "name": "375",
+        "w": 375,
+        "h": 812,
+        "y": 987,
+        "score": 3,
+        "learned": 0,
+        "sig": "fe9e0fb0:123"
+       },
+       {
+        "id": "190:79820",
+        "name": "375",
+        "w": 375,
+        "h": 812,
+        "y": 987,
+        "score": 3,
+        "learned": 0,
+        "sig": "98d0894e:112"
+       }
+      ],
+      "sure": false,
+      "basis": "규칙"
+     }
+    ]
+   },
+   {
+    "cls": "medium",
+    "desc": "768~1280px · 양끝 768 · 1280",
+    "section": {
+     "id": "191:25799",
+     "name": "768~1280",
+     "basis": "규칙"
+    },
+    "picks": [
+     {
+      "width": 768,
+      "chosen": "191:32022",
+      "candidates": [
+       {
+        "id": "191:32022",
+        "name": "Body: 일반 케이스",
+        "w": 768,
+        "h": 676,
+        "y": -1048,
+        "score": 3,
+        "learned": 0,
+        "sig": "4889b0:90"
+       },
+       {
+        "id": "191:34173",
+        "name": "Body: 일반 케이스",
+        "w": 768,
+        "h": 676,
+        "y": 787,
+        "score": 3,
+        "learned": 0,
+        "sig": "4889b0:90"
+       },
+       {
+        "id": "191:32284",
+        "name": "Body: 탭바 적용된 케이스",
+        "w": 768,
+        "h": 748,
+        "y": -1048,
+        "score": 1,
+        "learned": 0,
+        "sig": "27a7b5c0:93"
+       },
+       {
+        "id": "191:32549",
+        "name": "Body: 섹션 타이틀 적용된 케이스",
+        "w": 768,
+        "h": 730,
+        "y": -1048,
+        "score": 1,
+        "learned": 0,
+        "sig": "785a5eae:115"
+       },
+       {
+        "id": "191:34920",
+        "name": "Body: 섹션 타이틀 적용된 케이스",
+        "w": 768,
+        "h": 730,
+        "y": 786,
+        "score": 1,
+        "learned": 0,
+        "sig": "9afb8bf3:115"
+       },
+       {
+        "id": "191:34030",
+        "name": "Body: 탭바 적용된 케이스",
+        "w": 768,
+        "h": 748,
+        "y": 787,
+        "score": 1,
+        "learned": 0,
+        "sig": "5f831240:93"
+       },
+       {
+        "id": "191:34313",
+        "name": "Body: 탭바 적용된 케이스",
+        "w": 768,
+        "h": 748,
+        "y": 787,
+        "score": 1,
+        "learned": 0,
+        "sig": "5a977953:92"
+       },
+       {
+        "id": "191:25800",
+        "name": "Guide",
+        "w": 768,
+        "h": 753,
+        "y": -2243,
+        "score": -2,
+        "learned": 0,
+        "sig": "6fd172a:94"
+       },
+       {
+        "id": "191:31461",
+        "name": "Guide",
+        "w": 768,
+        "h": 745,
+        "y": -1934,
+        "score": -2,
+        "learned": 0,
+        "sig": "18e62c6d:93"
+       },
+       {
+        "id": "191:31728",
+        "name": "Guide",
+        "w": 768,
+        "h": 696,
+        "y": -1934,
+        "score": -2,
+        "learned": 0,
+        "sig": "fa37e13e:90"
+       }
+      ],
+      "sure": false,
+      "basis": "규칙"
+     },
+     {
+      "width": 1280,
+      "chosen": "191:30277",
+      "candidates": [
+       {
+        "id": "191:30277",
+        "name": "1280",
+        "w": 1280,
+        "h": 847,
+        "y": 801,
+        "score": 3,
+        "learned": 0,
+        "sig": "7ee95643:112"
+       }
+      ],
+      "sure": true,
+      "basis": "규칙"
+     }
+    ]
+   },
+   {
+    "cls": "large",
+    "desc": "1281~px · 대표 1440",
+    "section": {
+     "id": "191:35157",
+     "name": "1280~",
+     "basis": "규칙"
+    },
+    "picks": [
+     {
+      "width": 1440,
+      "chosen": "191:37951",
+      "candidates": [
+       {
+        "id": "191:37951",
+        "name": "1440",
+        "w": 1440,
+        "h": 1052,
+        "y": -2104,
+        "score": 3,
+        "learned": 0,
+        "sig": "a7749eb4:130"
+       },
+       {
+        "id": "191:38236",
+        "name": "중앙 정렬",
+        "w": 1440,
+        "h": 600,
+        "y": -2032,
+        "score": 0,
+        "learned": 0,
+        "sig": "3f17f481:22"
+       }
+      ],
+      "sure": true,
+      "basis": "규칙"
+     }
+    ]
+   }
+  ]
+ },
+ "sections": [
+  {
+   "platform": "APP",
+   "id": "108:11502",
+   "name": "Mobile- small",
+   "frames": 21,
+   "cls": "small",
+   "basis": "규칙"
+  },
+  {
+   "platform": "APP",
+   "id": "149:32628",
+   "name": "Mobile - medium",
+   "frames": 17,
+   "cls": "medium",
+   "basis": "규칙"
+  },
+  {
+   "platform": "APP",
+   "id": "190:44334",
+   "name": "Mobile - large",
+   "frames": 16,
+   "cls": "large",
+   "basis": "규칙"
+  },
+  {
+   "platform": "WEB",
+   "id": "190:69586",
+   "name": "~767",
+   "frames": 20,
+   "cls": "small",
+   "basis": "규칙"
+  },
+  {
+   "platform": "WEB",
+   "id": "191:25799",
+   "name": "768~1280",
+   "frames": 17,
+   "cls": "medium",
+   "basis": "규칙"
+  },
+  {
+   "platform": "WEB",
+   "id": "191:35157",
+   "name": "1280~",
+   "frames": 3,
+   "cls": "large",
+   "basis": "규칙"
+  },
+  {
+   "platform": "WEB",
+   "id": "298:9071",
+   "name": "더보기 팝업",
+   "frames": 0,
+   "cls": null,
+   "basis": null
+  }
+ ],
+ "missing": [],
+ "unsure": 5,
+ "coverage": [
+  {
+   "section": "APP > Mobile- small",
+   "id": "108:11502",
+   "platform": "APP",
+   "to": "APP > small",
+   "note": ""
+  },
+  {
+   "section": "APP > Mobile - medium",
+   "id": "149:32628",
+   "platform": "APP",
+   "to": "APP > medium",
+   "note": ""
+  },
+  {
+   "section": "APP > Mobile - large",
+   "id": "190:44334",
+   "platform": "APP",
+   "to": "APP > large",
+   "note": ""
+  },
+  {
+   "section": "WEB > ~767",
+   "id": "190:69586",
+   "platform": "WEB",
+   "to": "WEB > small",
+   "note": ""
+  },
+  {
+   "section": "WEB > 768~1280",
+   "id": "191:25799",
+   "platform": "WEB",
+   "to": "WEB > medium",
+   "note": ""
+  },
+  {
+   "section": "WEB > 1280~",
+   "id": "191:35157",
+   "platform": "WEB",
+   "to": "WEB > large",
+   "note": ""
+  },
+  {
+   "section": "WEB > 더보기 팝업",
+   "id": "298:9071",
+   "platform": "WEB",
+   "to": "",
+   "note": "미수록 — 어느 크기인지 골라 주세요"
+  }
+ ]
+}
