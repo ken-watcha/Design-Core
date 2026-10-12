@@ -50,7 +50,11 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
   if (!link.ok) return { ok: false, why: link.why };
   const { data: read, costUsd } = await runner(link.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 작업 위치 확인 (읽기 전용)');
   if (state.place.kind === 'branch') {
-    if (!read.isCore) return { ok: false, why: '이 파일에는 "🌏 마스터 파일" 페이지가 없습니다 — Core 파일의 브랜치가 맞나요?', costUsd };
+    if (!read.isCore) {
+      // 브랜치 안을 비우거나 페이지를 지운 경우가 흔하다 (2026-10-12 윤우 시험). 찾은 페이지와 다음 할 일을 함께 보여 준다.
+      const pages = (read.pages || []).join(', ') || '없음';
+      return { ok: false, why: `이 링크의 파일에 "🌏 마스터 파일" 페이지가 없어요 (지금 있는 페이지: ${pages}). 브랜치는 Core 내용을 그대로 복사해 둔 채로 써야 앱이 그 안의 화면을 고칠 수 있어요. 브랜치 안을 지웠다면 이 브랜치는 머지하지 말고 버린 뒤, ${state.place.coreName}에서 새 브랜치를 만들어 그 링크를 주세요 (내용은 지우지 않아요).`, costUsd };
+    }
     if (link.unverifiedBranch) {
       // 브랜치는 본 파일의 노드 id를 그대로 가진다. 색인의 마스터 페이지 id와 같아야 이 Core의 브랜치로 본다.
       const entry = knowledge.index.files.find(f => f.key === state.place.coreKey);
