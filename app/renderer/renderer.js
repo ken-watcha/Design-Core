@@ -243,14 +243,38 @@ function showDelta() {
 // ---------- 두 화면 나란히 보기 (2026-10-12 윤우: 링크로 Figma를 오가지 말고 앱 안에서 비교) ----------
 const shotCache = new Map();   // fileKey|id → 그림(data:)을 주는 약속 — 한 번 부른 화면은 다시 부르지 않는다
 const shotKey = (it) => it.fileKey + '|' + it.nodeId;
-// 여러 화면을 Claude 한 번에 받는다 (Claude를 띄우는 데 드는 시간이 대부분이라 묶을수록 빠르다)
-function requestShots(items) {
-  const need = items.filter(it => it.nodeId && !shotCache.has(shotKey(it)));
-  if (!need.length) return;
-  const batch = window.core.screens(need);
-  need.forEach((it, i) => shotCache.set(shotKey(it), batch.then(r => r.images[i]).catch(() => { shotCache.delete(shotKey(it)); return null; })));
+// 화면을 4장씩 묶어 Claude 3개가 동시에 받는다 (2026-10-12 윤우: 후보 화면이 늦게 뜸).
+// 한 번에 전부 묶으면 마지막 장까지 다 받아야 한 장도 못 봤다. 지금 보려는 화면은 줄 맨 앞으로 끼운다.
+const SHOT_CHUNK = 4, SHOT_WORKERS = 3;
+const shotQueue = []; let shotBusy = 0;
+function pumpShots(extra) {
+  // 지금 보려는 화면(extra)은 다른 일이 다 차 있어도 하나 더 띄워 바로 받는다
+  while ((shotBusy < SHOT_WORKERS || extra-- > 0) && shotQueue.length) {
+    const chunk = shotQueue.splice(0, SHOT_CHUNK); shotBusy++;
+    window.core.screens(chunk.map(q => q.it))
+      .then(r => chunk.forEach((q, i) => q.done(r.images[i] || null)))
+      .catch(() => chunk.forEach(q => { shotCache.delete(shotKey(q.it)); q.done(null); }))
+      .finally(() => { shotBusy--; pumpShots(); });
+  }
 }
-function loadShots(items) { requestShots(items); return Promise.all(items.map(it => shotCache.get(shotKey(it)))); }
+function requestShots(items, urgent) {
+  const fresh = [];
+  for (const it of items) {
+    if (!it.nodeId) continue;
+    const k = shotKey(it);
+    if (shotCache.has(k)) {
+      // 아직 줄에서 기다리는 화면이면 앞으로 당긴다
+      const at = urgent ? shotQueue.findIndex(q => shotKey(q.it) === k) : -1;
+      if (at >= 0) fresh.push(shotQueue.splice(at, 1)[0]);
+      continue;
+    }
+    let done; shotCache.set(k, new Promise(r => { done = r; }));
+    fresh.push({ it, done });
+  }
+  if (urgent) shotQueue.unshift(...fresh); else shotQueue.push(...fresh);
+  pumpShots(urgent && fresh.length ? 1 : 0);
+}
+function loadShots(items) { requestShots(items, true); return Promise.all(items.map(it => shotCache.get(shotKey(it)) || null)); }
 // 결과가 나오면 볼 만한 화면을 미리 받아 둔다 — 줄을 누를 때 기다리지 않게
 // 고른 화면을 맨 앞에, 후보는 최대 3장까지
 const pickCands = (p) => { const first = p.candidates.find(x => x.id === p.chosen); return [first, ...p.candidates.filter(x => x !== first)].filter(Boolean).slice(0, 3); };
