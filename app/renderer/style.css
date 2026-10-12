@@ -24,7 +24,7 @@ button.link { background:none; color:var(--accent); padding:0; font-weight:500; 
 .pill { display:inline-flex; align-items:center; justify-content:center; height:22px; padding:0 10px; border-radius:11px; white-space:nowrap; font-size:12px; line-height:1; font-weight:600; vertical-align:middle; background:var(--bg); flex:none; }
 .pill.ok { color:var(--ok); } .pill.warn { color:var(--warn); } .pill.bad { color:var(--bad); }
 table { width:100%; border-collapse:collapse; font-size:13px; }
-th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:middle; }
 th { color:var(--muted); font-weight:500; }
 select { font:inherit; color:var(--text); background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:4px 6px; max-width:100%; }
 .muted { color:var(--muted); }
@@ -84,3 +84,8 @@ select.quiet { background:transparent; }
 td.go { padding-right:16px !important; }
 td.go button, td.go .go-in { display:inline-flex; align-items:center; gap:2px; }
 .chev { width:16px; height:16px; flex:none; }
+/* 수직 가운데 정렬 (2026-10-12 윤우) — 글자 줄높이와 태그·버튼 높이를 맞춘다 */
+button.link { line-height:20px; }
+.pill { line-height:22px; padding-top:1px; }
+td > .muted, td > div { line-height:1.5; }
+.verdict { align-items:center; }
