@@ -51,17 +51,19 @@ function render(r) {
     const others = p.candidates.length - 1;
     return [r, !p.sure && others ? `같은 폭 화면 ${others + 1}장 중 문서에서 가장 위` : ''].filter(Boolean).join(' · ');
   };
+  // 고르는 칸은 두지 않는다 (2026-10-12 윤우: "여러 버전 바꿔 가며 볼 이유가 뭐야?") — 앱이 고른 이름만 보여 주고, 틀렸을 때만 보기 창에서 바꾼다
+  const nameOf = (p) => { const c = p.candidates.find(x => x.id === p.chosen); return c ? `${c.name} · ${c.w}×${c.h}` : ''; };
   for (const pf of Object.keys(a.platforms)) for (const e of a.platforms[pf]) for (const p of e.picks) {
     const opts = p.candidates.map(c => `<option value="${esc(c.id)}"${c.id === p.chosen ? ' selected' : ''}>${esc(c.name)} · ${c.w}×${c.h}</option>`).join('');
     const [cls, tag] = pickTag(p);
     rows += `<tr><td>${esc(pf)} ${esc(e.cls)}<div class="muted">${esc(e.desc)}</div></td><td>${p.width}px</td>
-      <td>${p.candidates.length ? `<select class="quiet" data-pf="${esc(pf)}" data-cls="${esc(e.cls)}" data-w="${p.width}">${opts}</select><div class="pick-why muted">${esc(pickWhy1(p))}</div>` : '<span class="pill bad">화면 없음</span>'}</td>
+      <td>${p.candidates.length ? `<span class="pick-name">${esc(nameOf(p))}</span><select hidden data-pf="${esc(pf)}" data-cls="${esc(e.cls)}" data-w="${p.width}">${opts}</select><div class="pick-why muted">${esc(pickWhy1(p))}</div>` : '<span class="pill bad">화면 없음</span>'}</td>
       <td class="tag"><span class="pill ${cls}">${tag}</span></td>
       <td class="go">${p.chosen ? `<button class="link plain" data-view="${esc(pf)}|${esc(e.cls)}|${p.width}">보기 ›</button>` : ''}</td></tr>`;
   }
   const isUpdate = v.suggestion === 'update';
   // 2026-10-12 윤우: "대표 화면"이 무슨 뜻인지 모르겠다 → 이름을 "Core에 들어갈 화면"으로, 후보를 그림으로 나란히 보고 고르게
-  const pickWhy = `Core 파일에는 크기마다 화면이 <b>딱 한 장씩</b> 들어가요. 앱이 이 문서에서 크기마다 한 장을 골랐어요. 확인만 하면 되고, 다른 화면을 넣고 싶을 때만 바꾸세요.`
+  const pickWhy = `Core 파일에는 크기마다 화면이 <b>딱 한 장씩</b> 들어가요. 앱이 이 문서에서 크기마다 한 장을 골랐어요. 따로 할 일은 없어요. 앱이 잘못 골랐을 때만 "보기"에서 바꾸면 돼요.`
     + (isUpdate ? ` 바꾸면 아래 "바뀔 내용"에서 그 칸이 <b>교체</b>로 잡혀요.` : '');
   const picksHtml = `<section class="panel"><h2>Core에 들어갈 화면 <span class="muted h2-sub">크기마다 1장</span></h2><p class="hint lead">${pickWhy}</p>
     <table class="picks"><tr><th>크기</th><th>폭</th><th>들어갈 화면</th><th class="tag"></th><th class="go"></th></tr>${rows}</table></section>`;
@@ -76,13 +78,14 @@ function render(r) {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
     const tag = s.closest('tr').querySelector('td.tag'); if (tag) tag.innerHTML = '<span class="pill ok">직접 고름</span>';
+    const tr = s.closest('tr'), c = p.candidates.find(x => x.id === p.chosen); tr.querySelector('.pick-name').textContent = `${c.name} · ${c.w}×${c.h}`; tr.querySelector('.pick-why').textContent = '';
     if (work) { work = null; $('#work').innerHTML = '<section class="panel muted">대표 화면을 바꿨습니다 — 작업 위치 [확인]을 다시 눌러 주세요.</section>'; }
   }));
   document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
     const [pf, cls, w] = b.dataset.view.split('|');
     const p = current.analysis.platforms[pf].find(x => x.cls === cls).picks.find(x => String(x.width) === w);
     const cands = pickCands(p);
-    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · Core에 들어갈 화면`, why: cands.length > 1 ? '왼쪽이 앱이 고른 화면이에요. 다른 화면을 넣고 싶을 때만 [이 화면으로]를 누르세요.' : '',
+    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · Core에 들어갈 화면`, why: cands.length > 1 ? '왼쪽이 앱이 고른 화면이에요. 앱이 잘못 골랐을 때만 [이 화면으로]를 누르세요.' : '',
       sides: cands.map((c, i) => ({ label: c.id === p.chosen ? '앱이 고른 화면' : `다른 후보 ${i}`, x: c, fileKey: current.fileKey, url: linkTo(current.sourceUrl, c.id),
         choose: cands.length > 1 && c.id !== p.chosen ? () => { const sel = document.querySelector(`select[data-pf="${pf}"][data-cls="${cls}"][data-w="${w}"]`); sel.value = c.id; sel.dispatchEvent(new Event('change')); closeCompare(); } : null })) });
   }));
