@@ -75,7 +75,10 @@ if (kind === 'project') {
         const sure = cands.length === 1 || (cands.length > 1 && cands[0].score - cands[1].score >= 1);  // 같으면 맨 위 화면(정렬 순서)을 고른 채로 둔다
         // 앞의 3장은 화면 속 글자를 붙인다 — 앱이 후보끼리 무엇이 다른지 보여 줄 때 쓴다 (2026-10-12 윤우)
         const textsOf = (f) => [...new Set(f.findAll(n => n.type === 'TEXT' && n.visible).map(t => t.characters.replace(/\s+/g, ' ').trim().slice(0, 30)).filter(Boolean))].slice(0, 40);
-        const out = cands.slice(0, 10).map((c, i) => { const f = c._f; delete c._f; if (i < 3) c.texts = textsOf(f); return c; });
+        const out = cands.slice(0, 10).map((c, i) => { const f = c._f; delete c._f; if (i < 3 && cands.length > 1) c.texts = textsOf(f); return c; });
+        // 셋 모두에 있는 글자는 차이가 아니니 뺀다 — Figma 응답 한도(20KB)를 넘지 않게 (2026-10-12 21KB 초과 오류)
+        const withT = out.filter(c => c.texts);
+        if (withT.length > 1) { const common = withT[0].texts.filter(t => withT.every(c => c.texts.includes(t))); withT.forEach(c => { c.texts = c.texts.filter(t => !common.includes(t)).slice(0, 12); }); }
         cands.forEach(c => { delete c._f; });
         entry.picks.push({ width: w, chosen: cands.length ? cands[0].id : null, candidates: out, sure, basis: cands.length && cands[0].learned ? '학습' : '규칙' });
         if (!cands.length) result.missing.push(platform + ' ' + cls.name + ' ' + w + 'px 화면을 못 찾음');
@@ -90,6 +93,11 @@ if (kind === 'project') {
     return { section: s.platform + ' > ' + s.name, id: s.id, platform: s.platform, to: hit ? s.platform + ' > ' + hit.cls : '', note: hit ? '' : (s.cls ? '(같은 크기 섹션이 이미 있음)' : '미수록 — 어느 크기인지 골라 주세요') };
   });
 }
+// 그래도 크면 글자 목록부터 버린다 (후보 차이 설명만 줄고 분석은 그대로)
+const strip = () => { for (const pf of Object.values(result.platforms)) for (const e of pf) for (const p of e.picks) for (const c of p.candidates) delete c.texts; };
+const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
+if (bytes(result) > 18000) strip();
+if (bytes(result) > 18000) for (const pf of Object.values(result.platforms)) for (const e of pf) for (const p of e.picks) p.candidates = p.candidates.slice(0, 3);
 return result;
 `;
 
