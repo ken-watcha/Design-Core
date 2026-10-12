@@ -36,4 +36,9 @@ rm -rf "$DEST"
 rm -rf "$HOME/Desktop/Core 도우미.app"  # 2026-10-12 이름 변경 전 앱
 cp -R "$WORK/out/$NAME-darwin-$ARCH/$NAME.app" "$DEST"
 xattr -cr "$DEST" 2>/dev/null || true
+# 같은 자리에 다시 놓으면 Finder가 옛 아이콘(또는 빈 기본 아이콘)을 기억해 둔다 → 새 앱으로 다시 읽게 한다
+touch "$DEST"
+LSREG=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+[ -x "$LSREG" ] && "$LSREG" -f "$DEST" >/dev/null 2>&1 || true
+killall Finder 2>/dev/null || true
 echo "완료: $DEST"
