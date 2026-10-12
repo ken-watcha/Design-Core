@@ -61,3 +61,13 @@ table.delta tr.pick:hover td { background:var(--bg); }
 .shot { flex:1; min-height:0; overflow:auto; background:var(--bg); padding:16px; }
 .shot img { display:block; max-width:100%; height:auto; margin:0 auto; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
 .shot .spinner, .shot .empty { color:var(--muted); font-size:13px; text-align:center; padding-top:40px; }
+/* 첫 화면: 입력창을 가운데 크게 (2026-10-12 윤우: "구글처럼") — 분석을 누르면 위로 올라간다 */
+input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.home-title { display:none; }
+body.home main { min-height:calc(100vh - 140px); justify-content:center; max-width:720px; }
+body.home main > .panel { background:none; border:0; padding:0; }
+body.home .home-title { display:block; font-size:24px; font-weight:700; text-align:center; margin:0 0 20px; }
+body.home label[for="url"] { display:none; }
+body.home .row input { padding:14px 18px; font-size:15px; border-radius:12px; background:var(--surface); }
+body.home .row button { padding:0 24px; border-radius:12px; }
+body.home #hint { text-align:center; margin-top:12px; text-wrap:balance; }
