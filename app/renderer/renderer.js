@@ -82,7 +82,7 @@ $('#form').addEventListener('submit', async (ev) => {
   $('#go').disabled = true;
   document.body.classList.remove('home');
   $('#result').innerHTML = '<section class="panel spinner">Figma 문서를 읽는 중… (보통 30초~1분)</section>';
-  try { current = await window.core.analyze(url); render(current); }
+  try { current = await window.core.analyze(url); render(current); if (current.analysis.kind === 'project') prefetchPicks(); }
   catch (e) { $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; }
   finally { $('#go').disabled = false; }
 });
@@ -119,7 +119,7 @@ async function onPlace(ev) {
     const w = await window.core.checkWorkplace(current, url);
     if (!w.ok) { fail('이 링크에서는 작업하지 않습니다', w.why); return; }
     work = w;
-    if (w.kind === 'branch') { current.analysis = w.analysis; render(current); $('#placeUrl').value = url; showDelta(); }
+    if (w.kind === 'branch') { current.analysis = w.analysis; render(current); $('#placeUrl').value = url; showDelta(); prefetchDelta(); }
     else showBuild();
   } catch (e) { fail('작업 위치를 확인하지 못했습니다', e); }
   finally { $('#placeGo').disabled = false; }
@@ -164,15 +164,24 @@ function showDelta() {
 }
 
 // ---------- 두 화면 나란히 보기 (2026-10-12 윤우: 링크로 Figma를 오가지 말고 앱 안에서 비교) ----------
-const shotCache = new Map();   // fileKey|id → 그림(data:) — 한 번 받은 화면은 다시 부르지 않는다
-async function loadShots(items) {
-  const need = items.filter(it => !shotCache.has(it.fileKey + '|' + it.nodeId));
-  if (need.length) {
-    const r = await window.core.screens(need);
-    need.forEach((it, i) => shotCache.set(it.fileKey + '|' + it.nodeId, r.images[i]));
-  }
-  return items.map(it => shotCache.get(it.fileKey + '|' + it.nodeId));
+const shotCache = new Map();   // fileKey|id → 그림(data:)을 주는 약속 — 한 번 부른 화면은 다시 부르지 않는다
+const shotKey = (it) => it.fileKey + '|' + it.nodeId;
+// 여러 화면을 Claude 한 번에 받는다 (Claude를 띄우는 데 드는 시간이 대부분이라 묶을수록 빠르다)
+function requestShots(items) {
+  const need = items.filter(it => it.nodeId && !shotCache.has(shotKey(it)));
+  if (!need.length) return;
+  const batch = window.core.screens(need);
+  need.forEach((it, i) => shotCache.set(shotKey(it), batch.then(r => r.images[i]).catch(() => { shotCache.delete(shotKey(it)); return null; })));
 }
+function loadShots(items) { requestShots(items); return Promise.all(items.map(it => shotCache.get(shotKey(it)))); }
+// 결과가 나오면 볼 만한 화면을 미리 받아 둔다 — 줄을 누를 때 기다리지 않게
+const prefetchPicks = () => requestShots(Object.values(current.analysis.platforms).flat().flatMap(e => e.picks.filter(p => p.chosen).map(p => {
+  const c = p.candidates.find(x => x.id === p.chosen) || {}; return { fileKey: current.fileKey, nodeId: p.chosen, w: c.w, h: c.h };
+})));
+const prefetchDelta = () => requestShots([
+  ...work.delta.rows.flatMap(r => [r.source && { fileKey: current.fileKey, nodeId: r.source.id, w: r.source.w, h: r.source.h }, r.target && { fileKey: work.workKey, nodeId: r.target.id, w: r.target.w, h: r.target.h }]),
+  ...work.delta.missing.map(m => ({ fileKey: current.fileKey, nodeId: m.id }))
+].filter(Boolean));
 function closeCompare() { const el = $('#cmp'); if (el) el.remove(); document.removeEventListener('keydown', escClose); }
 function escClose(ev) { if (ev.key === 'Escape') closeCompare(); }
 function openCompare(row, miss) {
@@ -185,7 +194,7 @@ function openCompare(row, miss) {
 async function openViewer({ pill, title, why, sides }) {
   closeCompare();
   const col = (sd, i) => `<figure><figcaption><b>${sd.label}</b>${sd.x ? ` <span class="muted">${esc([sd.x.name, sd.x.w ? `${sd.x.w}×${sd.x.h}` : ''].filter(Boolean).join(' · '))}</span> ${openBtn(sd.url, 'Figma에서 열기')}` : ''}</figcaption>
-    <div class="shot" data-side="${i}">${sd.x ? '<div class="spinner">화면을 불러오는 중… (처음 한 번은 10~20초)</div>' : `<div class="empty">${esc(sd.empty || '화면 없음')}</div>`}</div></figure>`;
+    <div class="shot" data-side="${i}">${sd.x ? '<div class="spinner">화면을 불러오는 중…</div>' : `<div class="empty">${esc(sd.empty || '화면 없음')}</div>`}</div></figure>`;
   document.body.insertAdjacentHTML('beforeend', `<div id="cmp" class="cmp-back"><div class="cmp" role="dialog" aria-label="화면 보기">
     <div class="cmp-head">${pill ? `<span class="pill ${pill[0]}">${esc(pill[1])}</span>` : ''}<b>${esc(title)}</b><span class="muted cmp-why">${esc(why || '')}</span><button class="close" title="닫기 (esc)">✕</button></div>
     <div class="cmp-cols n${sides.length}">${sides.map(col).join('')}</div></div></div>`);
