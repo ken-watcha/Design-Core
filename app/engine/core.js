@@ -38,7 +38,7 @@ async function analyzeProject(url, knowledge, runner = runFigma) {
   const { data, costUsd } = await runner(fileKey, code, 'Core 업데이트: 프로젝트 문서 분석 (읽기 전용)');
   const verdict = data.kind === 'project' ? judge(data, knowledge.index, knowledge.rules, knowledge.memory) : null;
   const place = verdict ? proposePlace(verdict, url, fileKey) : null;
-  return { analysis: data, verdict, place, costUsd, fileKey, sourceUrl: url };
+  return { analysis: data, verdict, place, costUsd, fileKey, sourceUrl: url, pickRules: knowledge.rules.screenPick };
 }
 
 const month = (d = new Date()) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;

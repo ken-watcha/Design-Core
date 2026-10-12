@@ -30,30 +30,41 @@ function render(r) {
     return;
   }
   const cover = a.cover;
-  const verdictHtml = `<section class="panel"><h2>판별</h2>
-    <div class="verdict"><span class="big">${v.suggestion === 'update' ? '기존 Core 갱신' : '새 Core'} → ${esc(v.target)}</span>
-    <span class="pill ${v.sure ? 'ok' : 'warn'}">${v.sure ? '자동' : '확인 필요'}</span></div>
+  // 판별: 점수표 대신 앱의 결론과 이유 한 줄 (2026-10-12 윤우: "점수랑 맞은 낱말은 뭐야?")
+  const weak = (v.weak || []).map(c => `${esc(c.name)}("${esc(c.hits.join('", "'))}")`).join(', ');
+  const verdictHtml = `<section class="panel"><h2>어디에 넣을까</h2>
+    <div class="verdict"><span class="big">${v.suggestion === 'update' ? '기존 Core 갱신' : '새 Core 만들기'} → ${esc(v.target)}</span>
+    ${v.sure ? '' : '<span class="pill warn">확인 필요</span>'}</div>
     <p class="muted">${esc(v.reason)}</p>
-    <p class="muted">프로젝트: ${esc(cover.nameKR || cover.nameEN)} · 커버 ${esc(cover.badge || '상태 없음')}</p>
-    ${v.candidates.length ? `<table><tr><th>후보 Core</th><th>점수</th><th>맞은 낱말</th></tr>${v.candidates.map(c => `<tr><td>${esc(c.name)}</td><td>${c.total}</td><td>${esc(c.hits.join(', '))}</td></tr>`).join('')}</table>` : ''}
+    ${weak ? `<p class="hint">참고로 이름이 조금 겹친 Core: ${weak}. 겹친 낱말이 하나뿐이라 갱신 대상으로 보지 않았어요.</p>` : ''}
+    ${!v.sure ? `<p class="hint">비슷하게 맞은 Core: ${v.candidates.slice(0, 3).map(c => esc(c.name)).join(', ')}</p>` : ''}
+    <p class="hint">프로젝트: ${esc(cover.nameKR || cover.nameEN)} · 커버 ${esc(cover.badge || '상태 없음')}</p>
   </section>`;
   let rows = '';
   // 대표 화면 표의 상태 태그 — 무엇을 해야 하는지 바로 읽히게 (2026-10-12 윤우: "바꿔서 뭘 할 수 있는지 인지가 안 돼")
-  const pickTag = (p) => p.basis === 'Core와 같음' ? ['ok', 'Core와 같음'] : /거의/.test(p.basis || '') ? ['warn', 'Core와 거의 같음'] : p.sure ? ['ok', '자동 선택'] : ['warn', '후보 여럿'];
+  // 앱이 정한다 (2026-10-12 윤우: "고르게 하기보다 최적의 판단을 해서 골라라") — 태그는 이유만 보여 준다
+  const pickTag = (p) => p.basis === 'Core와 같음' ? ['ok', 'Core와 같음'] : /거의/.test(p.basis || '') ? ['warn', 'Core와 거의 같음'] : ['ok', '앱이 고름'];
+  const pickWhy1 = (p) => {
+    const c = p.candidates.find(x => x.id === p.chosen); if (!c || p.basis === 'Core와 같음' || /거의/.test(p.basis || '')) return '';
+    const sp = current.pickRules || {};
+    const r = (sp.strongNames || ['대표']).some(k => c.name.includes(k)) ? '이름에 "대표"' : (sp.preferNames || []).find(k => c.name.includes(k)) ? `이름에 "${(sp.preferNames || []).find(k => c.name.includes(k))}"` : c.name.includes(String(p.width)) ? '이름에 폭 숫자' : '';
+    const others = p.candidates.length - 1;
+    return [r, !p.sure && others ? `같은 폭 화면 ${others + 1}장 중 문서에서 가장 위` : ''].filter(Boolean).join(' · ');
+  };
   for (const pf of Object.keys(a.platforms)) for (const e of a.platforms[pf]) for (const p of e.picks) {
-    const opts = p.candidates.map(c => `<option value="${esc(c.id)}"${c.id === p.chosen ? ' selected' : ''}>${esc(c.name)} · ${c.w}×${c.h}${c.score != null ? ' · 점수 ' + c.score : ''}</option>`).join('');
+    const opts = p.candidates.map(c => `<option value="${esc(c.id)}"${c.id === p.chosen ? ' selected' : ''}>${esc(c.name)} · ${c.w}×${c.h}</option>`).join('');
     const [cls, tag] = pickTag(p);
     rows += `<tr><td>${esc(pf)} ${esc(e.cls)}<div class="muted">${esc(e.desc)}</div></td><td>${p.width}px</td>
-      <td>${p.candidates.length ? `<select data-pf="${esc(pf)}" data-cls="${esc(e.cls)}" data-w="${p.width}">${opts}</select>` : '<span class="pill bad">화면 없음</span>'}</td>
+      <td>${p.candidates.length ? `<select class="quiet" data-pf="${esc(pf)}" data-cls="${esc(e.cls)}" data-w="${p.width}">${opts}</select><div class="pick-why muted">${esc(pickWhy1(p))}</div>` : '<span class="pill bad">화면 없음</span>'}</td>
       <td class="tag"><span class="pill ${cls}">${tag}</span></td>
       <td class="go">${p.chosen ? `<button class="link plain" data-view="${esc(pf)}|${esc(e.cls)}|${p.width}">보기 ›</button>` : ''}</td></tr>`;
   }
   const isUpdate = v.suggestion === 'update';
-  const pickWhy = isUpdate
-    ? `Core에는 크기마다 화면이 한 장씩 들어 있어요. 앱이 이 문서에서 크기마다 한 장을 골라 Core의 같은 칸과 비교해요. <b>Core와 같음</b>이면 그대로 두면 되고, 문서의 다른 화면을 Core에 넣고 싶을 때만 바꾸세요. 바꾸면 아래 "바뀔 내용"에서 그 칸이 <b>교체</b>로 잡혀요.`
-    : `Core에는 크기마다 화면을 한 장씩 넣어요. 앱이 이 문서에서 크기마다 한 장을 골랐고, 새 Core를 만들 때 이 화면들이 🌏 마스터 파일에 들어가요. <b>후보 여럿</b>이면 비슷한 화면이 여러 장이라 앱이 확신하지 못한 칸이니, 눌러 보고 대표로 맞는 화면을 골라 주세요.`;
-  const picksHtml = `<section class="panel"><h2>크기별 대표 화면</h2><p class="hint lead">${pickWhy}</p>
-    <table class="picks"><tr><th>크기</th><th>폭</th><th>대표 화면</th><th class="tag"></th><th class="go"></th></tr>${rows}</table></section>`;
+  // 2026-10-12 윤우: "대표 화면"이 무슨 뜻인지 모르겠다 → 이름을 "Core에 들어갈 화면"으로, 후보를 그림으로 나란히 보고 고르게
+  const pickWhy = `Core 파일에는 크기마다 화면이 <b>딱 한 장씩</b> 들어가요. 앱이 이 문서에서 크기마다 한 장을 골랐어요. 확인만 하면 되고, 다른 화면을 넣고 싶을 때만 바꾸세요.`
+    + (isUpdate ? ` 바꾸면 아래 "바뀔 내용"에서 그 칸이 <b>교체</b>로 잡혀요.` : '');
+  const picksHtml = `<section class="panel"><h2>Core에 들어갈 화면 <span class="muted h2-sub">크기마다 1장</span></h2><p class="hint lead">${pickWhy}</p>
+    <table class="picks"><tr><th>크기</th><th>폭</th><th>들어갈 화면</th><th class="tag"></th><th class="go"></th></tr>${rows}</table></section>`;
   const cov = (a.coverage || []).map(c => `<tr><td>${esc(c.section)}</td><td>${c.to ? esc(c.to) : '<span class="pill warn">미수록</span>'}</td><td class="muted">${esc(c.note)}</td></tr>`).join('');
   const covHtml = `<section class="panel"><h2>수록 대조표</h2><p class="hint" style="margin-top:0">문서의 섹션이 하나도 빠지지 않았는지 확인합니다.</p><table><tr><th>문서 섹션</th><th>Core에서 들어갈 자리</th><th></th></tr>${cov}</table>
     ${a.missing.length ? `<p class="muted">못 찾은 것: ${esc(a.missing.join(' · '))}</p>` : ''}</section>`;
@@ -64,13 +75,16 @@ function render(r) {
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
+    const tag = s.closest('tr').querySelector('td.tag'); if (tag) tag.innerHTML = '<span class="pill ok">직접 고름</span>';
     if (work) { work = null; $('#work').innerHTML = '<section class="panel muted">대표 화면을 바꿨습니다 — 작업 위치 [확인]을 다시 눌러 주세요.</section>'; }
   }));
   document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
     const [pf, cls, w] = b.dataset.view.split('|');
     const p = current.analysis.platforms[pf].find(x => x.cls === cls).picks.find(x => String(x.width) === w);
-    const c = p.candidates.find(x => x.id === p.chosen) || { id: p.chosen, name: '' };
-    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · 대표 화면`, why: '', sides: [{ label: '프로젝트 문서', x: c, fileKey: current.fileKey, url: linkTo(current.sourceUrl, c.id) }] });
+    const cands = pickCands(p);
+    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · Core에 들어갈 화면`, why: cands.length > 1 ? '왼쪽이 앱이 고른 화면이에요. 다른 화면을 넣고 싶을 때만 [이 화면으로]를 누르세요.' : '',
+      sides: cands.map((c, i) => ({ label: c.id === p.chosen ? '앱이 고른 화면' : `다른 후보 ${i}`, x: c, fileKey: current.fileKey, url: linkTo(current.sourceUrl, c.id),
+        choose: cands.length > 1 && c.id !== p.chosen ? () => { const sel = document.querySelector(`select[data-pf="${pf}"][data-cls="${cls}"][data-w="${w}"]`); sel.value = c.id; sel.dispatchEvent(new Event('change')); closeCompare(); } : null })) });
   }));
   bindOpen();
 }
@@ -175,9 +189,10 @@ function requestShots(items) {
 }
 function loadShots(items) { requestShots(items); return Promise.all(items.map(it => shotCache.get(shotKey(it)))); }
 // 결과가 나오면 볼 만한 화면을 미리 받아 둔다 — 줄을 누를 때 기다리지 않게
-const prefetchPicks = () => requestShots(Object.values(current.analysis.platforms).flat().flatMap(e => e.picks.filter(p => p.chosen).map(p => {
-  const c = p.candidates.find(x => x.id === p.chosen) || {}; return { fileKey: current.fileKey, nodeId: p.chosen, w: c.w, h: c.h };
-})));
+// 고른 화면을 맨 앞에, 후보는 최대 3장까지
+const pickCands = (p) => { const first = p.candidates.find(x => x.id === p.chosen); return [first, ...p.candidates.filter(x => x !== first)].filter(Boolean).slice(0, 3); };
+const prefetchPicks = () => requestShots(Object.values(current.analysis.platforms).flat().flatMap(e => e.picks.flatMap(p =>
+  (p.sure ? pickCands(p).slice(0, 1) : pickCands(p)).map(c => ({ fileKey: current.fileKey, nodeId: c.id, w: c.w, h: c.h })))));
 const prefetchDelta = () => requestShots([
   ...work.delta.rows.flatMap(r => [r.source && { fileKey: current.fileKey, nodeId: r.source.id, w: r.source.w, h: r.source.h }, r.target && { fileKey: work.workKey, nodeId: r.target.id, w: r.target.w, h: r.target.h }]),
   ...work.delta.missing.map(m => ({ fileKey: current.fileKey, nodeId: m.id }))
@@ -193,7 +208,7 @@ function openCompare(row, miss) {
 }
 async function openViewer({ pill, title, why, sides }) {
   closeCompare();
-  const col = (sd, i) => `<figure><figcaption><b>${sd.label}</b>${sd.x ? ` <span class="muted">${esc([sd.x.name, sd.x.w ? `${sd.x.w}×${sd.x.h}` : ''].filter(Boolean).join(' · '))}</span> ${openBtn(sd.url, 'Figma에서 열기')}` : ''}</figcaption>
+  const col = (sd, i) => `<figure><figcaption>${sd.choose ? `<button class="choose" data-choose="${i}">이 화면으로</button>` : ''}<b>${sd.label}</b>${sd.x ? ` <span class="muted">${esc([sd.x.name, sd.x.w ? `${sd.x.w}×${sd.x.h}` : ''].filter(Boolean).join(' · '))}</span> ${openBtn(sd.url, 'Figma에서 열기')}` : ''}</figcaption>
     <div class="shot" data-side="${i}">${sd.x ? '<div class="spinner">화면을 불러오는 중…</div>' : `<div class="empty">${esc(sd.empty || '화면 없음')}</div>`}</div></figure>`;
   document.body.insertAdjacentHTML('beforeend', `<div id="cmp" class="cmp-back"><div class="cmp" role="dialog" aria-label="화면 보기">
     <div class="cmp-head">${pill ? `<span class="pill ${pill[0]}">${esc(pill[1])}</span>` : ''}<b>${esc(title)}</b><span class="muted cmp-why">${esc(why || '')}</span><button class="close" title="닫기 (esc)">✕</button></div>
@@ -202,6 +217,7 @@ async function openViewer({ pill, title, why, sides }) {
   box.addEventListener('click', (ev) => { if (ev.target === box || ev.target.closest('.close')) closeCompare(); });
   document.addEventListener('keydown', escClose);
   bindOpen(box);
+  box.querySelectorAll('[data-choose]').forEach(btn => btn.addEventListener('click', () => sides[btn.dataset.choose].choose()));
   // 두 화면을 같은 비율로 함께 스크롤
   const panes = [...box.querySelectorAll('.shot')];
   let lock = false;

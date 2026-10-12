@@ -34,7 +34,9 @@ function pickCandidates(section, width) {
   const frames = section.findAll(n => n.type === 'FRAME' && frameWidthMatch(n, width) && n.height >= sp.minHeight);
   const score = (f) => {
     let s = 0, learned = 0;
+    if ((sp.strongNames || []).some(k => f.name.includes(k))) s += 3;
     if (sp.preferNames.some(k => f.name.includes(k))) s += 2;
+    if (f.name.includes(String(width)) && f.name.trim() !== String(width)) s += 1;
     if (f.name.trim() === String(width)) s += 2;
     if (sp.avoidNames.some(k => f.name.includes(k))) s -= 3;
     if (f.parent && f.parent.type === 'SECTION') s += 1;
@@ -70,7 +72,7 @@ if (kind === 'project') {
       const entry = { cls: cls.name, desc: cls.desc, section: sec ? { id: sec.id, name: sec.name, basis: secClass[sec.id].basis } : null, picks: [] };
       for (const w of [cls.width].concat(cls.extraWidths || [])) {
         const cands = sec ? pickCandidates(sec, w) : pickCandidates(page, w);
-        const sure = cands.length === 1 || (cands.length > 1 && cands[0].score - cands[1].score >= 1);
+        const sure = cands.length === 1 || (cands.length > 1 && cands[0].score - cands[1].score >= 1);  // 같으면 맨 위 화면(정렬 순서)을 고른 채로 둔다
         entry.picks.push({ width: w, chosen: cands.length ? cands[0].id : null, candidates: cands.slice(0, 10), sure, basis: cands.length && cands[0].learned ? '학습' : '규칙' });
         if (!cands.length) result.missing.push(platform + ' ' + cls.name + ' ' + w + 'px 화면을 못 찾음');
         else if (!sure) result.unsure++;

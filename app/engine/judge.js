@@ -20,12 +20,18 @@ function judge(analysis, index, rules, mem) {
   const scored = Object.values(byName).map(c => Object.assign(c, { total: c.score + c.learned })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
   const top = scored[0], second = scored[1];
   const auto = !!top && top.total >= minAuto && (!second || top.total - second.total >= 1);
+  // 2026-10-12 윤우: 점수표를 보여 주고 고르게 하지 말고 앱이 정하라 → 2점 이상 후보가 비길 때만 묻는다
+  const tie = !!top && !auto && top.total >= minAuto;
+  const newName = '[Core] ' + (analysis.cover.nameEN || analysis.fileName).replace(/\s*(상세페이지)?\s*고도화\s*$/, '').trim();
   return {
     candidates: scored.slice(0, 5),
-    suggestion: auto ? 'update' : 'new',
-    target: auto ? top.name : '[Core] ' + (analysis.cover.nameEN || analysis.fileName).replace(/\s*(상세페이지)?\s*고도화\s*$/, '').trim(),
-    sure: auto || scored.length === 0,
-    reason: auto ? `${top.name}과 "${top.hits.join(', ')}"가 맞음` : (top ? '후보가 갈림 — 골라 주세요' : '색인 어디에도 없는 이름 → 새 Core')
+    suggestion: auto || tie ? 'update' : 'new',
+    target: auto || tie ? top.name : newName,
+    sure: !tie,
+    weak: !auto && !tie ? scored.filter(c => c.total > 0).slice(0, 3) : [],
+    reason: auto ? (top.hits.includes('이 문서로 만든 Core') ? `이 프로젝트 문서로 만든 Core라서 ${top.name}을(를) 갱신해요.` : `프로젝트 이름과 ${top.name} 이름이 겹쳐요 ("${top.hits.join('", "')}"). 이 Core를 갱신해요.`)
+      : tie ? `${top.name}과 ${second.name}이 비슷하게 맞아요. 어느 Core인지 확인해 주세요.`
+      : top ? '이름이 확실히 겹치는 기존 Core가 없어서 새 Core로 정했어요.' : '기존 Core 어디에도 없는 이름이라 새 Core로 정했어요.'
   };
 }
 module.exports = { judge };
