@@ -86,7 +86,7 @@ const money = (v) => v != null ? `<p class="hint">이번 단계 Claude 사용량
 // ---------- 📍 작업 위치 ----------
 function placeHtml(r) {
   const pl = r.place; if (!pl) return '';
-  const head = pl.kind === 'branch' ? `기존 Core 갱신 → ${esc(pl.coreName)}의 브랜치 "Core 도우미"` : `새 Core → 프로젝트 파일의 복제본 (${esc(pl.coreName)})`;
+  const head = pl.kind === 'branch' ? `기존 Core 갱신 → ${esc(pl.coreName)}의 브랜치` : `새 Core → 프로젝트 파일의 복제본 (${esc(pl.coreName)})`;
   const link = pl.kind === 'branch' ? (pl.coreUrl ? openBtn(pl.coreUrl, pl.coreName + ' 열기') : '') : openBtn(r.sourceUrl, '프로젝트 파일 열기');
   return `<section class="panel"><h2>📍 작업 위치</h2>
     <div class="verdict"><span class="big">${head}</span>${link}</div>
