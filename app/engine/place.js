@@ -11,7 +11,7 @@ function proposePlace(verdict, sourceUrl, sourceKey) {
     const core = verdict.candidates[0] || {};
     return {
       kind: 'branch', coreName: verdict.target, coreKey: core.key, coreUrl: core.url,
-      steps: [`${verdict.target} 파일을 엽니다`, '파일 이름 옆 ⌄ → Create branch → 이름은 자유 (예: 이번 프로젝트 이름. 이미 만든 브랜치가 있으면 그걸 엽니다)', '브랜치 링크를 아래 칸에 붙여 넣습니다'],
+      steps: [`${verdict.target} 파일을 엽니다`, '파일 이름 옆 ⌄ → Create branch → 이름은 자유 (예: 이번 프로젝트 이름. 이미 만든 브랜치가 있으면 그걸 엽니다)', '브랜치 안의 내용은 지우지 않고 그대로 둡니다 (앱이 그 안의 화면만 고칩니다)', '브랜치 링크를 아래 칸에 붙여 넣습니다'],
       why: '기존 Core는 본 파일에 직접 쓰지 않고 브랜치에서 고친 뒤 사람이 확인하고 합칩니다'
     };
   }
