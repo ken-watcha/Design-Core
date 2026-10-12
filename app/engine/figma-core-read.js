@@ -44,7 +44,7 @@ if (master) {
       const byTitle = blue && cfg.classes.find(c => c.name === blue.title);
       const byWidth = cfg.classes.find(c => [c.width].concat(c.extraWidths || []).some(w => Math.abs(w - f.width) < 0.5));
       const cls = (byTitle || byWidth || {}).name || null;
-      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), x: Math.round(f.x), y: Math.round(f.y), cls, clsBasis: byTitle ? '설명 바' : (byWidth ? '폭' : null), bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', sig: sig(f) };
+      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), x: Math.round(f.x), y: Math.round(f.y), cls, clsBasis: byTitle ? '설명 바' : (byWidth ? '폭' : null), bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', ...sigs(f) };
     });
     out.platforms[platform] = { sectionId: sec.id, w: Math.round(sec.width), h: Math.round(sec.height), bars: bars.map(b => ({ id: b.id, kind: b.kind, title: b.title })), screens };
   }

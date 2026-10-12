@@ -111,12 +111,18 @@ async function onPlace(ev) {
 }
 
 // ---------- 기존 Core 갱신 ----------
+const diffHtml = (d) => {
+  if (!d) return '';
+  const part = (label, xs, more) => xs.length ? `<div>${label}: ${xs.map(esc).join(', ')}${more ? ` 외 ${more}개` : ''}</div>` : '';
+  const body = part('원본에만', d.onlyA, d.moreA) + part('Core에만', d.onlyB, d.moreB);
+  return body ? `<div class="diff">${body}</div>` : '<div class="diff">요소·글자 차이 없음</div>';
+};
 const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '그대로': '', '미수록': 'bad' };
 function showDelta() {
   const d = work.delta, s = d.summary;
   const rows = d.rows.map(r => `<tr><td><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
     <td>${r.source ? esc(r.source.name) + ` <span class="muted">${r.source.w}×${r.source.h}</span> ` + openBtn(linkTo(current.sourceUrl, r.source.id), '원본') : '—'}</td>
-    <td>${r.target ? `<span class="muted">${r.target.w}×${r.target.h}</span> ` + openBtn(linkTo(work.workUrl, r.target.id), 'Core') : '—'}</td><td class="muted">${esc(r.why)}</td></tr>`).join('');
+    <td>${r.target ? `<span class="muted">${r.target.w}×${r.target.h}</span> ` + openBtn(linkTo(work.workUrl, r.target.id), 'Core') : '—'}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td></tr>`).join('');
   const miss = d.missing.map(m => `<tr><td><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)} ${openBtn(linkTo(current.sourceUrl, m.id), '원본')}</td><td class="muted">${esc(m.why)}</td></tr>`).join('');
   const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가');
   const paste = todo.length ? `<h2 style="margin-top:18px">붙여넣기 (사람 손 1회)</h2>
@@ -125,8 +131,9 @@ function showDelta() {
     <li>[반영]을 누르면 앱이 붙여 넣은 화면을 알아보고 교체(이름·위치·링크 유지, 속만 바꿈)·추가(🔵 바와 함께)·링크 카드 기준 날짜를 고칩니다</li></ol>
     ${VERSION_GATE('applyGo')}<button id="applyGo">반영</button>` : `<p class="muted" style="margin-top:12px">바꿀 화면이 없습니다 — Core가 프로젝트 문서와 같습니다.</p>`;
   $('#work').innerHTML = `<section class="panel"><h2>Δ 바뀔 내용 — ${esc(current.place.coreName)}</h2>
-    <p class="muted">유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${s.untouched ? ' · 그대로 ' + s.untouched : ''} · 미수록 ${s.missing}${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
+    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.untouched ? ' · 그대로 ' + s.untouched : ''} · 미수록 ${s.missing}${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
     <table><tr><th></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th></tr>${rows}${miss}</table>
+    ${work.unverifiedBranch ? '<p class="hint">이 링크가 브랜치인지 복제본인지는 앱이 가릴 수 없습니다. 복제본이면 나중에 Core에 합칠(머지) 수 없으니, Figma에서 브랜치인지 한 번 확인해 주세요.</p>' : ''}
     ${paste}${money(work.costUsd)}</section>`;
   bindOpen($('#work')); bindGate($('#work'));
   $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
