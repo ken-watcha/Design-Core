@@ -13,12 +13,13 @@ async function showSetup() {
     if (s.claude && s.figma) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
     else if (!s.claude) el.innerHTML = `<span class="bad">● Claude Code 필요</span> · 설치·로그인 안내는 README 1단계`;
     else el.innerHTML = `<span class="bad">● Figma 연결 필요</span> · README 2단계 (터미널에서 claude → /mcp → figma → Authenticate)`;
-    el.title = s.detail || '';
+    el.title = [s.detail, el.dataset.rules].filter(Boolean).join('\n');
   } catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; }
 }
 
 async function showKnowledge() {
-  try { const k = await window.core.knowledge(); $('#footer').textContent = `규칙 ${k.rulesVersion} · Core ${k.cores}개 · ${k.from}`; }
+  // 규칙 버전·출처는 화면에 두지 않고, 준비 상태에 마우스를 올리면 보이게 (2026-10-12 윤우: "없어도 될 것 같다")
+  try { const k = await window.core.knowledge(); const el = $('#setup'); el.dataset.rules = `규칙 ${k.rulesVersion} · Core ${k.cores}개 · ${k.from}`; if (!el.title.includes(el.dataset.rules)) el.title = [el.title, el.dataset.rules].filter(Boolean).join('\n'); }
   catch (e) { $('#footer').textContent = '규칙을 불러오지 못했습니다: ' + e.message; }
 }
 
@@ -79,6 +80,7 @@ $('#form').addEventListener('submit', async (ev) => {
   work = null;
   const url = $('#url').value.trim();
   $('#go').disabled = true;
+  document.body.classList.remove('home');
   $('#result').innerHTML = '<section class="panel spinner">Figma 문서를 읽는 중… (보통 30초~1분)</section>';
   try { current = await window.core.analyze(url); render(current); }
   catch (e) { $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; }

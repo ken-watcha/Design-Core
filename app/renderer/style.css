@@ -1,7 +1,10 @@
+/* 글꼴: Pretendard(OFL, 앱 안에 포함 — 인터넷 없이도 같은 모양) */
+@font-face { font-family:"Pretendard"; src:url("fonts/PretendardVariable.woff2") format("woff2-variations"); font-weight:45 920; font-display:block; }
 :root { --bg:#f5f5f7; --surface:#fff; --line:#d9dae0; --text:#1b1c22; --muted:#686c79; --accent:#e0245e; --ok:#1f8a4c; --warn:#b26b00; --bad:#c62828; }
 @media (prefers-color-scheme: dark) { :root { --bg:#141517; --surface:#1e1f23; --line:#3a3b42; --text:#ecedf0; --muted:#9a9ea9; --accent:#ff3f78; --ok:#4cc37a; --warn:#e0a03a; --bad:#ef6b6b; } }
 * { box-sizing:border-box; }
-body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 -apple-system, "Apple SD Gothic Neo", "Pretendard", sans-serif; }
+button, input, select, textarea { font-family:inherit; }
+body { margin:0; background:var(--bg); color:var(--text); font:14px/1.6 "Pretendard", -apple-system, "Apple SD Gothic Neo", sans-serif; -webkit-font-smoothing:antialiased; }
 header { display:flex; align-items:center; gap:16px; padding:16px 24px; border-bottom:1px solid var(--line); background:var(--surface); -webkit-app-region:drag; }
 h1 { font-size:18px; margin:0; }
 h2 { font-size:15px; margin:0 0 10px; }
@@ -61,3 +64,13 @@ table.delta tr.pick:hover td { background:var(--bg); }
 .shot { flex:1; min-height:0; overflow:auto; background:var(--bg); padding:16px; }
 .shot img { display:block; max-width:100%; height:auto; margin:0 auto; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
 .shot .spinner, .shot .empty { color:var(--muted); font-size:13px; text-align:center; padding-top:40px; }
+/* 첫 화면: 입력창을 가운데 크게 (2026-10-12 윤우: "구글처럼") — 분석을 누르면 위로 올라간다 */
+input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent); }
+.home-title { display:none; }
+body.home main { min-height:calc(100vh - 140px); justify-content:center; max-width:720px; }
+body.home main > .panel { background:none; border:0; padding:0; }
+body.home .home-title { display:block; font-size:24px; font-weight:700; text-align:center; margin:0 0 20px; }
+body.home label[for="url"] { display:none; }
+body.home .row input { padding:14px 18px; font-size:15px; border-radius:12px; background:var(--surface); }
+body.home .row button { padding:0 24px; border-radius:12px; }
+body.home #hint { text-align:center; margin-top:12px; text-wrap:balance; }
