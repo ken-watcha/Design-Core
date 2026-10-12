@@ -98,9 +98,10 @@ $('#form').addEventListener('submit', async (ev) => {
   const url = $('#url').value.trim();
   $('#go').disabled = true;
   document.body.classList.remove('home');
-  $('#result').innerHTML = '<section class="panel spinner">Figma 문서를 읽는 중… (보통 30초~1분)</section>';
-  try { current = await window.core.analyze(url); render(current); if (current.analysis.kind === 'project') prefetchPicks(); }
-  catch (e) { $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; }
+  $('#result').innerHTML = progressHtml('analyze', 'Figma 문서를 읽고 있어요');
+  startProgress('analyze');
+  try { current = await window.core.analyze(url); stopProgress(true); render(current); if (current.analysis.kind === 'project') prefetchPicks(); }
+  catch (e) { stopProgress(); $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; }
   finally { $('#go').disabled = false; }
 });
 
@@ -111,6 +112,39 @@ function bindOpen(root = document) { root.querySelectorAll('[data-open]').forEac
 const VERSION_GATE = (btnId) => `<label class="check"><input type="checkbox" data-gate="${btnId}"> 쓰기 전에 이 파일 버전을 저장했어요 (Figma: File → Save to version history)</label>`;
 function bindGate(root) { root.querySelectorAll('[data-gate]').forEach(c => { const b = document.getElementById(c.dataset.gate); if (!b) return; b.disabled = !c.checked; c.addEventListener('change', () => { b.disabled = !c.checked; }); }); }
 const openBtn = (url, label = 'Figma에서 보기') => `<button class="link" data-open="${esc(url)}">${esc(label)}</button>`;
+// ---------- 진행 막대 (2026-10-12 윤우: 얼마나 남았는지) ----------
+// 실제 단계(Claude 켜기 → Figma 읽기/쓰기 → 정리)는 엔진이 알려 주고, 남은 시간은 지난번에 걸린 시간으로 어림한다
+const STAGE_TEXT = { start: 'Claude를 켜는 중', figma: 'Figma와 주고받는 중', wrap: '결과 정리 중', done: '마무리 중' };
+const EXPECT = { analyze: 45, place: 60, apply: 90, build: 180 };
+const store = { get: (k) => { try { return Number(localStorage.getItem(k)) || 0; } catch (e) { return 0; } }, set: (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) {} } };
+let prog = null;
+function progressHtml(op, title, id = '') {
+  return `<section class="panel prog"${id ? ` id="${id}"` : ''} data-op="${op}"><div class="prog-head"><b>${esc(title)}</b><span class="muted prog-left"></span></div>
+    <div class="prog-bar"><div class="prog-fill"></div></div><div class="muted prog-stage">준비 중</div></section>`;
+}
+function startProgress(op) {
+  stopProgress();
+  const expect = store.get('dur:' + op) || EXPECT[op] || 60, t0 = Date.now();
+  prog = { op, t0, expect, stage: '', label: '', timer: setInterval(tick, 250) };
+  tick();
+}
+function tick() {
+  if (!prog) return;
+  const el = document.querySelector(`.prog[data-op="${prog.op}"]`); if (!el) return;
+  const t = (Date.now() - prog.t0) / 1000;
+  const pct = Math.min(95, 100 * (1 - Math.exp(-2.3 * t / prog.expect)));   // 어림 시간에 90%, 끝까지 95%를 넘지 않음
+  el.querySelector('.prog-fill').style.width = pct.toFixed(1) + '%';
+  const left = Math.round(prog.expect - t);
+  el.querySelector('.prog-left').textContent = left > 3 ? `약 ${left}초 남음` : '거의 다 됐어요';
+  el.querySelector('.prog-stage').textContent = [prog.label, STAGE_TEXT[prog.stage] || '준비 중'].filter(Boolean).join(' · ');
+}
+function stopProgress(ok) {
+  if (!prog) return;
+  clearInterval(prog.timer);
+  if (ok) { const took = (Date.now() - prog.t0) / 1000, old = store.get('dur:' + prog.op); store.set('dur:' + prog.op, Math.round(old ? old * 0.6 + took * 0.4 : took)); }
+  prog = null;
+}
+window.core.onProgress && window.core.onProgress((ev) => { if (!prog) return; prog.stage = ev.stage; prog.label = String(ev.label || '').replace(/^Core 업데이트:\s*/, '').replace(/\s*\(읽기 전용\)$/, ''); tick(); });
 const busy = (msg) => { $('#work').innerHTML = `<section class="panel spinner">${esc(msg)}</section>`; };
 const fail = (title, e) => { $('#work').innerHTML = `<section class="panel"><h2>${esc(title)}</h2><p class="muted">${esc(e && e.message ? e.message : e)}</p></section>`; };
 const money = (v) => v != null ? `<p class="hint">이번 단계 Claude 사용량: 약 $${Number(v).toFixed(3)}</p>` : '';
@@ -131,14 +165,15 @@ function placeHtml(r) {
 async function onPlace(ev) {
   ev.preventDefault();
   const url = $('#placeUrl').value.trim();
-  $('#placeGo').disabled = true; busy('작업 위치를 확인하는 중… (읽기만, 30초~1분)');
+  $('#placeGo').disabled = true; $('#work').innerHTML = progressHtml('place', '작업 위치를 확인하고 바뀔 내용을 비교하고 있어요'); startProgress('place');
   try {
     const w = await window.core.checkWorkplace(current, url);
+    stopProgress(true);
     if (!w.ok) { fail('이 링크에서는 작업하지 않습니다', w.why); return; }
     work = w;
     if (w.kind === 'branch') { current.analysis = w.analysis; render(current); $('#placeUrl').value = url; showDelta(); prefetchDelta(); }
     else showBuild();
-  } catch (e) { fail('작업 위치를 확인하지 못했습니다', e); }
+  } catch (e) { stopProgress(); fail('작업 위치를 확인하지 못했습니다', e); }
   finally { $('#placeGo').disabled = false; }
 }
 
@@ -246,9 +281,10 @@ async function openViewer({ pill, title, why, sides }) {
 async function onApply() {
   $('#applyGo').disabled = true;
   const keep = $('#work').innerHTML;
-  $('#work').insertAdjacentHTML('beforeend', '<section class="panel spinner" id="applyBusy">브랜치에 반영하는 중… (1~2분)</section>');
+  $('#work').insertAdjacentHTML('beforeend', progressHtml('apply', '브랜치에 반영하고 있어요', 'applyBusy')); startProgress('apply');
   try {
     const r = await window.core.applyUpdate(current, work);
+    stopProgress(true);
     const a = r.apply, s = r.after.summary;
     const done = a.done.map(x => `<li>${x.action} · ${esc(x.platform)} ${esc(x.cls)} ${x.width}px · ${x.same ? '<span class="pill ok">원본과 같음</span>' : '<span class="pill warn">원본과 다름 — 확인 필요</span>'} ${openBtn(linkTo(work.workUrl, x.id))}</li>`).join('');
     $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>
@@ -258,7 +294,7 @@ async function onApply() {
       <p class="hint">브랜치를 보고 괜찮으면 Figma에서 Merge(합치기)는 직접 해 주세요. ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</p>${money(r.costUsd)}</section>`;
     bindOpen($('#work'));
     $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
-  } catch (e) { const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; }
+  } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; }
 }
 
 // ---------- 새 Core ----------
@@ -273,9 +309,10 @@ function showBuild() {
 
 async function onBuild() {
   $('#buildGo').disabled = true;
-  $('#work').insertAdjacentHTML('beforeend', '<section class="panel spinner" id="buildBusy">복제본에 Core를 만드는 중… (2~4분)</section>');
+  $('#work').insertAdjacentHTML('beforeend', progressHtml('build', '새 Core를 만들고 있어요', 'buildBusy')); startProgress('build');
   try {
     const r = await window.core.buildNewCore(current, work);
+    stopProgress(true);
     const b = r.build;
     const screens = b.screens.map(x => `<li>${esc(x.platform)} ${esc(x.cls)} ${x.w}×${x.h} · ${x.left === 0 ? '<span class="pill ok">원본과 같음</span>' : `<span class="pill warn">남은 차이 ${x.left}</span>`} ${openBtn(linkTo(work.workUrl, x.id))}</li>`).join('');
     $('#buildBusy').outerHTML = `<section class="panel"><h2>새 Core를 만들었습니다</h2>
@@ -285,7 +322,7 @@ async function onBuild() {
       ${(b.log || []).filter(l => /⚠|대신/.test(l)).map(l => `<p class="muted">${esc(l)}</p>`).join('')}
       <p class="hint">이 Core를 앱의 Core 목록에 추가했습니다 — 다음 판별부터 "기존 Core"로 잡힙니다. 남은 사람 손: 파일 이름·Core 폴더 이동, 원본 커버 Final/아카이브.</p>${money(r.costUsd)}</section>`;
     bindOpen($('#work'));
-  } catch (e) { $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">복제본에 반쯤 만든 페이지가 남았을 수 있습니다. 복제본을 지우고 다시 Duplicate해 주세요.</p></section>`; $('#buildGo').disabled = false; }
+  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">복제본에 반쯤 만든 페이지가 남았을 수 있습니다. 복제본을 지우고 다시 Duplicate해 주세요.</p></section>`; $('#buildGo').disabled = false; }
 }
 
 showSetup();
