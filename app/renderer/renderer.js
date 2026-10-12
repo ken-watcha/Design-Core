@@ -37,15 +37,22 @@ function render(r) {
     ${v.candidates.length ? `<table><tr><th>후보 Core</th><th>점수</th><th>맞은 낱말</th></tr>${v.candidates.map(c => `<tr><td>${esc(c.name)}</td><td>${c.total}</td><td>${esc(c.hits.join(', '))}</td></tr>`).join('')}</table>` : ''}
   </section>`;
   let rows = '';
+  // 대표 화면 표의 상태 태그 — 무엇을 해야 하는지 바로 읽히게 (2026-10-12 윤우: "바꿔서 뭘 할 수 있는지 인지가 안 돼")
+  const pickTag = (p) => p.basis === 'Core와 같음' ? ['ok', 'Core와 같음'] : /거의/.test(p.basis || '') ? ['warn', 'Core와 거의 같음'] : p.sure ? ['ok', '자동 선택'] : ['warn', '후보 여럿'];
   for (const pf of Object.keys(a.platforms)) for (const e of a.platforms[pf]) for (const p of e.picks) {
-    const opts = p.candidates.map(c => `<option value="${esc(c.id)}"${c.id === p.chosen ? ' selected' : ''}>${esc(c.name)} · ${c.w}×${c.h} · 점수 ${c.score}</option>`).join('');
+    const opts = p.candidates.map(c => `<option value="${esc(c.id)}"${c.id === p.chosen ? ' selected' : ''}>${esc(c.name)} · ${c.w}×${c.h}${c.score != null ? ' · 점수 ' + c.score : ''}</option>`).join('');
+    const [cls, tag] = pickTag(p);
     rows += `<tr><td>${esc(pf)} ${esc(e.cls)}<div class="muted">${esc(e.desc)}</div></td><td>${p.width}px</td>
       <td>${p.candidates.length ? `<select data-pf="${esc(pf)}" data-cls="${esc(e.cls)}" data-w="${p.width}">${opts}</select>` : '<span class="pill bad">화면 없음</span>'}</td>
-      <td><span class="pill ${p.sure ? 'ok' : 'warn'}">${p.basis === 'Core와 같음' ? 'Core와 같음' : (p.sure ? '자동' : '확인 필요')}</span></td>
-      <td>${p.chosen ? `<button class="link" data-open="${esc(nodeUrl(r.fileKey, p.chosen))}">Figma에서 보기</button>` : ''}</td></tr>`;
+      <td class="tag"><span class="pill ${cls}">${tag}</span></td>
+      <td class="go">${p.chosen ? `<button class="link plain" data-view="${esc(pf)}|${esc(e.cls)}|${p.width}">보기 ›</button>` : ''}</td></tr>`;
   }
-  const picksHtml = `<section class="panel"><h2>크기별 대표 화면</h2><table><tr><th>크기</th><th>폭</th><th>대표 화면</th><th></th><th></th></tr>${rows}</table>
-    <p class="hint">"확인 필요"는 점수가 같은 후보가 여럿이라는 뜻입니다. 골라 두면 아래 작업(새 Core 만들기 · 기존 Core 갱신)에서 그 화면을 씁니다.</p></section>`;
+  const isUpdate = v.suggestion === 'update';
+  const pickWhy = isUpdate
+    ? `Core에는 크기마다 화면이 한 장씩 들어 있어요. 앱이 이 문서에서 크기마다 한 장을 골라 Core의 같은 칸과 비교해요. <b>Core와 같음</b>이면 그대로 두면 되고, 문서의 다른 화면을 Core에 넣고 싶을 때만 바꾸세요. 바꾸면 아래 "바뀔 내용"에서 그 칸이 <b>교체</b>로 잡혀요.`
+    : `Core에는 크기마다 화면을 한 장씩 넣어요. 앱이 이 문서에서 크기마다 한 장을 골랐고, 새 Core를 만들 때 이 화면들이 🌏 마스터 파일에 들어가요. <b>후보 여럿</b>이면 비슷한 화면이 여러 장이라 앱이 확신하지 못한 칸이니, 눌러 보고 대표로 맞는 화면을 골라 주세요.`;
+  const picksHtml = `<section class="panel"><h2>크기별 대표 화면</h2><p class="hint lead">${pickWhy}</p>
+    <table class="picks"><tr><th>크기</th><th>폭</th><th>대표 화면</th><th class="tag"></th><th class="go"></th></tr>${rows}</table></section>`;
   const cov = (a.coverage || []).map(c => `<tr><td>${esc(c.section)}</td><td>${c.to ? esc(c.to) : '<span class="pill warn">미수록</span>'}</td><td class="muted">${esc(c.note)}</td></tr>`).join('');
   const covHtml = `<section class="panel"><h2>수록 대조표</h2><p class="hint" style="margin-top:0">문서의 섹션이 하나도 빠지지 않았는지 확인합니다.</p><table><tr><th>문서 섹션</th><th>Core에서 들어갈 자리</th><th></th></tr>${cov}</table>
     ${a.missing.length ? `<p class="muted">못 찾은 것: ${esc(a.missing.join(' · '))}</p>` : ''}</section>`;
@@ -57,6 +64,12 @@ function render(r) {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
     if (work) { work = null; $('#work').innerHTML = '<section class="panel muted">대표 화면을 바꿨습니다 — 작업 위치 [확인]을 다시 눌러 주세요.</section>'; }
+  }));
+  document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
+    const [pf, cls, w] = b.dataset.view.split('|');
+    const p = current.analysis.platforms[pf].find(x => x.cls === cls).picks.find(x => String(x.width) === w);
+    const c = p.candidates.find(x => x.id === p.chosen) || { id: p.chosen, name: '' };
+    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · 대표 화면`, why: '', sides: [{ label: '프로젝트 문서', x: c, fileKey: current.fileKey, url: linkTo(current.sourceUrl, c.id) }] });
   }));
   bindOpen();
 }
@@ -118,25 +131,84 @@ const diffHtml = (d) => {
   return body ? `<div class="diff">${body}</div>` : '<div class="diff">요소·글자 차이 없음</div>';
 };
 const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '그대로': '', '미수록': 'bad' };
+const screenCell = (x) => x ? `${esc(x.name || '')}<div class="muted size">${x.w}×${x.h}</div>` : '<span class="muted">—</span>';
 function showDelta() {
   const d = work.delta, s = d.summary;
-  const rows = d.rows.map(r => `<tr><td><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
-    <td>${r.source ? esc(r.source.name) + ` <span class="muted">${r.source.w}×${r.source.h}</span> ` + openBtn(linkTo(current.sourceUrl, r.source.id), '원본') : '—'}</td>
-    <td>${r.target ? `<span class="muted">${r.target.w}×${r.target.h}</span> ` + openBtn(linkTo(work.workUrl, r.target.id), 'Core') : '—'}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td></tr>`).join('');
-  const miss = d.missing.map(m => `<tr><td><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)} ${openBtn(linkTo(current.sourceUrl, m.id), '원본')}</td><td class="muted">${esc(m.why)}</td></tr>`).join('');
+  const rows = d.rows.map((r, i) => `<tr class="pick" data-row="${i}" title="눌러서 두 화면 나란히 보기"><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
+    <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go">비교 ›</td></tr>`).join('');
+  const miss = d.missing.map((m, i) => `<tr class="pick" data-miss="${i}" title="눌러서 화면 보기"><td class="act"><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)}</td><td class="muted">${esc(m.why)}</td><td class="go">보기 ›</td></tr>`).join('');
   const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가');
   const paste = todo.length ? `<h2 style="margin-top:18px">붙여넣기 (사람 손 1회)</h2>
     <ol><li>아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul></li>
     <li>브랜치의 🌏 마스터 파일 페이지 빈 곳에 ⌘V ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</li>
     <li>[반영]을 누르면 앱이 붙여 넣은 화면을 알아보고 교체(이름·위치·링크 유지, 속만 바꿈)·추가(🔵 바와 함께)·링크 카드 기준 날짜를 고칩니다</li></ol>
-    ${VERSION_GATE('applyGo')}<button id="applyGo">반영</button>` : `<p class="muted" style="margin-top:12px">바꿀 화면이 없습니다 — Core가 프로젝트 문서와 같습니다.</p>`;
+    ${VERSION_GATE('applyGo')}<button id="applyGo">반영</button>` : '';
+  // 결론을 맨 위에 (2026-10-12 윤우: 결과 표만 보고는 "그래서 뭘 하라는 건지" 몰랐음)
+  const checks = d.rows.filter(r => r.check && r.action === '유지').length;
+  const next = [checks ? `"확인 필요" ${checks}칸은 거의 같은 화면이에요. 한 번 눈으로 보고 괜찮으면 넘어가세요.` : '', s.missing ? `미수록 ${s.missing}개는 문서에만 있는 섹션이에요. 넣지 않아도 돼요.` : ''].filter(Boolean);
+  const verdict = todo.length
+    ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸</b> — 아래 "붙여넣기" 순서대로 하고 [반영]을 누르세요.</div>`
+    : `<div class="conclusion ok"><b>바꿀 화면이 없어요.</b> Core가 프로젝트 문서와 같아요. 브랜치는 머지할 필요 없이 버리면 돼요.${next.length ? '<ul>' + next.map(t => `<li>${t}</li>`).join('') + '</ul>' : ''}</div>`;
   $('#work').innerHTML = `<section class="panel"><h2>Δ 바뀔 내용 — ${esc(current.place.coreName)}</h2>
+    ${verdict}
     <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.untouched ? ' · 그대로 ' + s.untouched : ''} · 미수록 ${s.missing}${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
-    <table><tr><th></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th></tr>${rows}${miss}</table>
+    <p class="hint" style="margin:0 0 6px">줄을 누르면 프로젝트 화면과 Core 화면을 나란히 볼 수 있어요.</p>
+    <table class="delta"><tr><th class="act"></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th><th></th></tr>${rows}${miss}</table>
     ${work.unverifiedBranch ? '<p class="hint">이 링크가 브랜치인지 복제본인지는 앱이 가릴 수 없습니다. 복제본이면 나중에 Core에 합칠(머지) 수 없으니, Figma에서 브랜치인지 한 번 확인해 주세요.</p>' : ''}
     ${paste}${money(work.costUsd)}</section>`;
   bindOpen($('#work')); bindGate($('#work'));
+  $('#work').querySelectorAll('tr.pick').forEach(tr => tr.addEventListener('click', (ev) => { if (ev.target.closest('button')) return; openCompare(tr.dataset.row != null ? d.rows[tr.dataset.row] : null, tr.dataset.miss != null ? d.missing[tr.dataset.miss] : null); }));
   $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
+}
+
+// ---------- 두 화면 나란히 보기 (2026-10-12 윤우: 링크로 Figma를 오가지 말고 앱 안에서 비교) ----------
+const shotCache = new Map();   // fileKey|id → 그림(data:) — 한 번 받은 화면은 다시 부르지 않는다
+async function loadShots(items) {
+  const need = items.filter(it => !shotCache.has(it.fileKey + '|' + it.nodeId));
+  if (need.length) {
+    const r = await window.core.screens(need);
+    need.forEach((it, i) => shotCache.set(it.fileKey + '|' + it.nodeId, r.images[i]));
+  }
+  return items.map(it => shotCache.get(it.fileKey + '|' + it.nodeId));
+}
+function closeCompare() { const el = $('#cmp'); if (el) el.remove(); document.removeEventListener('keydown', escClose); }
+function escClose(ev) { if (ev.key === 'Escape') closeCompare(); }
+function openCompare(row, miss) {
+  const src = row ? row.source : { id: miss.id, name: miss.section };
+  const sides = [{ label: '프로젝트 문서', x: src, fileKey: current.fileKey, url: src && linkTo(current.sourceUrl, src.id) }];
+  if (row) sides.push({ label: 'Core (브랜치)', x: row.target, fileKey: work.workKey, url: row.target && linkTo(work.workUrl, row.target.id), empty: row.action === '추가' ? 'Core에 아직 없는 화면이에요' : '화면 없음' });
+  const action = row ? row.action : '미수록';
+  openViewer({ pill: [ACTION_PILL[action], action], title: row ? `${row.platform} ${row.cls || ''} ${row.width}px` : miss.section, why: row ? row.why : miss.why, sides });
+}
+async function openViewer({ pill, title, why, sides }) {
+  closeCompare();
+  const col = (sd, i) => `<figure><figcaption><b>${sd.label}</b>${sd.x ? ` <span class="muted">${esc([sd.x.name, sd.x.w ? `${sd.x.w}×${sd.x.h}` : ''].filter(Boolean).join(' · '))}</span> ${openBtn(sd.url, 'Figma에서 열기')}` : ''}</figcaption>
+    <div class="shot" data-side="${i}">${sd.x ? '<div class="spinner">화면을 불러오는 중… (처음 한 번은 10~20초)</div>' : `<div class="empty">${esc(sd.empty || '화면 없음')}</div>`}</div></figure>`;
+  document.body.insertAdjacentHTML('beforeend', `<div id="cmp" class="cmp-back"><div class="cmp" role="dialog" aria-label="화면 보기">
+    <div class="cmp-head">${pill ? `<span class="pill ${pill[0]}">${esc(pill[1])}</span>` : ''}<b>${esc(title)}</b><span class="muted cmp-why">${esc(why || '')}</span><button class="close" title="닫기 (esc)">✕</button></div>
+    <div class="cmp-cols n${sides.length}">${sides.map(col).join('')}</div></div></div>`);
+  const box = $('#cmp');
+  box.addEventListener('click', (ev) => { if (ev.target === box || ev.target.closest('.close')) closeCompare(); });
+  document.addEventListener('keydown', escClose);
+  bindOpen(box);
+  // 두 화면을 같은 비율로 함께 스크롤
+  const panes = [...box.querySelectorAll('.shot')];
+  let lock = false;
+  panes.forEach(p => p.addEventListener('scroll', () => {
+    if (lock) return; lock = true;
+    const k = p.scrollTop / Math.max(1, p.scrollHeight - p.clientHeight);
+    panes.forEach(q => { if (q !== p) q.scrollTop = k * (q.scrollHeight - q.clientHeight); });
+    requestAnimationFrame(() => { lock = false; });
+  }));
+  const want = sides.filter(sd => sd.x);
+  try {
+    const imgs = await loadShots(want.map(sd => ({ fileKey: sd.fileKey, nodeId: sd.x.id })));
+    if (!$('#cmp') || $('#cmp') !== box) return;
+    want.forEach((sd, j) => {
+      const pane = panes[sides.indexOf(sd)];
+      pane.innerHTML = imgs[j] ? `<img src="${imgs[j]}" alt="${esc(sd.label)}">` : '<div class="empty">화면을 받지 못했어요. Figma에서 열어 확인해 주세요.</div>';
+    });
+  } catch (e) { panes.forEach(p => { if (p.querySelector('.spinner')) p.innerHTML = `<div class="empty">화면을 받지 못했어요: ${esc(e.message)}</div>`; }); }
 }
 
 async function onApply() {
