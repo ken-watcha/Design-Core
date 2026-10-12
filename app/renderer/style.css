@@ -80,3 +80,7 @@ body.home #hint { text-align:center; margin-top:12px; text-wrap:balance; }
 .pick-why { font-size:12px; margin-top:4px; }
 .pick-why:empty { display:none; }
 select.quiet { background:transparent; }
+/* 오른쪽 끝 '보기/비교' — 표 가장자리에서 띄우고 아이콘 크기 맞춤 */
+td.go { padding-right:16px !important; }
+td.go button, td.go .go-in { display:inline-flex; align-items:center; gap:2px; }
+.chev { width:16px; height:16px; flex:none; }

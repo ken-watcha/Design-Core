@@ -59,7 +59,7 @@ function render(r) {
     rows += `<tr><td>${esc(pf)} ${esc(e.cls)}<div class="muted">${esc(e.desc)}</div></td><td>${p.width}px</td>
       <td>${p.candidates.length ? `<span class="pick-name">${esc(nameOf(p))}</span><select hidden data-pf="${esc(pf)}" data-cls="${esc(e.cls)}" data-w="${p.width}">${opts}</select><div class="pick-why muted">${esc(pickWhy1(p))}</div>` : '<span class="pill bad">화면 없음</span>'}</td>
       <td class="tag"><span class="pill ${cls}">${tag}</span></td>
-      <td class="go">${p.chosen ? `<button class="link plain" data-view="${esc(pf)}|${esc(e.cls)}|${p.width}">보기 ›</button>` : ''}</td></tr>`;
+      <td class="go">${p.chosen ? `<button class="link plain" data-view="${esc(pf)}|${esc(e.cls)}|${p.width}">보기${CHEV}</button>` : ''}</td></tr>`;
   }
   const isUpdate = v.suggestion === 'update';
   // 2026-10-12 윤우: "대표 화면"이 무슨 뜻인지 모르겠다 → 이름을 "Core에 들어갈 화면"으로, 후보를 그림으로 나란히 보고 고르게
@@ -149,13 +149,15 @@ const diffHtml = (d) => {
   const body = part('원본에만', d.onlyA, d.moreA) + part('Core에만', d.onlyB, d.moreB);
   return body ? `<div class="diff">${body}</div>` : '<div class="diff">요소·글자 차이 없음</div>';
 };
+// 오른쪽 화살표 아이콘 (글자 › 는 작고 굵기가 안 맞아 2026-10-12 윤우 지적으로 바꿈)
+const CHEV = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '그대로': '', '미수록': 'bad' };
 const screenCell = (x) => x ? `${esc(x.name || '')}<div class="muted size">${x.w}×${x.h}</div>` : '<span class="muted">—</span>';
 function showDelta() {
   const d = work.delta, s = d.summary;
   const rows = d.rows.map((r, i) => `<tr class="pick" data-row="${i}" title="눌러서 두 화면 나란히 보기"><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
-    <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go">비교 ›</td></tr>`).join('');
-  const miss = d.missing.map((m, i) => `<tr class="pick" data-miss="${i}" title="눌러서 화면 보기"><td class="act"><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)}</td><td class="muted">${esc(m.why)}</td><td class="go">보기 ›</td></tr>`).join('');
+    <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go"><span class="go-in">비교${CHEV}</span></td></tr>`).join('');
+  const miss = d.missing.map((m, i) => `<tr class="pick" data-miss="${i}" title="눌러서 화면 보기"><td class="act"><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)}</td><td class="muted">${esc(m.why)}</td><td class="go"><span class="go-in">보기${CHEV}</span></td></tr>`).join('');
   const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가');
   const paste = todo.length ? `<h2 style="margin-top:18px">붙여넣기 (사람 손 1회)</h2>
     <ol><li>아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul></li>
