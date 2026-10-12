@@ -97,3 +97,14 @@ td > .muted, td > div { line-height:1.5; }
 .prog-stage { font-size:13px; }
 .cap-note { order:2; flex-basis:100%; font-size:12px; line-height:1.6; color:var(--muted); }
 .cap-note b { color:var(--text); font-weight:600; margin-right:4px; }
+
+/* 그림 빨리 받기(토큰) */
+.fast { margin-left:auto; font-size:13px; font-weight:500; color:var(--muted); -webkit-app-region:no-drag; }
+.fast.on { color:var(--ok); }
+.tok { background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:20px 22px; width:min(520px, 100%); }
+.tok h2 { margin-bottom:6px; }
+.tok ol { margin:8px 0 14px; padding-left:18px; color:var(--muted); font-size:13px; }
+.tok .row { display:flex; gap:8px; }
+.tok .msg { min-height:20px; font-size:13px; margin-top:8px; }
+.tok .msg.bad { color:var(--bad); } .tok .msg.ok { color:var(--ok); }
+.tok .foot { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }

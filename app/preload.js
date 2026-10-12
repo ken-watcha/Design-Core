@@ -8,5 +8,8 @@ contextBridge.exposeInMainWorld('core', {
   applyUpdate: (state, work) => ipcRenderer.invoke('applyUpdate', state, work),
   screens: (items) => ipcRenderer.invoke('screens', items),
   onProgress: (cb) => ipcRenderer.on('progress', (_e, ev) => cb(ev)),
+  tokenStatus: () => ipcRenderer.invoke('tokenStatus'),
+  tokenSave: (t) => ipcRenderer.invoke('tokenSave', t),
+  tokenClear: () => ipcRenderer.invoke('tokenClear'),
   open: (url) => ipcRenderer.invoke('open', url)
 });

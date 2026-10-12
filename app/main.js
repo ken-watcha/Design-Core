@@ -1,9 +1,17 @@
 // Core 업데이트 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
 // 화면은 진행 상태(state: 분석 결과 + 판별 + 작업 위치)를 들고 있다가 단계마다 통째로 넘긴다.
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, safeStorage } = require('electron');
+const fs = require('fs');
 const path = require('path');
 const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
-const { checkSetup, screenshots, setProgressSink } = require('./engine/claude-runner');
+const { checkSetup, screenshots, setProgressSink, setRestToken, restCheck } = require('./engine/claude-runner');
+
+// Figma 개인 액세스 토큰(그림 빨리 받기용) — 맥 키체인으로 암호화해 앱 데이터 폴더에만 둔다. 채팅·저장소에는 남기지 않는다.
+const tokenFile = () => path.join(app.getPath('userData'), 'figma-token.bin');
+function loadToken() {
+  try { if (safeStorage.isEncryptionAvailable() && fs.existsSync(tokenFile())) setRestToken(safeStorage.decryptString(fs.readFileSync(tokenFile()))); } catch (e) { setRestToken(null); }
+}
+let tokenWho = null;
 
 let knowledge = null;
 const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledge());
@@ -27,7 +35,16 @@ ipcMain.handle('checkWorkplace', async (_e, state, url) => checkWorkplace(state,
 ipcMain.handle('buildNewCore', async (_e, state, work) => buildNewCore(state, work, await ensureKnowledge()));
 ipcMain.handle('applyUpdate', async (_e, state, work) => applyUpdate(state, work, await ensureKnowledge()));
 ipcMain.handle('screens', async (_e, items) => screenshots(items));
+ipcMain.handle('tokenStatus', async () => ({ on: fs.existsSync(tokenFile()), who: tokenWho }));
+ipcMain.handle('tokenSave', async (_e, token) => {
+  token = String(token || '').trim();
+  const who = await restCheck(token);   // 맞지 않으면 여기서 오류 → 저장하지 않음
+  if (!safeStorage.isEncryptionAvailable()) throw new Error('이 맥에서 암호화 저장을 쓸 수 없어요');
+  fs.writeFileSync(tokenFile(), safeStorage.encryptString(token), { mode: 0o600 });
+  setRestToken(token); tokenWho = who; return { on: true, who };
+});
+ipcMain.handle('tokenClear', async () => { try { fs.unlinkSync(tokenFile()); } catch (e) {} setRestToken(null); tokenWho = null; return { on: false }; });
 ipcMain.handle('open', (_e, url) => { if (/^https:\/\/(www\.)?figma\.com\//.test(url)) shell.openExternal(url); });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => { loadToken(); createWindow(); });
 app.on('window-all-closed', () => app.quit());

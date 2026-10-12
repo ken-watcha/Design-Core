@@ -118,7 +118,55 @@ async function checkSetup() {
 // 주소만 돌려받아 앱이 바로 내려받는다 — 그림 자체를 Claude가 옮기지 않아 빠르고 싸다.
 // 프레임 하나만 그린다. 길쭉한 화면도 글자가 보이게, 폭 기준 2배(최대 폭 1600)로 받는다.
 const shotSize = (it) => it.w && it.h ? Math.min(8000, Math.round(Math.max(it.w, it.h) * Math.min(2, 1600 / it.w))) : 1600;
+// Figma 개인 액세스 토큰이 있으면 Claude를 거치지 않고 Figma 이미지 API로 바로 받는다 (2026-10-12 윤우: 더 빠르게).
+// 토큰은 main.js가 맥 키체인 암호화(safeStorage)로 보관해 넘겨준다. 없거나 실패하면 Claude 방식으로.
+let restToken = null;
+function setRestToken(t) { restToken = t || null; }
+async function restCheck(token) {
+  const r = await fetch('https://api.figma.com/v1/me', { headers: { 'X-Figma-Token': token } });
+  if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? '토큰이 맞지 않아요 (' + r.status + ')' : 'Figma 응답 ' + r.status);
+  const me = await r.json(); return { handle: me.handle, email: me.email };
+}
+const toDataUrl = async (u) => {
+  // Figma 그림 주소만 받는다 (MCP는 figma.com, 이미지 API는 figma-alpha-api S3)
+  if (!u || !/^https:\/\/(([a-z0-9-]+\.)*figma\.com|figma-alpha-api\.s3\.[a-z0-9-]+\.amazonaws\.com)\//.test(u)) return null;
+  try { const r = await fetch(u); if (!r.ok) return null; return 'data:image/png;base64,' + Buffer.from(await r.arrayBuffer()).toString('base64'); } catch (e) { return null; }
+};
+async function restShots(items) {
+  // 같은 파일·같은 배율끼리 한 번에 요청
+  const groups = new Map();
+  items.forEach((it, i) => {
+    const scale = it.w ? Math.max(0.05, Math.min(2, Math.round(shotSize(it) / Math.max(it.w, it.h) * 100) / 100)) : 1;
+    const k = it.fileKey + '|' + scale; if (!groups.has(k)) groups.set(k, { fileKey: it.fileKey, scale, list: [] });
+    groups.get(k).list.push(i);
+  });
+  const images = new Array(items.length).fill(null);
+  await Promise.all([...groups.values()].map(async (g) => {
+    const ids = g.list.map(i => items[i].nodeId).join(',');
+    const r = await fetch(`https://api.figma.com/v1/images/${encodeURIComponent(g.fileKey)}?ids=${encodeURIComponent(ids)}&format=png&scale=${g.scale}`, { headers: { 'X-Figma-Token': restToken } });
+    if (!r.ok) return;
+    const body = await r.json(); const map = body.images || {};
+    await Promise.all(g.list.map(async (i) => { images[i] = await toDataUrl(map[items[i].nodeId]); }));
+  }));
+  return images;
+}
+
 async function screenshots(items) {
+  if (restToken) {
+    let images = null;
+    try { images = await restShots(items); } catch (e) { images = null; }
+    const missing = images ? items.map((_, i) => i).filter(i => !images[i]) : items.map((_, i) => i);
+    if (!missing.length) return { images, costUsd: 0 };
+    // 못 받은 것만 Claude로
+    const rest = await claudeShots(missing.map(i => items[i]));
+    const out = images || new Array(items.length).fill(null);
+    missing.forEach((i, j) => { out[i] = rest.images[j]; });
+    return { images: out, costUsd: rest.costUsd };
+  }
+  return claudeShots(items);
+}
+
+async function claudeShots(items) {
   const prompt = [
     `Call the ${TOOLS.shot} tool once for each item below with the given maxDimension (do not set enableBase64Response). Make all the calls at once, in parallel, in a single message.`,
     ...items.map((it, i) => `${i + 1}. fileKey: ${it.fileKey}, nodeId: ${it.nodeId}, maxDimension: ${shotSize(it)}`),
@@ -132,10 +180,9 @@ async function screenshots(items) {
   const urls = data.urls || [];
   const images = await Promise.all(items.map(async (_, i) => {
     const u = urls[i];
-    if (!u || !/^https:\/\/([a-z0-9-]+\.)*figma\.com\//.test(u)) return null;
-    try { const r = await fetch(u); if (!r.ok) return null; return 'data:image/png;base64,' + Buffer.from(await r.arrayBuffer()).toString('base64'); } catch (e) { return null; }
+    return toDataUrl(u);
   }));
   return { images, costUsd };
 }
 
-module.exports = { runFigma, checkSetup, extractJson, screenshots, setProgressSink };
+module.exports = { runFigma, checkSetup, extractJson, screenshots, setProgressSink, setRestToken, restCheck };
