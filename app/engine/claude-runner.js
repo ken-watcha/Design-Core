@@ -14,12 +14,14 @@ function envWithPath() {
   return Object.assign({}, process.env, { PATH: [process.env.PATH || '', ...extra].join(':') });
 }
 
-function runClaude(args, input, { timeoutMs = 300000 } = {}) {
+function runClaude(args, input, opts = {}) {
+  const timeoutMs = opts.timeoutMs || 300000;
   return new Promise((resolve, reject) => {
     const p = spawn('claude', args, { env: envWithPath(), cwd: os.tmpdir() });
     let out = '', err = '';
     const timer = setTimeout(() => { p.kill(); reject(new Error('시간 초과 (' + Math.round(timeoutMs / 1000) + '초)')); }, timeoutMs);
-    p.stdout.on('data', (d) => { out += d; });
+    let buf = '';
+    p.stdout.on('data', (d) => { out += d; if (opts.onLine) { buf += d; const lines = buf.split('\n'); buf = lines.pop(); lines.forEach(opts.onLine); } });
     p.stderr.on('data', (d) => { err += d; });
     p.on('error', (e) => { clearTimeout(timer); reject(e.code === 'ENOENT' ? new Error('Claude Code가 설치돼 있지 않습니다') : e); });
     p.on('close', (code) => { clearTimeout(timer); code === 0 ? resolve(out) : reject(new Error((err || out).trim().slice(-600) || ('claude 종료 코드 ' + code))); });
@@ -35,10 +37,26 @@ function extractJson(text) {
   return JSON.parse(text.slice(a, b + 1));
 }
 
+// 진행 단계 알림 (2026-10-12 윤우: 얼마나 남았는지 보여 달라). 앱 창이 받아 진행 막대를 움직인다.
+let progressSink = null;
+function setProgressSink(fn) { progressSink = fn; }
+
 async function ask(prompt, tools, opts = {}) {
   const model = opts.model ? ['--model', opts.model] : [];
-  const raw = await runClaude(['-p', '--output-format', 'json', ...model, '--mcp-config', MCP_CONFIG, '--strict-mcp-config', '--allowedTools', ...tools], prompt, opts);
-  const env = JSON.parse(raw);
+  const say = (stage) => { if (progressSink && opts.label) try { progressSink({ label: opts.label, stage }); } catch (e) {} };
+  say('start');
+  // stream-json으로 받으면 Claude가 Figma 도구를 부르는 순간·끝나는 순간을 알 수 있다
+  const raw = await runClaude(['-p', '--output-format', 'stream-json', '--verbose', ...model, '--mcp-config', MCP_CONFIG, '--strict-mcp-config', '--allowedTools', ...tools], prompt, Object.assign({}, opts, {
+    onLine: (line) => {
+      let ev; try { ev = JSON.parse(line); } catch (e) { return; }
+      const content = (ev.message && ev.message.content) || [];
+      if (ev.type === 'assistant' && content.some(c => c.type === 'tool_use')) say('figma');
+      else if (ev.type === 'user' && content.some(c => c.type === 'tool_result')) say('wrap');
+    }
+  }));
+  const env = raw.trim().split('\n').map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(e => e && e.type === 'result').pop();
+  if (!env) throw new Error('Claude 결과를 읽지 못했습니다: ' + raw.slice(-300));
+  say('done');
   if (env.is_error) throw new Error(env.result || 'Claude 실행 오류');
   const data = extractJson(env.result || '');
   if (data && data.error) throw new Error('Figma: ' + data.error);
@@ -55,7 +73,7 @@ function runFigma(fileKey, code, description, opts) {
     `- code: the exact contents between <code> and </code> below, unchanged.`,
     `Then reply with ONLY the tool's raw result (JSON), nothing else. If the tool errors, reply with {"error": "<message>"}.`,
     '<code>', code, '</code>'
-  ].join('\n'), [TOOLS.useFigma], opts);
+  ].join('\n'), [TOOLS.useFigma], Object.assign({ label: description }, opts));
 }
 
 // 준비 상태: Claude Code 설치·로그인 + Figma 연결. whoami 한 번으로 둘 다 확인된다
@@ -95,4 +113,4 @@ async function screenshots(items) {
   return { images, costUsd };
 }
 
-module.exports = { runFigma, checkSetup, extractJson, screenshots };
+module.exports = { runFigma, checkSetup, extractJson, screenshots, setProgressSink };

@@ -3,7 +3,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
-const { checkSetup, screenshots } = require('./engine/claude-runner');
+const { checkSetup, screenshots, setProgressSink } = require('./engine/claude-runner');
 
 let knowledge = null;
 const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledge());
@@ -14,6 +14,7 @@ function createWindow() {
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  setProgressSink((ev) => { if (!win.isDestroyed()) win.webContents.send('progress', ev); });
 }
 
 ipcMain.handle('setup', async () => checkSetup());
