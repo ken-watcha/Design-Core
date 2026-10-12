@@ -50,6 +50,12 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
   const { data: read, costUsd } = await runner(link.workKey, buildCoreReadCode(knowledge.rules), 'Core 도우미: 작업 위치 확인 (읽기 전용)');
   if (state.place.kind === 'branch') {
     if (!read.isCore) return { ok: false, why: '이 파일에는 "🌏 마스터 파일" 페이지가 없습니다 — Core 파일의 브랜치가 맞나요?', costUsd };
+    if (link.bare) {
+      // 브랜치는 본 파일의 노드 id를 그대로 가진다. 색인의 마스터 페이지 id와 같아야 이 Core의 브랜치로 본다.
+      const entry = knowledge.index.files.find(f => f.key === state.place.coreKey);
+      const pageId = entry && entry.master && entry.master.page;
+      if (!pageId || read.masterPageId !== pageId) return { ok: false, why: `${state.place.coreName}의 브랜치인지 확인하지 못했습니다. 브랜치를 연 상태에서 파일 이름 옆 ⌄ → Copy link로 받은 링크를 주세요`, costUsd };
+    }
     const preferred = preferCoreScreens(state.analysis, read);
     const delta = computeDelta(state.analysis, read);
     return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, core: read, delta, preferred, analysis: state.analysis, costUsd };

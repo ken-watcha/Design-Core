@@ -42,6 +42,10 @@ const fixture = require('./fixture-stepmade.json');
   const branchUrl = 'https://www.figma.com/design/' + coreRead.fileKey + '/branch/BBBBBBBBBBBBBBBBBBBBBB/x';
   const w = await checkWorkplace(st, branchUrl, k, async (key) => { assert.strictEqual(key, 'BBBBBBBBBBBBBBBBBBBBBB'); return { data: coreRead, costUsd: 0 }; });
   assert(w.ok, w.why);
+  // 브랜치를 열었을 때의 주소(".../design/브랜치키/이름")도 받되, 마스터 페이지 id로 이 Core의 브랜치인지 확인
+  const bareUrl = 'https://www.figma.com/design/BBBBBBBBBBBBBBBBBBBBBB/Core-x';
+  assert((await checkWorkplace(st, bareUrl, k, async (key) => { assert.strictEqual(key, 'BBBBBBBBBBBBBBBBBBBBBB'); return { data: coreRead, costUsd: 0 }; })).ok, '브랜치 주소(본 파일 키 없음) 허용');
+  assert(!(await checkWorkplace(st, bareUrl, k, async () => ({ data: Object.assign({}, coreRead, { masterPageId: '1:1' }), costUsd: 0 }))).ok, '다른 Core 파일 거절');
   console.log('Δ:', JSON.stringify(w.delta.summary), '· Core와 같은 후보로 맞춘 칸', w.preferred);
   assert.strictEqual(w.delta.summary.keep, 6, '9/18 Core와 같은 화면 6칸 유지');
   assert.strictEqual(w.delta.summary.replace, 1, 'WEB 768 한 칸만 교체 (Core 화면이 문서에 없음)');
