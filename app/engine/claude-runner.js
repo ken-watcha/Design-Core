@@ -120,7 +120,7 @@ async function checkSetup() {
 const shotSize = (it) => it.w && it.h ? Math.min(8000, Math.round(Math.max(it.w, it.h) * Math.min(2, 1600 / it.w))) : 1600;
 // Figma 개인 액세스 토큰이 있으면 Claude를 거치지 않고 Figma 이미지 API로 바로 받는다 (2026-10-12 윤우: 더 빠르게).
 // 토큰은 main.js가 맥 키체인 암호화(safeStorage)로 보관해 넘겨준다. 없거나 실패하면 Claude 방식으로.
-let restToken = null;
+let restToken = null, restError = null;
 function setRestToken(t) { restToken = t || null; }
 async function restCheck(token) {
   const r = await fetch('https://api.figma.com/v1/me', { headers: { 'X-Figma-Token': token } });
@@ -144,8 +144,15 @@ async function restShots(items) {
   await Promise.all([...groups.values()].map(async (g) => {
     const ids = g.list.map(i => items[i].nodeId).join(',');
     const r = await fetch(`https://api.figma.com/v1/images/${encodeURIComponent(g.fileKey)}?ids=${encodeURIComponent(ids)}&format=png&scale=${g.scale}`, { headers: { 'X-Figma-Token': restToken } });
-    if (!r.ok) return;
+    if (!r.ok) {
+      // 왜 못 받았는지 남겨 앱 화면에 보여 준다 (2026-10-12 윤우: 토큰 연결해도 느림 — 원인 확인용)
+      let why = ''; try { const b = await r.json(); why = b.err || b.message || ''; } catch (e) {}
+      const ra = r.headers.get('retry-after'), tier = r.headers.get('x-figma-rate-limit-type');
+      restError = `Figma ${r.status}${why ? ' · ' + why : ''}${ra ? ' · ' + ra + '초 뒤 다시' : ''}${tier ? ' · ' + tier : ''}`;
+      return;
+    }
     const body = await r.json(); const map = body.images || {};
+    if (body.err) restError = 'Figma · ' + body.err;
     await Promise.all(g.list.map(async (i) => { images[i] = await toDataUrl(map[items[i].nodeId]); }));
   }));
   return images;
@@ -153,17 +160,19 @@ async function restShots(items) {
 
 async function screenshots(items) {
   if (restToken) {
-    let images = null;
-    try { images = await restShots(items); } catch (e) { images = null; }
+    let images = null; restError = null;
+    try { images = await restShots(items); } catch (e) { images = null; restError = '연결 오류 · ' + e.message; }
     const missing = images ? items.map((_, i) => i).filter(i => !images[i]) : items.map((_, i) => i);
-    if (!missing.length) return { images, costUsd: 0 };
+    if (!missing.length) return { images, costUsd: 0, via: 'token' };
+    if (!restError) restError = `그림 ${missing.length}장을 못 받음`;
+    console.warn('[그림] 토큰으로 못 받아 Claude로:', restError);
     // 못 받은 것만 Claude로
     const rest = await claudeShots(missing.map(i => items[i]));
     const out = images || new Array(items.length).fill(null);
     missing.forEach((i, j) => { out[i] = rest.images[j]; });
-    return { images: out, costUsd: rest.costUsd };
+    return { images: out, costUsd: rest.costUsd, via: 'claude', restError };
   }
-  return claudeShots(items);
+  return Object.assign(await claudeShots(items), { via: 'claude' });
 }
 
 async function claudeShots(items) {

@@ -109,3 +109,4 @@ button.fast.on { color:var(--ok); } button.fast.off { color:var(--bad); }
 .tok .msg { min-height:20px; font-size:13px; margin-top:8px; }
 .tok .msg.bad { color:var(--bad); } .tok .msg.ok { color:var(--ok); }
 .tok .foot { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+.shot-note { padding:8px 16px; font-size:12px; color:var(--warn); border-bottom:1px solid var(--line); }

@@ -290,13 +290,14 @@ const shotKey = (it) => it.fileKey + '|' + it.nodeId;
 // 화면을 4장씩 묶어 Claude 3개가 동시에 받는다 (2026-10-12 윤우: 후보 화면이 늦게 뜸).
 // 한 번에 전부 묶으면 마지막 장까지 다 받아야 한 장도 못 봤다. 지금 보려는 화면은 줄 맨 앞으로 끼운다.
 const SHOT_CHUNK = 4, SHOT_WORKERS = 3;
-const shotQueue = []; let shotBusy = 0;
+const shotQueue = []; let shotBusy = 0, shotNote = null;   // shotNote: 토큰으로 못 받은 이유(있으면 보기 창에 표시)
 function pumpShots(extra) {
   // 지금 보려는 화면(extra)은 다른 일이 다 차 있어도 하나 더 띄워 바로 받는다
   while ((shotBusy < SHOT_WORKERS || extra-- > 0) && shotQueue.length) {
-    const chunk = shotQueue.splice(0, SHOT_CHUNK); shotBusy++;
+    // 토큰이 있으면 Figma에 한 번에 많이 묻는 게 빠르고 요청 횟수 제한에도 덜 걸린다
+    const chunk = shotQueue.splice(0, tokenOn ? 40 : SHOT_CHUNK); shotBusy++;
     window.core.screens(chunk.map(q => q.it))
-      .then(r => chunk.forEach((q, i) => q.done(r.images[i] || null)))
+      .then(r => { if (r.restError) shotNote = r.restError; chunk.forEach((q, i) => q.done(r.images[i] || null)); })
       .catch(() => chunk.forEach(q => { shotCache.delete(shotKey(q.it)); q.done(null); }))
       .finally(() => { shotBusy--; pumpShots(); });
   }
@@ -361,14 +362,18 @@ async function openViewer({ pill, title, why, sides }) {
     requestAnimationFrame(() => { lock = false; });
   }));
   const want = sides.filter(sd => sd.x);
+  // 토큰으로 못 받고 느린 방식으로 돌아갔으면 이유를 보여 준다
+  const showNote = () => { if (!shotNote || box.querySelector('.shot-note')) return; box.querySelector('.cmp-head').insertAdjacentHTML('afterend', `<div class="shot-note">피그마 토큰으로 그림을 받지 못해 느린 방식으로 받고 있어요 · ${esc(shotNote)}</div>`); };
+  showNote(); const noteTimer = setInterval(showNote, 1000);
   try {
     const imgs = await loadShots(want.map(sd => ({ fileKey: sd.fileKey, nodeId: sd.x.id, w: sd.x.w, h: sd.x.h })));
+    clearInterval(noteTimer); showNote();
     if (!$('#cmp') || $('#cmp') !== box) return;
     want.forEach((sd, j) => {
       const pane = panes[sides.indexOf(sd)];
       pane.innerHTML = imgs[j] ? `<img src="${imgs[j]}" alt="${esc(sd.label)}"${sd.x.w ? ` style="width:${sd.x.w}px"` : ''}>` : '<div class="empty">화면을 받지 못했어요. Figma에서 열어 확인해 주세요.</div>';
     });
-  } catch (e) { panes.forEach(p => { if (p.querySelector('.spinner')) p.innerHTML = `<div class="empty">화면을 받지 못했어요: ${esc(e.message)}</div>`; }); }
+  } catch (e) { clearInterval(noteTimer); panes.forEach(p => { if (p.querySelector('.spinner')) p.innerHTML = `<div class="empty">화면을 받지 못했어요: ${esc(e.message)}</div>`; }); }
 }
 
 async function onApply() {
