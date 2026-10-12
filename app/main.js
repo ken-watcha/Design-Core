@@ -1,4 +1,4 @@
-// Core 도우미 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
+// Core 업데이트 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
 // 화면은 진행 상태(state: 분석 결과 + 판별 + 작업 위치)를 들고 있다가 단계마다 통째로 넘긴다.
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
@@ -10,7 +10,7 @@ const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledg
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1100, height: 820, minWidth: 760, title: 'Core 도우미',
+    width: 1100, height: 820, minWidth: 760, title: 'Core 업데이트',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
