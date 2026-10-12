@@ -24,9 +24,9 @@ ipcMain.handle('analyze', async (_e, url) => {
   if (!knowledge) knowledge = await loadKnowledge();
   return analyzeProject(url, knowledge);
 });
-ipcMain.handle('build', async (_e, dupUrl, analyzed, dryRun) => {
+ipcMain.handle('build', async (_e, coreUrl, analyzed, dryRun, mode) => {
   if (!knowledge) knowledge = await loadKnowledge();
-  return buildNewCore(dupUrl, planFromAnalysis(analyzed), knowledge, { dryRun: !!dryRun });
+  return buildNewCore(coreUrl, planFromAnalysis(analyzed), knowledge, { dryRun: !!dryRun, mode: mode === 'duplicate' ? 'duplicate' : 'pasted' });
 });
 ipcMain.handle('open', (_e, url) => { if (/^https:\/\/(www\.)?figma\.com\//.test(url)) shell.openExternal(url); });
 

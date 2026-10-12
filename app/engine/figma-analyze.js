@@ -40,7 +40,7 @@ function pickCandidates(section, width) {
     for (const t of tokens(f.name)) learned += MEM.frameTokens[t] || 0;
     return { s: s + learned, learned };
   };
-  return frames.map(f => { const sc = score(f); return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), y: Math.round(f.absoluteTransform[1][2]), score: Math.round(sc.s * 10) / 10, learned: Math.round(sc.learned * 10) / 10 }; })
+  return frames.map(f => { const sc = score(f); return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), sig: f.children.slice(0, 30).map(c => c.name).join('|'), y: Math.round(f.absoluteTransform[1][2]), score: Math.round(sc.s * 10) / 10, learned: Math.round(sc.learned * 10) / 10 }; })
     .sort((a, b) => b.score - a.score || a.y - b.y);
 }
 function classifySection(platform, cfg, secName) {

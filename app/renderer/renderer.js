@@ -49,10 +49,10 @@ function render(r) {
     ${a.missing.length ? `<p class="muted">못 찾은 것: ${esc(a.missing.join(' · '))}</p>` : ''}</section>`;
   const cost = r.costUsd != null ? `<p class="hint">이번 분석에 쓴 Claude 사용량: 약 $${Number(r.costUsd).toFixed(3)}</p>` : '';
   const next = v.suggestion === 'new' ? `<section class="panel" id="build"><h2>다음 단계 · 새 Core 만들기</h2>
-    <ol class="steps"><li>Figma에서 이 프로젝트 파일을 <b>File → Duplicate</b> 합니다.</li>
-    <li>복제본 이름을 <b>${esc(v.target)}</b> 로 바꿉니다.</li>
-    <li>복제본 링크를 아래에 넣고 <b>확인</b>을 누릅니다. (읽기만)</li></ol>
-    <div class="row"><input id="dup" type="url" placeholder="복제본 링크 https://www.figma.com/design/…" autocomplete="off"><button id="check" type="button">확인</button></div>
+    <div class="tabs"><label><input type="radio" name="mode" value="pasted" checked> 빈 Core 파일에 붙여 넣기 (기본)</label>
+    <label><input type="radio" name="mode" value="duplicate"> 프로젝트 파일 통째 복제</label></div>
+    <div id="modeHelp"></div>
+    <div class="row"><input id="dup" type="url" placeholder="[Core] 파일 링크 https://www.figma.com/design/…" autocomplete="off"><button id="check" type="button">확인</button></div>
     <div id="buildOut"></div>${cost}</section>`
     : `<section class="panel"><h2>다음 단계</h2><p class="muted">해당 Core의 브랜치 "Core 도우미"에 반영합니다. (다음 버전에서 열림)</p>${cost}</section>`;
   $('#result').innerHTML = verdictHtml + picksHtml + covHtml + next;
@@ -60,38 +60,77 @@ function render(r) {
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
+    if ($('#modeHelp')) showModeHelp();
   }));
-  if ($('#check')) $('#check').addEventListener('click', checkDup);
+  if ($('#check')) {
+    $('#check').addEventListener('click', checkDup);
+    document.querySelectorAll('input[name=mode]').forEach(x => x.addEventListener('change', showModeHelp));
+    showModeHelp();
+  }
+}
+
+const mode = () => (document.querySelector('input[name=mode]:checked') || {}).value || 'pasted';
+
+// 붙여 넣을 화면 목록 (고른 대표 화면 그대로)
+function pasteItems() {
+  const out = [];
+  for (const [pf, es] of Object.entries(current.analysis.platforms)) for (const e of es) for (const p of e.picks) {
+    if (!p.chosen) continue; const c = p.candidates.find(x => x.id === p.chosen) || {};
+    out.push({ pf, cls: e.cls, width: p.width, id: p.chosen, name: c.name, w: c.w, h: c.h });
+  }
+  return out;
+}
+
+function showModeHelp() {
+  const target = current.verdict.target, el = $('#modeHelp');
+  $('#buildOut').innerHTML = '';
+  if (mode() === 'pasted') {
+    const items = pasteItems();
+    el.innerHTML = `<ol class="steps"><li>Figma에서 빈 파일을 만들고 이름을 <b>${esc(target)}</b> 로 짓습니다. (이미 있으면 그 파일)</li>
+      <li>원본 프로젝트 문서에서 아래 화면 ${items.length}장을 <b>Shift로 함께 선택 → ⌘C</b>, ${esc(target)} 파일에 <b>⌘V</b> 한 번.</li>
+      <li>${esc(target)} 링크를 넣고 <b>확인</b>을 누릅니다. (읽기만 · 붙여 넣은 화면을 이름과 크기로 찾음)</li></ol>
+      <table><tr><th>크기</th><th>화면 이름</th><th>크기(px)</th><th></th></tr>${items.map(i => `<tr><td>${esc(i.pf)} ${esc(i.cls)}</td><td>${esc(i.name)}</td><td>${i.w}×${i.h}</td>
+      <td><button class="link" data-open="${esc(nodeUrl(current.fileKey, i.id))}">원본에서 보기</button></td></tr>`).join('')}</table>
+      <p class="hint">화면은 플랫폼마다 다른 페이지에 있어요. 페이지별로 나눠 ⌘C·⌘V 해도 됩니다.</p>`;
+    el.querySelectorAll('[data-open]').forEach(x => x.addEventListener('click', () => window.core.open(x.dataset.open)));
+  } else {
+    el.innerHTML = `<ol class="steps"><li>Figma에서 이 프로젝트 파일을 <b>File → Duplicate</b> 합니다.</li>
+      <li>복제본 이름을 <b>${esc(target)}</b> 로 바꿉니다.</li>
+      <li>복제본 링크를 넣고 <b>확인</b>을 누릅니다. (읽기만)</li></ol>`;
+  }
 }
 
 // 새 Core 만들기: 확인(읽기만) → 사람이 "진행" → 쓰기
 async function checkDup() {
   const out = $('#buildOut'), dup = $('#dup').value.trim();
-  $('#check').disabled = true; out.innerHTML = '<p class="spinner">복제본을 확인하는 중… (읽기만)</p>';
+  $('#check').disabled = true; out.innerHTML = '<p class="spinner">[Core] 파일을 확인하는 중… (읽기만)</p>';
   try {
-    const c = await window.core.build(dup, current, true);
+    const c = await window.core.build(dup, current, true, mode());
     const k = c.check || {};
     if (!c.ok) { out.innerHTML = `<p class="bad">아직 진행할 수 없어요</p><ul>${(k.problems || [c.error]).map(p => `<li>${esc(p)}</li>`).join('')}</ul>`; return; }
     out.innerHTML = `<p><span class="pill ok">확인됨</span> ${esc(k.fileName)} · 대표 화면 ${k.screens}개</p>
-      <p class="muted">진행하면 이 복제본에만 씁니다: 버전 저장 → "🌏 마스터 파일" 페이지에 화면 ${k.screens}개 복제·원본 대조 → 프로젝트 페이지 정리(✅ Mobile·✅ Web·📏 운영 가이드 삭제). 원본 프로젝트 문서와 다른 Core 파일은 건드리지 않습니다.</p>
+      <p class="muted">${k.mode === 'pasted'
+        ? `진행하면 이 파일에만 씁니다: 버전 저장 → "🌏 마스터 파일" 페이지를 만들고 붙여 넣은 화면 ${k.screens}장을 크기별 자리로 옮김 → 설명 바 3단 · 스펙 링크 카드. 커버는 만들지 않습니다.`
+        : `진행하면 이 복제본에만 씁니다: 버전 저장 → "🌏 마스터 파일" 페이지에 화면 ${k.screens}개 복제·원본 대조 → 프로젝트 페이지 정리(✅ Mobile·✅ Web·📏 운영 가이드 삭제).`} 원본 프로젝트 문서와 다른 Core 파일은 건드리지 않습니다.</p>
       <button id="run" type="button">진행</button>`;
-    $('#run').addEventListener('click', () => runBuild(dup));
+    const m = k.mode;
+    $('#run').addEventListener('click', () => runBuild(dup, m));
   } catch (e) { out.innerHTML = `<p class="bad">확인하지 못했습니다</p><p class="muted">${esc(e.message)}</p>`; }
   finally { $('#check').disabled = false; }
 }
 
-async function runBuild(dup) {
+async function runBuild(dup, m) {
   const out = $('#buildOut');
-  if (!confirm('복제본에 새 Core 마스터를 만듭니다. 진행할까요?')) return;
+  if (!confirm('[Core] 파일에 새 Core 마스터를 정리합니다. 진행할까요?')) return;
   out.innerHTML = '<p class="spinner">새 Core를 만드는 중… (화면 수에 따라 몇 분 걸릴 수 있어요)</p>';
   try {
-    const b = await window.core.build(dup, current, false);
+    const b = await window.core.build(dup, current, false, m);
     if (!b.ok) { out.innerHTML = `<p class="bad">만들지 못했습니다</p><p class="muted">${esc(b.error || (b.check && b.check.problems || []).join(' · '))}</p>`; return; }
     const rows = b.screens.map(s => `<tr><td>${esc(s.platform)} ${esc(s.cls)}</td><td>${s.width}px</td><td>${s.left === 0 ? '<span class="pill ok">차이 0</span>' : `<span class="pill warn">차이 ${s.left}</span>`}</td>
       <td><button class="link" data-open="${esc(nodeUrl(b.fileKey, s.id))}">보기</button></td></tr>`).join('');
     out.innerHTML = `<p><span class="pill ok">완료</span> <button class="link" data-open="${esc(nodeUrl(b.fileKey, b.rootId))}">Figma에서 마스터 보기</button></p>
       <table><tr><th>크기</th><th>폭</th><th>원본 대조</th><th></th></tr>${rows}</table>
-      <p class="muted">지운 페이지: ${esc((b.removedPages || []).join(', ') || '없음')} · 남은 페이지: ${esc((b.pages || []).join(' / '))}</p>
+      <p class="muted">${(b.removedPages || []).length ? '지운 페이지: ' + esc(b.removedPages.join(', ')) + ' · ' : ''}남은 페이지: ${esc((b.pages || []).join(' / '))}</p>
       ${(b.logs || []).length ? `<p class="hint">${esc(b.logs.join(' · '))}</p>` : ''}
       ${b.costUsd != null ? `<p class="hint">Claude 사용량: 약 $${Number(b.costUsd).toFixed(3)}</p>` : ''}`;
     out.querySelectorAll('[data-open]').forEach(x => x.addEventListener('click', () => window.core.open(x.dataset.open)));

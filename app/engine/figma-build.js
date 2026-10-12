@@ -1,5 +1,6 @@
 // Figma 안에서 돌릴 "새 Core 만들기" 코드를 만든다 (use_figma로 보냄).
-// 원본은 plugin/code.js의 buildNewCore. 사람이 Duplicate한 "[Core] ○○" 복제본 안에서만 쓴다.
+// 원본은 plugin/code.js의 buildNewCore·placePasted. "[Core] ○○" 파일 안에서만 쓴다:
+//   pasted(기본, Ken 2026-10-12) = 빈 [Core] 파일에 사람이 ⌘V한 화면을 정리 / duplicate = 통째 복제본을 깎기
 // DRY_RUN이면 쓰지 않고 확인만 한다(복제본인지·이름·고른 화면이 다 있는지). 쓰기 전엔 Named version을 저장한다.
 const FIGMA_SIDE = String.raw`
 const L = RULES.layout, M = RULES.masterPage;
@@ -13,24 +14,48 @@ async function loadFont(style) {
 async function loadTextFonts(t) { for (const s of t.getStyledTextSegments(['fontName'])) await figma.loadFontAsync(s.fontName); }
 
 // 0 확인 (쓰기 전, DRY_RUN에서도 똑같이)
+// MODE 'duplicate' = 프로젝트 파일을 통째로 Duplicate한 복제본 안에서 clone + 깎기
+// MODE 'pasted'    = 빈 [Core] 파일에 사람이 ⌘V로 붙여 넣은 화면을 찾아 자리로 옮김 (파일 간 복사는 API로 안 됨)
 await loadPages();
 const names = figma.root.children.map(p => p.name.trim());
 const problems = [];
-if (names.includes(RULES.fileKind.corePageName)) problems.push('이미 "' + RULES.fileKind.corePageName + '" 페이지가 있습니다 (Core 파일이거나 이미 만든 복제본)');
-if (!RULES.fileKind.projectPagePatterns.some(pat => names.some(n => n.includes(pat)))) problems.push('프로젝트 문서 복제본이 아닙니다 (프로젝트 페이지가 없음)');
-if (figma.fileKey && figma.fileKey === PLAN.sourceFileKey) problems.push('원본 프로젝트 파일입니다. Duplicate한 복제본 링크를 넣어 주세요');
+if (names.includes(RULES.fileKind.corePageName)) problems.push('이미 "' + RULES.fileKind.corePageName + '" 페이지가 있습니다 (이미 만든 Core 파일)');
+const hasProjectPages = RULES.fileKind.projectPagePatterns.some(pat => names.some(n => n.includes(pat)));
+if (MODE === 'duplicate' && !hasProjectPages) problems.push('프로젝트 문서 복제본이 아닙니다 (프로젝트 페이지가 없음)');
+if (MODE === 'pasted' && hasProjectPages) problems.push('빈 Core 파일이 아닙니다 (프로젝트 페이지가 있음)');
+if (figma.fileKey && figma.fileKey === PLAN.sourceFileKey) problems.push('원본 프로젝트 파일입니다. ' + (MODE === 'pasted' ? '빈 [Core] 파일' : 'Duplicate한 복제본') + ' 링크를 넣어 주세요');
 if (!/^\[Core\]/.test(figma.root.name.trim())) problems.push('파일 이름이 "[Core] ○○"가 아닙니다 (지금: ' + figma.root.name + ')');
 const chosen = [];
-for (const platform of M.sections) for (const entry of (PLAN.platforms[platform] || [])) for (const p of entry.picks) if (p.chosen) chosen.push({ platform, cls: entry.cls, width: p.width, id: p.chosen });
+for (const platform of M.sections) for (const entry of (PLAN.platforms[platform] || [])) for (const p of entry.picks) if (p.chosen) chosen.push({ platform, cls: entry.cls, width: p.width, id: p.chosen, fp: p.fp });
 const absent = [];
-for (const c of chosen) { const n = await figma.getNodeByIdAsync(c.id); if (!n) absent.push(c.platform + ' ' + c.cls + ' ' + c.width + 'px'); }
-if (absent.length) problems.push('복제본에서 고른 화면을 못 찾음: ' + absent.join(', '));
+const found = {};   // chosen id → 이 파일의 노드
+if (MODE === 'duplicate') {
+  for (const c of chosen) { const n = await figma.getNodeByIdAsync(c.id); if (n) found[c.id] = n; else absent.push(c.platform + ' ' + c.cls + ' ' + c.width + 'px'); }
+} else {
+  // 붙여 넣은 화면 = 페이지나 섹션 바로 아래의 프레임. 이름+크기로 짝짓고, 안 되면 크기가 유일하게 맞는 것
+  const pool = [];
+  for (const pg of figma.root.children) for (const n of pg.children) {
+    if (n.type === 'FRAME') pool.push(n);
+    else if (n.type === 'SECTION') for (const k of n.children) if (k.type === 'FRAME') pool.push(k);
+  }
+  const used = new Set();
+  const same = (n, fp) => fp && Math.abs(n.width - fp.w) < 1 && Math.abs(n.height - fp.h) < 1;
+  for (const c of chosen) {
+    const named = (x) => x.name.trim() === String(c.fp && c.fp.name || '').trim();
+    const sigOf = (x) => x.children.slice(0, 30).map(k => k.name).join('|');
+    let n = c.fp && c.fp.sig ? pool.find(x => !used.has(x.id) && same(x, c.fp) && named(x) && sigOf(x) === c.fp.sig) : null;   // 이름·크기가 같은 화면이 여럿이어도 속 구성으로 구분
+    if (!n) n = pool.find(x => !used.has(x.id) && same(x, c.fp) && named(x));
+    if (!n) { const bySize = pool.filter(x => !used.has(x.id) && same(x, c.fp)); if (bySize.length === 1) n = bySize[0]; }
+    if (n) { used.add(n.id); found[c.id] = n; } else absent.push(c.platform + ' ' + c.cls + ' ' + c.width + 'px' + (c.fp ? ' "' + c.fp.name + '"' : ''));
+  }
+}
+if (absent.length) problems.push((MODE === 'pasted' ? '붙여 넣은 화면 중 못 찾은 것: ' : '복제본에서 고른 화면을 못 찾음: ') + absent.join(', '));
 if (!chosen.length) problems.push('고른 대표 화면이 없습니다');
-const check = { fileName: figma.root.name, fileKey: figma.fileKey || null, pages: figma.root.children.map(p => p.name), screens: chosen.length, problems };
+const check = { mode: MODE, fileName: figma.root.name, fileKey: figma.fileKey || null, pages: figma.root.children.map(p => p.name), screens: chosen.length, found: Object.keys(found).length, problems };
 if (DRY_RUN || problems.length) return { dryRun: true, ok: !problems.length, check };
 
 // 쓰기 전 버전 저장
-try { await figma.saveVersionHistoryAsync('Core 도우미 — 새 Core 만들기 전', PLAN.projectName + ' · 원본 ' + (PLAN.sourceUrl || '')); log('버전 저장'); }
+try { await figma.saveVersionHistoryAsync('Core 도우미 — 새 Core 정리 전', PLAN.projectName + ' · 원본 ' + (PLAN.sourceUrl || '')); log('버전 저장'); }
 catch (e) { return { ok: false, check, error: '버전 저장 실패라 쓰지 않았습니다: ' + (e && e.message || e) }; }
 
 async function bar(kind, parent, x, y, w, title, desc) {
@@ -110,11 +135,12 @@ for (const platform of M.sections) {
     const startX = x; let clsW = 0;
     for (const p of entry.picks) {
       if (!p.chosen) continue;
-      const src = await figma.getNodeByIdAsync(p.chosen); if (!src) continue;
-      const c = src.clone(); sec.appendChild(c); c.name = RULES.screenPick.screenName.replace('<프로젝트명>', projName);
+      const src = found[p.chosen]; if (!src) continue;
+      let c, acc = { fixed: 0, failed: 0 }, left;
+      if (MODE === 'duplicate') { c = src.clone(); sec.appendChild(c); diffFix(src, c, acc); diffFix(src, c, acc); left = diffCount(src, c); }
+      else { c = src; sec.appendChild(c); left = (p.fp && (Math.abs(c.width - p.fp.w) >= 1 || Math.abs(c.height - p.fp.h) >= 1)) ? 1 : 0; }   // 붙여 넣은 원본 그대로 옮김 → 크기만 대조
+      c.name = RULES.screenPick.screenName.replace('<프로젝트명>', projName);
       c.x = x; c.y = 0;
-      const acc = { fixed: 0, failed: 0 }; diffFix(src, c, acc); diffFix(src, c, acc);
-      const left = diffCount(src, c);
       screens.push(c); allScreens.push({ id: c.id, from: src.id, platform, cls: entry.cls, width: p.width, fixed: acc.fixed, left });
       x += c.width + L.gap; clsW += c.width + L.gap;
     }
@@ -132,8 +158,8 @@ for (const platform of M.sections) {
 }
 root.resizeWithoutConstraints(L.rootPadding * 2 + maxW, y - L.sectionGap + L.rootPadding);
 
-// F 깎기: 로컬 컴포넌트 인스턴스 분리 → 프로젝트 페이지 삭제 → 페이지 순서
-if (RULES.trim.detachLocalInstancesFirst) {
+// F 깎기: 로컬 컴포넌트 인스턴스 분리 → 프로젝트 페이지 삭제 → 페이지 순서 (복제본일 때만)
+if (MODE === 'duplicate' && RULES.trim.detachLocalInstancesFirst) {
   let detached = 0;
   for (let round = 0; round < 6; round++) {
     const targets = [];
@@ -144,25 +170,32 @@ if (RULES.trim.detachLocalInstancesFirst) {
   if (detached) log('로컬 컴포넌트 인스턴스 ' + detached + '개 분리');
 }
 let seenSep = false; const removed = [];
-for (const p of [...figma.root.children]) {
+for (const p of (MODE === 'duplicate' ? [...figma.root.children] : [])) {
   const n = p.name.trim();
   if (n === '---') { if (seenSep && RULES.trim.deleteExtraSeparators) { removed.push(n); p.remove(); } seenSep = true; continue; }
   if (RULES.trim.deletePages.some(d => n.startsWith(d))) { removed.push(n); p.remove(); }
 }
 const order = RULES.trim.keepPages; let idx = 0;
 for (const nm of order) { const p = figma.root.children.find(c => c.name.trim() === nm); if (p) { figma.root.insertChild(idx, p); idx++; } }
-figma.root.setSharedPluginData('core-helper', 'build', JSON.stringify({ date: new Date().toISOString(), source: PLAN.sourceFileKey, screens: allScreens }));
+figma.root.setSharedPluginData('core-helper', 'build', JSON.stringify({ date: new Date().toISOString(), mode: MODE, source: PLAN.sourceFileKey, screens: allScreens }));
 return { ok: true, check, pageId: page.id, rootId: root.id, screens: allScreens, removedPages: removed, pages: figma.root.children.map(p => p.name), logs };
 `;
 
+// 고른 화면의 이름·크기 (붙여 넣은 쪽 파일에서 짝을 찾을 때 씀)
+function fingerprint(pick) {
+  const c = (pick.candidates || []).find(x => x.id === pick.chosen);
+  return c ? { name: c.name, w: c.w, h: c.h, sig: c.sig || null } : null;
+}
+
 // plan: { sourceFileKey, sourceUrl, projectName, releaseMonth, owner, platforms: { APP: [{cls, desc, picks:[{width, chosen}]}] } }
-function buildNewCoreCode(rules, plan, { dryRun }) {
+function buildNewCoreCode(rules, plan, { dryRun, mode = 'duplicate' }) {
+  if (!['duplicate', 'pasted'].includes(mode)) throw new Error('알 수 없는 방식: ' + mode);
   const r = { fileKind: rules.fileKind, masterPage: rules.masterPage, layout: rules.layout, components: rules.components, linkCard: rules.linkCard, trim: rules.trim, screenPick: { screenName: rules.screenPick.screenName } };
   const p = {
     sourceFileKey: plan.sourceFileKey, sourceUrl: plan.sourceUrl || '', projectName: plan.projectName || '', releaseMonth: plan.releaseMonth || '', owner: plan.owner || '',
-    platforms: Object.fromEntries(Object.entries(plan.platforms || {}).map(([pf, es]) => [pf, es.map(e => ({ cls: e.cls, desc: e.desc, picks: e.picks.map(x => ({ width: x.width, chosen: x.chosen })) }))]))
+    platforms: Object.fromEntries(Object.entries(plan.platforms || {}).map(([pf, es]) => [pf, es.map(e => ({ cls: e.cls, desc: e.desc, picks: e.picks.map(x => ({ width: x.width, chosen: x.chosen, fp: fingerprint(x) })) }))]))
   };
-  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(p)};\nconst DRY_RUN = ${dryRun ? 'true' : 'false'};\n` + FIGMA_SIDE;
+  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(p)};\nconst DRY_RUN = ${dryRun ? 'true' : 'false'};\nconst MODE = ${JSON.stringify(mode)};\n` + FIGMA_SIDE;
 }
 
 // 분석 결과 → 새 Core 계획
