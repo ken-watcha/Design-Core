@@ -156,7 +156,7 @@ await loadPages();
 const L = RULES.layout, M = RULES.masterPage;
 const page = pageByName(M.name);
 if (!page) throw new Error('"' + M.name + '" 페이지가 없습니다 — Core 파일의 브랜치가 맞는지 확인해 주세요');
-if (PLAN.coreKey && figma.fileKey && figma.fileKey === PLAN.coreKey) throw new Error('Core 본 파일입니다. 브랜치 "Core 도우미"에서만 씁니다');
+if (PLAN.coreKey && figma.fileKey && figma.fileKey === PLAN.coreKey) throw new Error('Core 본 파일입니다. 그 Core 파일의 브랜치에서만 씁니다');
 const existing = new Set(PLAN.coreScreenIds);
 const want = PLAN.rows.filter(r => r.action === '교체' || r.action === '추가');
 // 붙여 넣은 화면 찾기: 마스터 페이지의 프레임 중 Core에 원래 있던 것이 아니고, 지문이 필요한 화면과 같은 것
