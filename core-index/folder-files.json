@@ -1,0 +1,382 @@
+{
+  "folder": "Design Core ✅",
+  "endpoint": "v2/folders",
+  "files": [
+    {
+      "name": "[Core] SVOD ⚜️",
+      "key": "T6txdtsZ5utexHAR2DyPRw",
+      "last_modified": "2026-09-18T03:42:21Z",
+      "url": "https://www.figma.com/design/T6txdtsZ5utexHAR2DyPRw/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:2",
+          "name": "---"
+        },
+        {
+          "id": "1:3",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "2018:94479",
+          "name": "---"
+        },
+        {
+          "id": "48:53640",
+          "name": "🌊 플로우_26.06 기준"
+        }
+      ]
+    },
+    {
+      "name": "[Core] TV ⚜️",
+      "key": "XaSH6GlcwwoHs424kf3Flp",
+      "last_modified": "2026-08-31T05:08:45Z",
+      "url": "https://www.figma.com/design/XaSH6GlcwwoHs424kf3Flp/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "2:2",
+          "name": "---"
+        },
+        {
+          "id": "4:55",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "4:54",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] TVOD ⚜️",
+      "key": "aBcQKIbe9nOsPMNQOagw2v",
+      "last_modified": "2026-06-17T04:08:25Z",
+      "url": "https://www.figma.com/design/aBcQKIbe9nOsPMNQOagw2v/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "2:49",
+          "name": "---"
+        },
+        {
+          "id": "2:50",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "21:34918",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 검색 ⚜️",
+      "key": "9BOnazPjHfZgssTKl9kEMN",
+      "last_modified": "2026-06-17T04:08:23Z",
+      "url": "https://www.figma.com/design/9BOnazPjHfZgssTKl9kEMN/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:2",
+          "name": "---"
+        },
+        {
+          "id": "1:3",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "1:4",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 결제/구독",
+      "key": "qxQoDWpbqwCDvGb1O2HZLv",
+      "last_modified": "2026-06-10T05:06:57Z",
+      "url": "https://www.figma.com/design/qxQoDWpbqwCDvGb1O2HZLv/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "9:6",
+          "name": "---"
+        },
+        {
+          "id": "9:7",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "21:3920",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 나의 왓챠 ⚜️",
+      "key": "EoBr8OeZ4bCo35laDmO2RK",
+      "last_modified": "2026-09-02T07:09:25Z",
+      "url": "https://www.figma.com/design/EoBr8OeZ4bCo35laDmO2RK/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:48",
+          "name": "---"
+        },
+        {
+          "id": "1:49",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "99:21472",
+          "name": "---"
+        },
+        {
+          "id": "1:50",
+          "name": "🌊 플로우_26.07 기준"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 로그인/온보딩 ⚜️",
+      "key": "irS8OlYuyQmW0aL4DR3cy5",
+      "last_modified": "2026-09-02T08:45:35Z",
+      "url": "https://www.figma.com/design/irS8OlYuyQmW0aL4DR3cy5/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "2:16",
+          "name": "---"
+        },
+        {
+          "id": "89:21432",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "89:23119",
+          "name": "---"
+        },
+        {
+          "id": "2:17",
+          "name": "🌊 플로우_26.05 기준"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 보관함 ⚜️",
+      "key": "vK6m0SufuZSM9mfWTfenyP",
+      "last_modified": "2026-06-17T04:08:52Z",
+      "url": "https://www.figma.com/design/vK6m0SufuZSM9mfWTfenyP/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:2",
+          "name": "---"
+        },
+        {
+          "id": "1:4805",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "4:27922",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 소식함 ⚜️",
+      "key": "MyrNGU07TEOXg6glOTG9jh",
+      "last_modified": "2026-09-10T05:49:10Z",
+      "url": "https://www.figma.com/design/MyrNGU07TEOXg6glOTG9jh/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:44",
+          "name": "---"
+        },
+        {
+          "id": "1:45",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "49:15819",
+          "name": "---"
+        },
+        {
+          "id": "18:10401",
+          "name": "🌊 플로우_26.08 기준"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 스텝메이드",
+      "key": "txuuBtHiDgal8pC4OIbSHF",
+      "last_modified": "2026-09-18T05:51:04Z",
+      "url": "https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/",
+      "pages": [
+        {
+          "id": "28:34464",
+          "name": "Cover"
+        },
+        {
+          "id": "28:34485",
+          "name": "---"
+        },
+        {
+          "id": "5005:6",
+          "name": "🌏 마스터 파일"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 왓챠파티",
+      "key": "sDW2rfQE7IRRiQ5R0CWLWz",
+      "last_modified": "2026-09-11T02:15:35Z",
+      "url": "https://www.figma.com/design/sDW2rfQE7IRRiQ5R0CWLWz/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "5:6",
+          "name": "---"
+        },
+        {
+          "id": "5:7",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "5:8",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 웹툰",
+      "key": "oxNqyqrROApLaQbHB0Kowz",
+      "last_modified": "2026-09-02T05:21:47Z",
+      "url": "https://www.figma.com/design/oxNqyqrROApLaQbHB0Kowz/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "5:6",
+          "name": "---"
+        },
+        {
+          "id": "5:7",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "57:8112",
+          "name": "---"
+        },
+        {
+          "id": "25:33860",
+          "name": "🌊 플로우_26.09.02 기준"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 콘상페 ⚜️",
+      "key": "TCceg5cEvzgzViCXg8S4WO",
+      "last_modified": "2026-09-18T03:43:10Z",
+      "url": "https://www.figma.com/design/TCceg5cEvzgzViCXg8S4WO/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:2",
+          "name": "---"
+        },
+        {
+          "id": "1:3",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "32:35692",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 프로필 ⚜️",
+      "key": "0b3LD8NXqNWIdDISqU71Js",
+      "last_modified": "2026-06-12T09:04:19Z",
+      "url": "https://www.figma.com/design/0b3LD8NXqNWIdDISqU71Js/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "3:2",
+          "name": "---"
+        },
+        {
+          "id": "3:3",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "20:4545",
+          "name": "🌊 플로우"
+        }
+      ]
+    },
+    {
+      "name": "[Core] 플레이어 ⚜️",
+      "key": "y9SqD2XfL1h4jSVFhkVS2m",
+      "last_modified": "2026-08-03T07:43:27Z",
+      "url": "https://www.figma.com/design/y9SqD2XfL1h4jSVFhkVS2m/",
+      "pages": [
+        {
+          "id": "0:1",
+          "name": "Cover"
+        },
+        {
+          "id": "1:44",
+          "name": "---"
+        },
+        {
+          "id": "1:45",
+          "name": "🌏 마스터 파일"
+        },
+        {
+          "id": "6:8287",
+          "name": "🌊 플로우"
+        }
+      ]
+    }
+  ]
+}

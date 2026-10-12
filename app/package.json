@@ -1,0 +1,15 @@
+{
+  "name": "core-helper",
+  "productName": "Core 도우미",
+  "version": "0.1.0",
+  "description": "왓챠 디자인 Core 파일 업데이트 도우미 (팀 내부용 데스크톱 앱)",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "test": "node test/engine.test.js"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0"
+  }
+}
