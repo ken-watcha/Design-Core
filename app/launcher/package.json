@@ -1,6 +1,6 @@
 {
   "name": "core-helper-launcher",
-  "productName": "Core 도우미",
+  "productName": "Core 업데이트",
   "version": "1.0.0",
   "description": "Core 도우미 실행용 껍데기 앱: 켤 때 저장소를 최신(main)으로 받은 뒤 app/main.js를 실행한다",
   "main": "main.js",

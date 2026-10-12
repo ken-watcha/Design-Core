@@ -20,7 +20,7 @@ try {
 } catch (e) { console.error('최신 받기 실패, 있는 버전으로 실행:', e.message); }
 
 if (!fs.existsSync(entry)) {
-  app.whenReady().then(() => { dialog.showErrorBox('Core 도우미', `앱 코드를 찾지 못했습니다:\n${entry}\n\nDesign-Core 폴더를 옮겼다면 scripts/build-mac-app.sh를 다시 실행해 주세요.`); app.quit(); });
+  app.whenReady().then(() => { dialog.showErrorBox('Core 업데이트', `앱 코드를 찾지 못했습니다:\n${entry}\n\nDesign-Core 폴더를 옮겼다면 scripts/build-mac-app.sh를 다시 실행해 주세요.`); app.quit(); });
 } else {
   require(entry);
 }

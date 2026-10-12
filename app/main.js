@@ -10,7 +10,7 @@ const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledg
 
 function createWindow() {
   const win = new BrowserWindow({
-    width: 1100, height: 820, minWidth: 760, title: 'Core 도우미',
+    width: 1100, height: 820, minWidth: 760, title: 'Core 업데이트',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false }
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));

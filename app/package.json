@@ -1,6 +1,6 @@
 {
   "name": "core-helper",
-  "productName": "Core 도우미",
+  "productName": "Core 업데이트",
   "version": "0.2.0",
   "description": "왓챠 디자인 Core 파일 업데이트 도우미 (팀 내부용 데스크톱 앱)",
   "main": "main.js",

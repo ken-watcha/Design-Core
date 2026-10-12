@@ -52,7 +52,7 @@
 
 ## 맥 정식 앱 만들기 (아이콘·이름)
 
-`bash scripts/build-mac-app.sh` → 바탕화면에 `Core 도우미.app`이 생긴다 (Dock에 Electron 대신 Core 도우미 아이콘·이름).
+`bash scripts/build-mac-app.sh` → 바탕화면에 `Core 업데이트.app`이 생긴다 (Dock에 Electron 대신 Core 업데이트 아이콘·이름. 2026-10-12 이름 변경: Core 도우미 → Core 업데이트, Figma 브랜치 이름 "Core 도우미"는 그대로).
 
 - 앱 안에는 실행용 껍데기(`launcher/`)만 들어간다. 켤 때마다 저장소를 main으로 앞으로 감은 뒤(main 브랜치이고 고친 파일이 없을 때만) 이 폴더의 `main.js`를 실행한다 → 코드가 바뀌어도 다시 만들 필요 없음.
 - 다시 만들어야 할 때: 저장소 폴더를 옮겼을 때, `launcher/`나 `build/icon.png`를 바꿨을 때.
