@@ -3,7 +3,7 @@
 const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
-const { checkSetup } = require('./engine/claude-runner');
+const { checkSetup, screenshots } = require('./engine/claude-runner');
 
 let knowledge = null;
 const ensureKnowledge = async () => (knowledge = knowledge || await loadKnowledge());
@@ -25,6 +25,7 @@ ipcMain.handle('analyze', async (_e, url) => analyzeProject(url, await ensureKno
 ipcMain.handle('checkWorkplace', async (_e, state, url) => checkWorkplace(state, url, await ensureKnowledge()));
 ipcMain.handle('buildNewCore', async (_e, state, work) => buildNewCore(state, work, await ensureKnowledge()));
 ipcMain.handle('applyUpdate', async (_e, state, work) => applyUpdate(state, work, await ensureKnowledge()));
+ipcMain.handle('screens', async (_e, items) => screenshots(items));
 ipcMain.handle('open', (_e, url) => { if (/^https:\/\/(www\.)?figma\.com\//.test(url)) shell.openExternal(url); });
 
 app.whenReady().then(createWindow);

@@ -6,7 +6,7 @@ const path = require('path');
 const os = require('os');
 
 const MCP_CONFIG = path.join(__dirname, '..', 'mcp.json');
-const TOOLS = { useFigma: 'mcp__figma__use_figma', whoami: 'mcp__figma__whoami' };
+const TOOLS = { useFigma: 'mcp__figma__use_figma', whoami: 'mcp__figma__whoami', shot: 'mcp__figma__get_screenshot' };
 
 // macOS 앱은 셸 PATH를 못 받는다 → 흔한 설치 위치를 더한다
 function envWithPath() {
@@ -70,4 +70,23 @@ async function checkSetup() {
   }
 }
 
-module.exports = { runFigma, checkSetup, extractJson };
+// 화면 비교용 그림: get_screenshot은 짧게 사는 그림 주소를 준다(2026-10-12 확인, 로그인 없이 받힘).
+// 주소만 돌려받아 앱이 바로 내려받는다 — 그림 자체를 Claude가 옮기지 않아 빠르고 싸다.
+// 프레임 하나만 그린다. 길쭉한 화면도 글자가 보이게, 폭 기준 2배(최대 폭 1600)로 받는다.
+const shotSize = (it) => it.w && it.h ? Math.min(8000, Math.round(Math.max(it.w, it.h) * Math.min(2, 1600 / it.w))) : 1600;
+async function screenshots(items) {
+  const { data, costUsd } = await ask([
+    `Call the ${TOOLS.shot} tool once for each item below, in order, with the given maxDimension (do not set enableBase64Response).`,
+    ...items.map((it, i) => `${i + 1}. fileKey: ${it.fileKey}, nodeId: ${it.nodeId}, maxDimension: ${shotSize(it)}`),
+    `Then reply with ONLY {"urls": ["<image_url of item 1>", ...]} in the same order. Use null for an item whose call failed.`
+  ].join('\n'), [TOOLS.shot], { timeoutMs: 180000 });
+  const urls = data.urls || [];
+  const images = await Promise.all(items.map(async (_, i) => {
+    const u = urls[i];
+    if (!u || !/^https:\/\/([a-z0-9-]+\.)*figma\.com\//.test(u)) return null;
+    try { const r = await fetch(u); if (!r.ok) return null; return 'data:image/png;base64,' + Buffer.from(await r.arrayBuffer()).toString('base64'); } catch (e) { return null; }
+  }));
+  return { images, costUsd };
+}
+
+module.exports = { runFigma, checkSetup, extractJson, screenshots };

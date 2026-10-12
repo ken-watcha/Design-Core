@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('core', {
   checkWorkplace: (state, url) => ipcRenderer.invoke('checkWorkplace', state, url),
   buildNewCore: (state, work) => ipcRenderer.invoke('buildNewCore', state, work),
   applyUpdate: (state, work) => ipcRenderer.invoke('applyUpdate', state, work),
+  screens: (items) => ipcRenderer.invoke('screens', items),
   open: (url) => ipcRenderer.invoke('open', url)
 });
