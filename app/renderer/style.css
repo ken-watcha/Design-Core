@@ -76,7 +76,7 @@ body.home .row button { padding:0 24px; border-radius:12px; }
 body.home #hint { text-align:center; margin-top:12px; text-wrap:balance; }
 .h2-sub { font-size:13px; font-weight:500; margin-left:6px; }
 .cmp-cols.n3 { grid-template-columns:1fr 1fr 1fr; }
-.cmp-cols figcaption .choose { order:9; margin-left:auto; padding:5px 12px; font-size:12px; border-radius:7px; }
+.cmp-cols figcaption .choose { order:1; margin-left:auto; padding:5px 12px; font-size:12px; border-radius:7px; }
 .pick-why { font-size:12px; margin-top:4px; }
 .pick-why:empty { display:none; }
 select.quiet { background:transparent; }
@@ -95,3 +95,5 @@ td > .muted, td > div { line-height:1.5; }
 .prog-bar { height:6px; border-radius:3px; background:var(--line); margin:12px 0 8px; overflow:hidden; }
 .prog-fill { height:100%; width:0; border-radius:3px; background:var(--accent); transition:width .25s linear; }
 .prog-stage { font-size:13px; }
+.cap-note { order:2; flex-basis:100%; font-size:12px; line-height:1.6; color:var(--muted); }
+.cap-note b { color:var(--text); font-weight:600; margin-right:4px; }

@@ -43,7 +43,7 @@ function render(r) {
   let rows = '';
   // 대표 화면 표의 상태 태그 — 무엇을 해야 하는지 바로 읽히게 (2026-10-12 윤우: "바꿔서 뭘 할 수 있는지 인지가 안 돼")
   // 앱이 정한다 (2026-10-12 윤우: "고르게 하기보다 최적의 판단을 해서 골라라") — 태그는 이유만 보여 준다
-  const pickTag = (p) => p.basis === 'Core와 같음' ? ['ok', 'Core와 같음'] : /거의/.test(p.basis || '') ? ['warn', 'Core와 거의 같음'] : ['ok', '앱이 고름'];
+  const pickTag = (p) => p.basis === 'Core와 같음' ? ['ok', 'Core와 같음'] : /거의/.test(p.basis || '') ? ['warn', 'Core와 거의 같음'] : ['ok', '자동 선택'];
   const pickWhy1 = (p) => {
     const c = p.candidates.find(x => x.id === p.chosen); if (!c || p.basis === 'Core와 같음' || /거의/.test(p.basis || '')) return '';
     const sp = current.pickRules || {};
@@ -77,16 +77,39 @@ function render(r) {
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
-    const tag = s.closest('tr').querySelector('td.tag'); if (tag) tag.innerHTML = '<span class="pill ok">직접 고름</span>';
+    const tag = s.closest('tr').querySelector('td.tag'); if (tag) tag.innerHTML = '<span class="pill ok">직접 선택</span>';
     const tr = s.closest('tr'), c = p.candidates.find(x => x.id === p.chosen); tr.querySelector('.pick-name').textContent = `${c.name} · ${c.w}×${c.h}`; tr.querySelector('.pick-why').textContent = '';
     if (work) { work = null; $('#work').innerHTML = '<section class="panel muted">대표 화면을 바꿨습니다 — 작업 위치 [확인]을 다시 눌러 주세요.</section>'; }
   }));
+  // 후보마다 선택된 화면과 무엇이 다른지, 왜 선택했는지 적는다 (2026-10-12 윤우)
+  const nameRule = (c, w) => { const sp = current.pickRules || {}; const pre = (sp.preferNames || []).find(k => c.name.includes(k));
+    return (sp.strongNames || ['대표']).some(k => c.name.includes(k)) ? '이름에 "대표"가 들어 있어요' : pre ? `이름에 "${pre}"가 들어 있어요` : c.name.includes(String(w)) ? '이름에 폭 숫자가 들어 있어요' : ''; };
+  const q = (xs) => xs.slice(0, 3).map(t => `"${esc(t)}"`).join(', ') + (xs.length > 3 ? ` 외 ${xs.length - 3}개` : '');
+  const chosenNote = (p, c, n) => {
+    if (p.basis === 'Core와 같음') return '<b>선택한 이유</b> 지금 Core에 들어 있는 화면과 같아요.';
+    if (/거의/.test(p.basis || '')) return '<b>선택한 이유</b> 지금 Core에 들어 있는 화면과 거의 같아요.';
+    const r = [nameRule(c, p.width), n > 1 && !p.sure ? '이름만으로는 후보끼리 구분이 안 돼서, 문서에서 가장 위에 있는 화면을 골랐어요' : ''].filter(Boolean);
+    return `<b>선택한 이유</b> ${esc(r.join(' · ') || '이름이 대표 화면 이름 규칙에 가장 잘 맞아요')}`;
+  };
+  const otherNote = (p, c, s) => {
+    const diff = [];
+    if (c.h !== s.h) diff.push(`세로 ${c.h}px (선택된 화면 ${s.h}px)`);
+    if (c.texts && s.texts) {
+      const onlyC = c.texts.filter(t => !s.texts.includes(t)), onlyS = s.texts.filter(t => !c.texts.includes(t));
+      if (onlyC.length) diff.push(`이 화면에만 있는 글자: ${q(onlyC)}`);
+      if (onlyS.length) diff.push(`선택된 화면에만 있는 글자: ${q(onlyS)}`);
+      if (!onlyC.length && !onlyS.length && c.h === s.h) diff.push('글자와 크기는 같아요. 이미지나 색만 다를 수 있어요.');
+    }
+    const whyNot = (c.score != null && s.score != null && c.score < s.score) ? `선택된 화면은 ${nameRule(s, p.width) || '이름이 대표 화면 이름 규칙에 더 잘 맞아요'}` : c.y > s.y ? '이름만으로는 구분이 안 돼서, 문서에서 더 위에 있는 화면을 선택했어요' : '이름만으로는 구분이 안 돼요';
+    return `<b>다른 점</b> ${diff.length ? diff.join(' · ') : '확인하지 못했어요'}<br><b>선택되지 않은 이유</b> ${esc(whyNot)}`;
+  };
   document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => {
     const [pf, cls, w] = b.dataset.view.split('|');
     const p = current.analysis.platforms[pf].find(x => x.cls === cls).picks.find(x => String(x.width) === w);
-    const cands = pickCands(p);
-    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · Core에 들어갈 화면`, why: cands.length > 1 ? '왼쪽이 앱이 고른 화면이에요. 앱이 잘못 골랐을 때만 [이 화면으로]를 누르세요.' : '',
-      sides: cands.map((c, i) => ({ label: c.id === p.chosen ? '앱이 고른 화면' : `다른 후보 ${i}`, x: c, fileKey: current.fileKey, url: linkTo(current.sourceUrl, c.id),
+    const cands = pickCands(p), sel0 = cands.find(c => c.id === p.chosen) || cands[0];
+    openViewer({ pill: null, title: `${pf} ${cls} ${w}px · Core에 들어갈 화면`, why: cands.length > 1 ? '왼쪽이 선택된 화면이에요. 다른 화면이 맞을 때만 [이 화면으로]를 누르세요.' : '',
+      sides: cands.map((c, i) => ({ label: c.id === p.chosen ? '선택된 화면' : `다른 후보 ${i}`, x: c, fileKey: current.fileKey, url: linkTo(current.sourceUrl, c.id),
+        note: c.id === p.chosen ? chosenNote(p, c, cands.length) : otherNote(p, c, sel0),
         choose: cands.length > 1 && c.id !== p.chosen ? () => { const sel = document.querySelector(`select[data-pf="${pf}"][data-cls="${cls}"][data-w="${w}"]`); sel.value = c.id; sel.dispatchEvent(new Event('change')); closeCompare(); } : null })) });
   }));
   bindOpen();
@@ -248,7 +271,7 @@ function openCompare(row, miss) {
 }
 async function openViewer({ pill, title, why, sides }) {
   closeCompare();
-  const col = (sd, i) => `<figure><figcaption>${sd.choose ? `<button class="choose" data-choose="${i}">이 화면으로</button>` : ''}<b>${sd.label}</b>${sd.x ? ` <span class="muted">${esc([sd.x.name, sd.x.w ? `${sd.x.w}×${sd.x.h}` : ''].filter(Boolean).join(' · '))}</span> ${openBtn(sd.url, 'Figma에서 열기')}` : ''}</figcaption>
+  const col = (sd, i) => `<figure><figcaption>${sd.choose ? `<button class="choose" data-choose="${i}">이 화면으로</button>` : ''}<b>${sd.label}</b>${sd.x ? ` <span class="muted">${esc([sd.x.name, sd.x.w ? `${sd.x.w}×${sd.x.h}` : ''].filter(Boolean).join(' · '))}</span> ${openBtn(sd.url, 'Figma에서 열기')}` : ''}${sd.note ? `<div class="cap-note">${sd.note}</div>` : ''}</figcaption>
     <div class="shot" data-side="${i}">${sd.x ? '<div class="spinner">화면을 불러오는 중…</div>' : `<div class="empty">${esc(sd.empty || '화면 없음')}</div>`}</div></figure>`;
   document.body.insertAdjacentHTML('beforeend', `<div id="cmp" class="cmp-back"><div class="cmp" role="dialog" aria-label="화면 보기">
     <div class="cmp-head">${pill ? `<span class="pill ${pill[0]}">${esc(pill[1])}</span>` : ''}<b>${esc(title)}</b><span class="muted cmp-why">${esc(why || '')}</span><button class="close" title="닫기 (esc)">✕</button></div>
@@ -257,6 +280,8 @@ async function openViewer({ pill, title, why, sides }) {
   box.addEventListener('click', (ev) => { if (ev.target === box || ev.target.closest('.close')) closeCompare(); });
   document.addEventListener('keydown', escClose);
   bindOpen(box);
+  // 설명 줄 길이가 달라도 화면이 같은 높이에서 시작하게 맞춘다
+  const caps = [...box.querySelectorAll('figcaption')]; const capH = Math.max(...caps.map(c => c.offsetHeight)); caps.forEach(c => { c.style.minHeight = capH + 'px'; c.style.alignContent = 'flex-start'; });
   box.querySelectorAll('[data-choose]').forEach(btn => btn.addEventListener('click', () => sides[btn.dataset.choose].choose()));
   // 두 화면을 같은 비율로 함께 스크롤
   const panes = [...box.querySelectorAll('.shot')];

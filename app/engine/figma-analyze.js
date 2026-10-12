@@ -44,7 +44,7 @@ function pickCandidates(section, width) {
     for (const t of tokens(f.name)) learned += MEM.frameTokens[t] || 0;
     return { s: s + learned, learned };
   };
-  return frames.map(f => { const sc = score(f); return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), y: Math.round(f.absoluteTransform[1][2]), score: Math.round(sc.s * 10) / 10, learned: Math.round(sc.learned * 10) / 10, ...sigs(f) }; })
+  return frames.map(f => { const sc = score(f); return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), y: Math.round(f.absoluteTransform[1][2]), score: Math.round(sc.s * 10) / 10, learned: Math.round(sc.learned * 10) / 10, ...sigs(f), _f: f }; })
     .sort((a, b) => b.score - a.score || a.y - b.y);
 }
 function classifySection(platform, cfg, secName) {
@@ -73,7 +73,11 @@ if (kind === 'project') {
       for (const w of [cls.width].concat(cls.extraWidths || [])) {
         const cands = sec ? pickCandidates(sec, w) : pickCandidates(page, w);
         const sure = cands.length === 1 || (cands.length > 1 && cands[0].score - cands[1].score >= 1);  // 같으면 맨 위 화면(정렬 순서)을 고른 채로 둔다
-        entry.picks.push({ width: w, chosen: cands.length ? cands[0].id : null, candidates: cands.slice(0, 10), sure, basis: cands.length && cands[0].learned ? '학습' : '규칙' });
+        // 앞의 3장은 화면 속 글자를 붙인다 — 앱이 후보끼리 무엇이 다른지 보여 줄 때 쓴다 (2026-10-12 윤우)
+        const textsOf = (f) => [...new Set(f.findAll(n => n.type === 'TEXT' && n.visible).map(t => t.characters.replace(/\s+/g, ' ').trim().slice(0, 30)).filter(Boolean))].slice(0, 40);
+        const out = cands.slice(0, 10).map((c, i) => { const f = c._f; delete c._f; if (i < 3) c.texts = textsOf(f); return c; });
+        cands.forEach(c => { delete c._f; });
+        entry.picks.push({ width: w, chosen: cands.length ? cands[0].id : null, candidates: out, sure, basis: cands.length && cands[0].learned ? '학습' : '규칙' });
         if (!cands.length) result.missing.push(platform + ' ' + cls.name + ' ' + w + 'px 화면을 못 찾음');
         else if (!sure) result.unsure++;
       }
