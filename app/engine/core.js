@@ -35,7 +35,7 @@ async function analyzeProject(url, knowledge, runner = runFigma) {
   const fileKey = parseFigmaUrl(url);
   if (!fileKey) throw new Error('Figma 디자인 파일 링크가 아닙니다');
   const code = buildAnalyzeCode(knowledge.rules, knowledge.memory);
-  const { data, costUsd } = await runner(fileKey, code, 'Core 도우미: 프로젝트 문서 분석 (읽기 전용)');
+  const { data, costUsd } = await runner(fileKey, code, 'Core 업데이트: 프로젝트 문서 분석 (읽기 전용)');
   const verdict = data.kind === 'project' ? judge(data, knowledge.index, knowledge.rules, knowledge.memory) : null;
   const place = verdict ? proposePlace(verdict, url, fileKey) : null;
   return { analysis: data, verdict, place, costUsd, fileKey, sourceUrl: url };
@@ -48,7 +48,7 @@ const projectNameOf = (verdict) => verdict.target.replace(/^\[Core\]\s*/, '').tr
 async function checkWorkplace(state, url, knowledge, runner = runFigma) {
   const link = checkLink(state.place, url);
   if (!link.ok) return { ok: false, why: link.why };
-  const { data: read, costUsd } = await runner(link.workKey, buildCoreReadCode(knowledge.rules), 'Core 도우미: 작업 위치 확인 (읽기 전용)');
+  const { data: read, costUsd } = await runner(link.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 작업 위치 확인 (읽기 전용)');
   if (state.place.kind === 'branch') {
     if (!read.isCore) return { ok: false, why: '이 파일에는 "🌏 마스터 파일" 페이지가 없습니다 — Core 파일의 브랜치가 맞나요?', costUsd };
     if (link.unverifiedBranch) {
@@ -63,12 +63,12 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     const chosenSigs = new Set(Object.values(state.analysis.platforms).flat().flatMap(e => e.picks.map(p => (p.candidates.find(c => c.id === p.chosen) || {}).sig)));
     const targets = Object.values(read.platforms).flatMap(p => p.screens).filter(s => !chosenSigs.has(s.sig)).map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
     let sources = {};
-    if (targets.length) { const f = await runner(state.fileKey, buildFindSourcesCode(targets), 'Core 도우미: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.data.sources || {}; cost += f.costUsd || 0; }
+    if (targets.length) { const f = await runner(state.fileKey, buildFindSourcesCode(targets), 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.data.sources || {}; cost += f.costUsd || 0; }
     const delta = computeDelta(state.analysis, read, sources);
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
     const checks = delta.rows.filter(r => r.check && r.target);
     if (checks.length) {
-      const [a, b] = await Promise.all([runner(state.fileKey, buildItemsCode(checks.map(r => r.source.id)), 'Core 도우미: 차이 비교 — 프로젝트 (읽기 전용)'), runner(link.workKey, buildItemsCode(checks.map(r => r.target.id)), 'Core 도우미: 차이 비교 — Core (읽기 전용)')]);
+      const [a, b] = await Promise.all([runner(state.fileKey, buildItemsCode(checks.map(r => r.source.id)), 'Core 업데이트: 차이 비교 — 프로젝트 (읽기 전용)'), runner(link.workKey, buildItemsCode(checks.map(r => r.target.id)), 'Core 업데이트: 차이 비교 — Core (읽기 전용)')]);
       cost += (a.costUsd || 0) + (b.costUsd || 0);
       for (const r of checks) r.diff = diffItems(a.data.items[r.source.id], b.data.items[r.target.id]);
     }
@@ -84,9 +84,9 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
 async function buildNewCore(state, work, knowledge, runner = runFigma) {
   const cover = state.analysis.cover || {};
   const plan = { projectName: projectNameOf(state.verdict), sourceUrl: state.sourceUrl, sourceFileKey: state.fileKey, releaseMonth: month(), owner: cover.owner || ((cover.nameKR || '').split(/\s+I\s+/)[1] || ''), platforms: state.analysis.platforms };
-  const b = await runner(work.workKey, buildNewCoreCode(knowledge.rules, plan), 'Core 도우미: 새 Core 마스터 만들기 (복제본)');
-  const t = await runner(work.workKey, trimNewCoreCode(knowledge.rules, plan), 'Core 도우미: 새 Core 깎기 (복제본)');
-  const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 도우미: 만든 Core 확인 (읽기 전용)');
+  const b = await runner(work.workKey, buildNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 마스터 만들기 (복제본)');
+  const t = await runner(work.workKey, trimNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 깎기 (복제본)');
+  const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 만든 Core 확인 (읽기 전용)');
   const entry = entryFromCoreRead(r.data, state.verdict.target, { origin: `앱이 프로젝트 문서(${state.fileKey})를 복제해 만든 새 Core (${new Date().toISOString().slice(0, 10)})`, source_projects: [state.fileKey] });
   addLocal(entry);
   knowledge.index.files = knowledge.index.files.filter(f => f.key !== entry.key).concat([entry]);
@@ -98,8 +98,8 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
   const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가');
   const screenName = ((work.core.platforms.APP || work.core.platforms.WEB || {}).screens || [])[0];
   const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), screenName: screenName ? screenName.name : null };
-  const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 도우미: 기존 Core 갱신 (브랜치)');
-  const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 도우미: 갱신 결과 확인 (읽기 전용)');
+  const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 업데이트: 기존 Core 갱신 (브랜치)');
+  const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 갱신 결과 확인 (읽기 전용)');
   const after = computeDelta(state.analysis, r.data, work.sources || {});
   return { apply: a.data, after, core: r.data, costUsd: (a.costUsd || 0) + (r.costUsd || 0) };
 }

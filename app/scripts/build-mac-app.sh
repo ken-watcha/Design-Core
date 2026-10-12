@@ -1,5 +1,5 @@
 #!/bin/bash
-# 맥에서 "Core 도우미.app"을 만든다 (아이콘·이름이 제대로 보이는 정식 앱).
+# 맥에서 "Core 업데이트.app"을 만든다 (아이콘·이름이 제대로 보이는 정식 앱).
 # 앱 안에는 실행용 껍데기(launcher/)만 들어가고, 실제 코드는 이 저장소 폴더에서 읽는다 → 코드가 바뀌어도 다시 만들 필요 없음.
 # 사용법: Design-Core/app 폴더에서  bash scripts/build-mac-app.sh
 # 다시 만들어야 할 때: 저장소 폴더를 옮겼을 때, launcher/ 나 아이콘을 바꿨을 때.
@@ -7,7 +7,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 APP_DIR="$(pwd)"
 REPO_DIR="$(cd .. && pwd)"
-NAME="Core 도우미"
+NAME="Core 업데이트"
 ARCH="$(uname -m)"; [ "$ARCH" = "x86_64" ] && ARCH="x64"
 ELECTRON_VERSION="$(node -p "require('./node_modules/electron/package.json').version" 2>/dev/null || echo 38.0.0)"
 WORK="$(mktemp -d)"
@@ -33,6 +33,7 @@ npx --yes @electron/packager@18 "$WORK/launcher" "$NAME" --platform=darwin --arc
 echo "4/4 바탕화면에 놓는 중"
 DEST="$HOME/Desktop/$NAME.app"
 rm -rf "$DEST"
+rm -rf "$HOME/Desktop/Core 도우미.app"  # 2026-10-12 이름 변경 전 앱
 cp -R "$WORK/out/$NAME-darwin-$ARCH/$NAME.app" "$DEST"
 xattr -cr "$DEST" 2>/dev/null || true
 echo "완료: $DEST"
