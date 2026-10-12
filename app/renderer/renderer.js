@@ -157,8 +157,8 @@ function tick() {
   const t = (Date.now() - prog.t0) / 1000;
   const pct = Math.min(95, 100 * (1 - Math.exp(-2.3 * t / prog.expect)));   // 어림 시간에 90%, 끝까지 95%를 넘지 않음
   el.querySelector('.prog-fill').style.width = pct.toFixed(1) + '%';
-  const left = Math.round(prog.expect - t);
-  el.querySelector('.prog-left').textContent = left > 3 ? `약 ${left}초 남음` : '거의 다 됐어요';
+  // 남은 초 대신 진행률로 보여 준다 (2026-10-12 윤우: 초보다 %가 낫다)
+  el.querySelector('.prog-left').textContent = Math.floor(pct) + '%';
   el.querySelector('.prog-stage').textContent = [prog.label, STAGE_TEXT[prog.stage] || '준비 중'].filter(Boolean).join(' · ');
 }
 function stopProgress(ok) {
