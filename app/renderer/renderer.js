@@ -202,11 +202,11 @@ async function openViewer({ pill, title, why, sides }) {
   }));
   const want = sides.filter(sd => sd.x);
   try {
-    const imgs = await loadShots(want.map(sd => ({ fileKey: sd.fileKey, nodeId: sd.x.id })));
+    const imgs = await loadShots(want.map(sd => ({ fileKey: sd.fileKey, nodeId: sd.x.id, w: sd.x.w, h: sd.x.h })));
     if (!$('#cmp') || $('#cmp') !== box) return;
     want.forEach((sd, j) => {
       const pane = panes[sides.indexOf(sd)];
-      pane.innerHTML = imgs[j] ? `<img src="${imgs[j]}" alt="${esc(sd.label)}">` : '<div class="empty">화면을 받지 못했어요. Figma에서 열어 확인해 주세요.</div>';
+      pane.innerHTML = imgs[j] ? `<img src="${imgs[j]}" alt="${esc(sd.label)}"${sd.x.w ? ` style="width:${sd.x.w}px"` : ''}>` : '<div class="empty">화면을 받지 못했어요. Figma에서 열어 확인해 주세요.</div>';
     });
   } catch (e) { panes.forEach(p => { if (p.querySelector('.spinner')) p.innerHTML = `<div class="empty">화면을 받지 못했어요: ${esc(e.message)}</div>`; }); }
 }

@@ -72,10 +72,12 @@ async function checkSetup() {
 
 // 화면 비교용 그림: get_screenshot은 짧게 사는 그림 주소를 준다(2026-10-12 확인, 로그인 없이 받힘).
 // 주소만 돌려받아 앱이 바로 내려받는다 — 그림 자체를 Claude가 옮기지 않아 빠르고 싸다.
-async function screenshots(items, max = 1600) {
+// 프레임 하나만 그린다. 길쭉한 화면도 글자가 보이게, 폭 기준 2배(최대 폭 1600)로 받는다.
+const shotSize = (it) => it.w && it.h ? Math.min(8000, Math.round(Math.max(it.w, it.h) * Math.min(2, 1600 / it.w))) : 1600;
+async function screenshots(items) {
   const { data, costUsd } = await ask([
-    `Call the ${TOOLS.shot} tool once for each item below, in order, with maxDimension ${max} (do not set enableBase64Response).`,
-    ...items.map((it, i) => `${i + 1}. fileKey: ${it.fileKey}, nodeId: ${it.nodeId}`),
+    `Call the ${TOOLS.shot} tool once for each item below, in order, with the given maxDimension (do not set enableBase64Response).`,
+    ...items.map((it, i) => `${i + 1}. fileKey: ${it.fileKey}, nodeId: ${it.nodeId}, maxDimension: ${shotSize(it)}`),
     `Then reply with ONLY {"urls": ["<image_url of item 1>", ...]} in the same order. Use null for an item whose call failed.`
   ].join('\n'), [TOOLS.shot], { timeoutMs: 180000 });
   const urls = data.urls || [];

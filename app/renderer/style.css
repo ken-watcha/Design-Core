@@ -59,6 +59,5 @@ table.delta tr.pick:hover td { background:var(--bg); }
 .cmp-cols figure:last-child { border-right:0; }
 .cmp-cols figcaption { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; padding:10px 16px; font-size:13px; border-bottom:1px solid var(--line); }
 .shot { flex:1; min-height:0; overflow:auto; background:var(--bg); padding:16px; }
-.shot img { display:block; width:100%; height:auto; margin:0 auto; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
-.cmp-cols.n1 .shot img { width:auto; max-width:100%; }
+.shot img { display:block; max-width:100%; height:auto; margin:0 auto; border-radius:4px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
 .shot .spinner, .shot .empty { color:var(--muted); font-size:13px; text-align:center; padding-top:40px; }
