@@ -16,7 +16,7 @@ async function showSetup() {
 }
 
 async function showKnowledge() {
-  try { const k = await window.core.knowledge(); $('#footer').textContent = `규칙 ${k.rulesVersion} · Core ${k.cores}개 · ${k.from}에서 받음`; }
+  try { const k = await window.core.knowledge(); $('#footer').textContent = `규칙 ${k.rulesVersion} · Core ${k.cores}개${k.localCores ? ` (이 맥에서 만든 ${k.localCores}개 포함)` : ''} · ${k.from}에서 받음`; }
   catch (e) { $('#footer').textContent = '규칙을 불러오지 못했습니다: ' + e.message; }
 }
 
@@ -112,6 +112,7 @@ async function checkDup() {
       <p class="muted">${k.mode === 'pasted'
         ? `진행하면 이 파일에만 씁니다: 버전 저장 → "🌏 마스터 파일" 페이지를 만들고 붙여 넣은 화면 ${k.screens}장을 크기별 자리로 옮김 → 설명 바 3단 · 스펙 링크 카드. 커버는 만들지 않습니다.`
         : `진행하면 이 복제본에만 씁니다: 버전 저장 → "🌏 마스터 파일" 페이지에 화면 ${k.screens}개 복제·원본 대조 → 프로젝트 페이지 정리(✅ Mobile·✅ Web·📏 운영 가이드 삭제).`} 원본 프로젝트 문서와 다른 Core 파일은 건드리지 않습니다.</p>
+      <label class="check"><input type="checkbox" id="verSaved"> Figma에서 이 파일 버전을 저장했어요 (File → Save to version history) — 앱이 자동 저장을 먼저 시도하고, 안 되면 이 체크가 있어야 진행합니다</label>
       <button id="run" type="button">진행</button>`;
     const m = k.mode;
     $('#run').addEventListener('click', () => runBuild(dup, m));
@@ -124,16 +125,18 @@ async function runBuild(dup, m) {
   if (!confirm('[Core] 파일에 새 Core 마스터를 정리합니다. 진행할까요?')) return;
   out.innerHTML = '<p class="spinner">새 Core를 만드는 중… (화면 수에 따라 몇 분 걸릴 수 있어요)</p>';
   try {
-    const b = await window.core.build(dup, current, false, m);
-    if (!b.ok) { out.innerHTML = `<p class="bad">만들지 못했습니다</p><p class="muted">${esc(b.error || (b.check && b.check.problems || []).join(' · '))}</p>`; return; }
+    const b = await window.core.build(dup, current, false, m, !!($('#verSaved') && $('#verSaved').checked));
+    if (!b.ok) { out.innerHTML = `<p class="bad">${b.needVersion ? '버전 저장이 먼저 필요해요' : '만들지 못했습니다'}</p><p class="muted">${esc(b.error || (b.check && b.check.problems || []).join(' · '))}</p>`; if (b.needVersion) { const again = document.createElement('button'); again.textContent = '다시 확인'; again.onclick = checkDup; out.appendChild(again); } return; }
     const rows = b.screens.map(s => `<tr><td>${esc(s.platform)} ${esc(s.cls)}</td><td>${s.width}px</td><td>${s.left === 0 ? '<span class="pill ok">차이 0</span>' : `<span class="pill warn">차이 ${s.left}</span>`}</td>
       <td><button class="link" data-open="${esc(nodeUrl(b.fileKey, s.id))}">보기</button></td></tr>`).join('');
     out.innerHTML = `<p><span class="pill ok">완료</span> <button class="link" data-open="${esc(nodeUrl(b.fileKey, b.rootId))}">Figma에서 마스터 보기</button></p>
       <table><tr><th>크기</th><th>폭</th><th>원본 대조</th><th></th></tr>${rows}</table>
       <p class="muted">${(b.removedPages || []).length ? '지운 페이지: ' + esc(b.removedPages.join(', ')) + ' · ' : ''}남은 페이지: ${esc((b.pages || []).join(' / '))}</p>
       ${(b.logs || []).length ? `<p class="hint">${esc(b.logs.join(' · '))}</p>` : ''}
+      ${b.addedToLocalIndex ? `<p class="hint">이 Core를 이 맥의 Core 목록에 넣었어요. 다음에 같은 프로젝트 문서를 분석하면 "기존 Core 갱신"으로 나옵니다. 팀 공용 목록에는 Claude에게 "색인에 추가해 줘"라고 요청하세요.</p>` : ''}
       ${b.costUsd != null ? `<p class="hint">Claude 사용량: 약 $${Number(b.costUsd).toFixed(3)}</p>` : ''}`;
     out.querySelectorAll('[data-open]').forEach(x => x.addEventListener('click', () => window.core.open(x.dataset.open)));
+    if (b.addedToLocalIndex) showKnowledge();
   } catch (e) { out.innerHTML = `<p class="bad">만들지 못했습니다</p><p class="muted">${esc(e.message)}</p>`; }
 }
 

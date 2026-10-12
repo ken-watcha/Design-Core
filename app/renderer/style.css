@@ -35,3 +35,5 @@ ol.steps { margin:0 0 12px; padding-left:20px; line-height:1.7; }
 #buildOut button#run { margin-top:4px; }
 .tabs { display:flex; gap:18px; margin:0 0 10px; font-size:13px; }
 .tabs input { flex:none; margin-right:4px; padding:0; border:none; }
+label.check { display:block; margin:8px 0; font-size:13px; color:var(--muted); }
+label.check input { flex:none; padding:0; border:none; margin-right:6px; }

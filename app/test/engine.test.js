@@ -19,6 +19,9 @@ const fixture = require('./fixture-stepmade.json');
   const r = await analyzeProject('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', { rules, index, memory: {} }, fake);
   assert.strictEqual(r.analysis.kind, 'project');
   assert(r.verdict, '판별 결과');
+  // 2026-10-12: 9/18에 이 문서로 만든 [Core] 스텝메이드가 색인에 있으니 기존 Core 갱신이 맞다
+  assert.strictEqual(r.verdict.suggestion, 'update');
+  assert.strictEqual(r.verdict.target, '[Core] 스텝메이드');
   console.log('판별:', r.verdict.suggestion, r.verdict.target, '·', r.verdict.reason);
   // 새 Core 만들기: 계획 → 코드(문법·크기), 원본 링크 거부, 확인/진행 구분
   const plan = planFromAnalysis(r);
@@ -31,6 +34,7 @@ const fixture = require('./fixture-stepmade.json');
     assert(bc.includes('const DRY_RUN = ' + dry) && bc.includes('const MODE = "' + mode + '"'));
   }
   assert.throws(() => buildNewCoreCode(rules, plan, { dryRun: true, mode: 'redraw' }));
+  assert(buildNewCoreCode(rules, Object.assign({}, plan, { versionSavedByHuman: true }), { dryRun: false }).includes('"versionSavedByHuman":true'), '사람이 저장한 버전 표시가 실려 감');
   // 붙여 넣은 쪽에서 짝을 찾을 수 있게 고른 화면마다 이름·크기가 실려 간다
   const picks = Object.values(plan.platforms).flat().flatMap(e => e.picks).filter(p => p.chosen);
   const sentPlan = JSON.parse(/const PLAN = (.*);/.exec(buildNewCoreCode(rules, plan, { dryRun: true }))[1]);

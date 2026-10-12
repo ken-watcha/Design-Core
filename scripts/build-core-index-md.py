@@ -75,7 +75,9 @@ for f in idx["files"]:
             out += ["", f"#### {s['name']} 섹션 `{s['id']}`", ""]
             render_groups(k, s["groups"])
     sp = f.get("spec")
-    if sp and "roots" in sp:
+    if sp and sp.get("none"):
+        out += ["", f"### 플로우 페이지 — {sp['none']}", ""]
+    elif sp and "roots" in sp:
         if sp.get("empty"): out += ["", "### 플로우 페이지 — **비어 있음**", ""]
         for r in sp["roots"]:
             out += ["", f"### 플로우 페이지(기준 문서) — 루트 [{r['name']}]({L(k,r['id'])}) `{r['id']}`" + (f" · 가이드 `{r['guide_frame']}`" if r.get('guide_frame') else ""), ""]

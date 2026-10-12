@@ -4,12 +4,14 @@ function judge(analysis, index, rules, mem) {
   const minAuto = (rules.judge && rules.judge.minScoreForAuto) || 2;
   const learnedWords = (mem && mem.judgeWords) || {};
   const raw = [analysis.cover.nameEN, analysis.cover.nameKR, analysis.fileName].join(' ');
-  const words = raw.split(/[\s\/·,()\-|]+/).filter(w => w.length >= 2 && !stop.includes(w.toLowerCase()));
+  const words = [...new Set(raw.split(/[\s\/·,()\-|]+/).filter(w => w.length >= 2 && !stop.includes(w.toLowerCase())))];
   const byName = {};
   for (const f of (index && index.files) || []) {
     const hay = [f.name, ...(f.domain || []), JSON.stringify(f.master || {}), JSON.stringify(f.spec || {})].join(' ');
     const hits = words.filter(w => hay.includes(w));
     byName[f.name] = { name: f.name, key: f.key, url: f.url, score: hits.length, hits, learned: 0 };
+    // 이 Core를 만든 프로젝트 문서가 다시 오면 그 Core가 정답 (색인 source_projects)
+    if (analysis.fileKey && (f.source_projects || []).includes(analysis.fileKey)) { byName[f.name].score += 5; byName[f.name].hits.unshift('이 문서로 만든 Core'); }
   }
   for (const w of words.map(x => x.toLowerCase())) {
     const v = learnedWords[w]; if (!v) continue;

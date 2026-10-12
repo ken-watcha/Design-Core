@@ -49,9 +49,10 @@ for label, f in files.items():
     if ONLY and label not in ONLY: continue
     key = f['key']
     master = [p for p in f['pages'] if '마스터' in p[1]][0][0]
-    flow = [p for p in f['pages'] if '플로우' in p[1]][0][0]
+    flow = next((p[0] for p in f['pages'] if '플로우' in p[1]), None)   # 2026-09-18~ 새 Core 규격엔 플로우 페이지가 없다
     res = {'label': label, 'key': key, 'name': f['name']}
     for role, pid, depth in (('master', master, None), ('flow', flow, 4)):
+        if not pid: continue
         url = f"https://api.figma.com/v1/files/{key}/nodes?ids={pid}" + (f"&depth={depth}" if depth else "")
         try:
             d = get(url)

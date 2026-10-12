@@ -54,9 +54,12 @@ if (!chosen.length) problems.push('고른 대표 화면이 없습니다');
 const check = { mode: MODE, fileName: figma.root.name, fileKey: figma.fileKey || null, pages: figma.root.children.map(p => p.name), screens: chosen.length, found: Object.keys(found).length, problems };
 if (DRY_RUN || problems.length) return { dryRun: true, ok: !problems.length, check };
 
-// 쓰기 전 버전 저장
+// 쓰기 전 버전 저장. 이 연결(use_figma)은 저장을 거부한 적이 있다(2026-09-18) → 안 되면 사람이 저장했다고 확인한 경우에만 계속
 try { await figma.saveVersionHistoryAsync('Core 도우미 — 새 Core 정리 전', PLAN.projectName + ' · 원본 ' + (PLAN.sourceUrl || '')); log('버전 저장'); }
-catch (e) { return { ok: false, check, error: '버전 저장 실패라 쓰지 않았습니다: ' + (e && e.message || e) }; }
+catch (e) {
+  if (!PLAN.versionSavedByHuman) return { ok: false, check, needVersion: true, error: '자동 버전 저장이 안 돼 쓰지 않았습니다. Figma에서 File → Save to version history 후 "버전 저장했어요"에 체크하고 다시 진행해 주세요' };
+  log('자동 버전 저장 불가 → 사람이 저장한 버전 사용');
+}
 
 async function bar(kind, parent, x, y, w, title, desc) {
   const C = RULES.components;
@@ -192,7 +195,7 @@ function buildNewCoreCode(rules, plan, { dryRun, mode = 'duplicate' }) {
   if (!['duplicate', 'pasted'].includes(mode)) throw new Error('알 수 없는 방식: ' + mode);
   const r = { fileKind: rules.fileKind, masterPage: rules.masterPage, layout: rules.layout, components: rules.components, linkCard: rules.linkCard, trim: rules.trim, screenPick: { screenName: rules.screenPick.screenName } };
   const p = {
-    sourceFileKey: plan.sourceFileKey, sourceUrl: plan.sourceUrl || '', projectName: plan.projectName || '', releaseMonth: plan.releaseMonth || '', owner: plan.owner || '',
+    sourceFileKey: plan.sourceFileKey, sourceUrl: plan.sourceUrl || '', versionSavedByHuman: !!plan.versionSavedByHuman, projectName: plan.projectName || '', releaseMonth: plan.releaseMonth || '', owner: plan.owner || '',
     platforms: Object.fromEntries(Object.entries(plan.platforms || {}).map(([pf, es]) => [pf, es.map(e => ({ cls: e.cls, desc: e.desc, picks: e.picks.map(x => ({ width: x.width, chosen: x.chosen, fp: fingerprint(x) })) }))]))
   };
   return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(p)};\nconst DRY_RUN = ${dryRun ? 'true' : 'false'};\nconst MODE = ${JSON.stringify(mode)};\n` + FIGMA_SIDE;

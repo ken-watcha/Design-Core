@@ -29,6 +29,7 @@ async function analyzeProject(url, knowledge, runner = runFigma) {
   if (!fileKey) throw new Error('Figma 디자인 파일 링크가 아닙니다');
   const code = buildAnalyzeCode(knowledge.rules, knowledge.memory);
   const { data, costUsd } = await runner(fileKey, code, 'Core 도우미: 프로젝트 문서 분석 (읽기 전용)');
+  if (data && !data.fileKey) data.fileKey = fileKey;   // use_figma에서 figma.fileKey가 비어 올 때가 있음
   const verdict = data.kind === 'project' ? judge(data, knowledge.index, knowledge.rules, knowledge.memory) : null;
   return { analysis: data, verdict, costUsd, fileKey };
 }
