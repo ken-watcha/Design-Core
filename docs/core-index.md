@@ -1,7 +1,7 @@
 # Core 파일 색인 (읽기용)
 
-> 갱신 2026-09-10 · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성).
-> 수록 범위: Core 폴더(591036590)의 파일 14개 전부 수록 — 2026-09-09 Ken이 링크 14개를 확인해 줌(SVOD·소식함·로그인/온보딩·나의 왓챠·웹툰·TV·콘상페·플레이어·왓챠파티·보관함·TVOD·검색·프로필·결제/구독). 스텝메이드는 Core가 아니라 프로젝트 문서로 판명(2026-09-10) → related_files로 이동. 세션 2에 읽은 3개는 sections 구조, 세션 3에 읽은 11개는 master.roots 구조.
+> 갱신 2026-10-12 · 기계용 원본은 `core-index/core-index.json` (이 문서는 그 파일에서 생성).
+> 수록 범위: Core 폴더(591036590)의 파일 14개 전부 수록 — 2026-09-09 Ken이 링크 14개를 확인해 줌(SVOD·소식함·로그인/온보딩·나의 왓챠·웹툰·TV·콘상페·플레이어·왓챠파티·보관함·TVOD·검색·프로필·결제/구독). 스텝메이드는 Core가 아니라 프로젝트 문서로 판명(2026-09-10) → related_files로 이동. 세션 2에 읽은 3개는 sections 구조, 세션 3에 읽은 11개는 master.roots 구조. 2026-10-12: [Core] 스텝메이드(txuuBtHiDgal8pC4OIbSHF, 2026-09-18 생성) 추가 → 15개. source_projects = 이 Core를 만든 프로젝트 문서 키(판별에서 같은 문서가 다시 오면 그 Core로).
 
 폴더: https://www.figma.com/files/1014901253946075002/folder/591036590
 
@@ -1029,9 +1029,42 @@
 - WEB `20:20440` (자식 70개)
   - 프레임: 프로필 선택 20:14209, 프로필 편집 20:20089, 프로필 편집 33:10323, 평가하기 33:13192, SVOD 진입 20:15792, 프로필 잠금 20:20039, 프로필 생성 20:20146, 프로필 33:7743, 나의 왓챠 39:8199, 공지사항 39:11809, 고객센터 39:12389, 로그아웃 39:12444
 
+## [Core] 스텝메이드
+
+- 파일: https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/ (키 `txuuBtHiDgal8pC4OIbSHF`, 형식: new, 최종 수정 2026-09-18)
+- 다루는 영역: 스텝메이드 / 스텝메이드 상세 / 큐레이션·기획전 상세 페이지 (홈 피쳐링 셀·배너에서 진입) / 스텝메이드 상세 페이지(APP small/medium/large, WEB small/medium/large)
+- 출처: 프로젝트 "스텝메이드 상세페이지 고도화" 문서(NO7uetAL9Qmk03IXWSaMej)를 복제해 깎은 새 Core (2026-09-18). 링크 카드가 그 문서를 가리킴
+- 메모: 2026-09-18 프로젝트 문서 '스텝메이드 상세페이지 고도화'(NO7uetAL9Qmk03IXWSaMej)를 Duplicate해 만든 첫 새 Core. 새 규격: 플로우 페이지 없음, 마스터 = 링크 카드 + APP 3장 + WEB 4장. 진입은 홈 피쳐링 셀·배너(SVOD·TVOD)
+
+### 페이지
+
+- [Cover](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=28-34464) `28:34464`
+- [🌏 마스터 파일](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-6) `5005:6` — master
+
+### 마스터 페이지 구조 — 루트 섹션 [🌏 스텝메이드](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-98) `5005:98` · 스타일 fill 20,21,23
+
+- 📎 링크 카드 [📎 스펙 링크 카드](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-99) `5005:99` → 기준 문서 https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/ (프로젝트 문서 스텝메이드 상세페이지 고도화) · 기준 정보 기입: 있음
+
+#### APP 섹션 `5005:169` (자식 8개 · fill 34,35,38 · 파일 바 ⚫ '스텝메이드' `5005:170`)
+
+- **스텝메이드 상세** (설명 바 `5005:185`)
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-1137) `5005:1137` 375x1142 [small]
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-1423) `5005:1423` 768x1000 [medium]
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-1982) `5005:1982` 1024x1124 [large]
+
+#### WEB 섹션 `5005:255` (자식 9개 · fill 34,35,38 · 파일 바 ⚫ '스텝메이드' `5005:256`)
+
+- **스텝메이드 상세** (설명 바 `5005:271`)
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-2609) `5005:2609` 375x812 [small]
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-3062) `5005:3062` 768x753 [medium]
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-3415) `5005:3415` 1280x847 [medium]
+  - [스텝메이드 상세](https://www.figma.com/design/txuuBtHiDgal8pC4OIbSHF/?node-id=5005-3816) `5005:3816` 1440x1052 [large]
+
+### 플로우 페이지 — 플로우 페이지 없음 (2026-09-18~ 새 Core 규격: Cover / --- / 🌏 마스터 파일)
+
+
 ## 확인 필요 / 색인 밖
 
-- [Core] 스텝메이드 (또는 리스트 상세) — 아직 없음 — 스텝메이드 상세는 SVOD·TVOD·검색에서 들어오는데 본체가 있는 Core가 없음 → 새 Core 제안 중 (docs/demo-2026-09-10-stepmade.md). Ken 확인 대기
 
 ## 관련 파일 (Core 아님)
 

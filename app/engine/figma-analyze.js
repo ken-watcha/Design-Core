@@ -1,5 +1,7 @@
 // Figma 안에서 돌릴 "분석" 코드를 만든다 (use_figma로 보냄, 읽기 전용).
 // 원본은 plugin/code.js의 detectFileKind·readCover·pickCandidates·classifySection·analyze. 학습 기억은 앱이 넘겨준다(없으면 빈 기억).
+// 후보 화면마다 내용 지문(sig)을 붙인다 — 기존 Core 갱신 때 Core 화면과 같은지 비교하는 데 쓴다.
+const { SIG_FN } = require('./signature');
 const FIGMA_SIDE = String.raw`
 const tokens = (s) => String(s || '').toLowerCase().split(/[^0-9a-z가-힣~]+/).filter(t => t.length >= 2);
 const bump = (obj, k, v) => { obj[k] = Math.round(((obj[k] || 0) + v) * 1000) / 1000; };
@@ -40,7 +42,7 @@ function pickCandidates(section, width) {
     for (const t of tokens(f.name)) learned += MEM.frameTokens[t] || 0;
     return { s: s + learned, learned };
   };
-  return frames.map(f => { const sc = score(f); return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), sig: f.children.slice(0, 30).map(c => c.name).join('|'), y: Math.round(f.absoluteTransform[1][2]), score: Math.round(sc.s * 10) / 10, learned: Math.round(sc.learned * 10) / 10 }; })
+  return frames.map(f => { const sc = score(f); return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), y: Math.round(f.absoluteTransform[1][2]), score: Math.round(sc.s * 10) / 10, learned: Math.round(sc.learned * 10) / 10, sig: sig(f) }; })
     .sort((a, b) => b.score - a.score || a.y - b.y);
 }
 function classifySection(platform, cfg, secName) {
@@ -69,7 +71,7 @@ if (kind === 'project') {
       for (const w of [cls.width].concat(cls.extraWidths || [])) {
         const cands = sec ? pickCandidates(sec, w) : pickCandidates(page, w);
         const sure = cands.length === 1 || (cands.length > 1 && cands[0].score - cands[1].score >= 1);
-        entry.picks.push({ width: w, chosen: cands.length ? cands[0].id : null, candidates: cands.slice(0, 6), sure, basis: cands.length && cands[0].learned ? '학습' : '규칙' });
+        entry.picks.push({ width: w, chosen: cands.length ? cands[0].id : null, candidates: cands.slice(0, 10), sure, basis: cands.length && cands[0].learned ? '학습' : '규칙' });
         if (!cands.length) result.missing.push(platform + ' ' + cls.name + ' ' + w + 'px 화면을 못 찾음');
         else if (!sure) result.unsure++;
       }
@@ -90,7 +92,7 @@ const emptyMem = () => ({ sections: {}, sectionTokens: {}, frameNames: {}, frame
 function buildAnalyzeCode(rules, mem) {
   const m = Object.assign(emptyMem(), mem || {});
   const r = { fileKind: rules.fileKind, sizeClasses: rules.sizeClasses, screenPick: rules.screenPick };
-  return `const RULES = ${JSON.stringify(r)};\nconst MEM = ${JSON.stringify(m)};\n` + FIGMA_SIDE;
+  return `const RULES = ${JSON.stringify(r)};\nconst MEM = ${JSON.stringify(m)};\n` + SIG_FN + FIGMA_SIDE;
 }
 
 module.exports = { buildAnalyzeCode };

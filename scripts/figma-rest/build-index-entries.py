@@ -29,6 +29,7 @@ DOMAIN = {
  '보관함': (["보관함 메인(콘텐츠/리스트)", "보고싶어요·시청 콘텐츠·다운로드·구매 콘텐츠·선물함·평가하기 상세", "일반/키즈 프로필 × empty/error state"], "마스터 화면 수가 가장 많음(APP 105·WEB 72). 대분류(⚫)가 일반 프로필/키즈 프로필/empty state/error case로 갈라지고 그 아래 화면 묶음. 자동 묶음이라 라벨 배치가 어긋난 곳이 있을 수 있음 — 이관 전 실물 확인"),
  '나의 왓챠': (["나의 왓챠(구독·비구독·비로그인)"], "설정 하위 화면(계정·재생·알림 등)은 플로우 페이지에만"),
  '프로필': (["프로필 선택·생성·수정·잠금"], ""),
+ '스텝메이드': (["스텝메이드 상세 페이지(APP small/medium/large, WEB small/medium/large)"], "2026-09-18 프로젝트 문서 '스텝메이드 상세페이지 고도화'(NO7uetAL9Qmk03IXWSaMej)를 Duplicate해 만든 첫 새 Core. 새 규격: 플로우 페이지 없음, 마스터 = 링크 카드 + APP 3장 + WEB 4장. 진입은 홈 피쳐링 셀·배너(SVOD·TVOD)"),
 }
 
 def find(n, nid):
@@ -137,8 +138,8 @@ def build_root(node, is_page=False):
 out = []
 for label in order:
     f = files[label]; key = f['key']
-    rawm = json.load(open(f"{SP}/raw-{safe(label)}-master.json")); rawf = json.load(open(f"{SP}/raw-{safe(label)}-flow.json"))
-    master_pid = [p for p in f['pages'] if '마스터' in p[1]][0][0]; flow_pid = [p for p in f['pages'] if '플로우' in p[1]][0][0]
+    master_pid = [p for p in f['pages'] if '마스터' in p[1]][0][0]; flow_pid = next((p[0] for p in f['pages'] if '플로우' in p[1]), None)
+    rawm = json.load(open(f"{SP}/raw-{safe(label)}-master.json")); rawf = json.load(open(f"{SP}/raw-{safe(label)}-flow.json")) if flow_pid else {}
     domain, note = DOMAIN[label]
     top_secs = [c for c in rawm.get('children', []) if c['type'] == 'SECTION']
     entry = {'name': f['name'], 'key': key, 'url': f"https://www.figma.com/design/{key}/", 'format': 'new', 'domain': domain, 'last_modified': f['lastModified'][:10],
@@ -172,6 +173,7 @@ for label in order:
     pl = [f"{c['name']} {c['id']}" for c in rawf.get('children', []) if c['type'] == 'FRAME']
     if pl: spec['page_loose_frames'] = pl
     if not spec['roots'] and not pl: spec['empty'] = True
+    if not flow_pid: spec = {'page': None, 'none': '플로우 페이지 없음 (2026-09-18~ 새 Core 규격: Cover / --- / 🌏 마스터 파일)'}
     entry['spec'] = spec
     out.append(entry)
 json.dump(out, open(f"{SP}/new-entries.json", 'w'), ensure_ascii=False, indent=1)
@@ -181,4 +183,4 @@ for e in out:
         for s in r['sections']:
             n = sum(len(g.get('screens', [])) + sum(len(sg['screens']) for sg in g.get('subgroups', [])) for g in s['groups'])
             print(f"   [{s['name']}] groups={len(s['groups'])} screens={n} file_bar={s.get('file_bar',{}).get('title')} others={s.get('other_instances')}")
-    print('   flow roots:', [(r['name'], [(s['name'], s['children'], len(s['entry_frames'])) for s in r['sections']]) for r in e['spec']['roots']], e['spec'].get('page_loose_frames'), e['spec'].get('empty'))
+    print('   flow roots:', [(r['name'], [(s['name'], s['children'], len(s['entry_frames'])) for s in r['sections']]) for r in e['spec'].get('roots', [])], e['spec'].get('page_loose_frames'), e['spec'].get('empty') or e['spec'].get('none'))
