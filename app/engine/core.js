@@ -9,6 +9,7 @@ const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('./figma-write');
 const { proposePlace, checkLink } = require('./place');
 const { computeDelta, preferCoreScreens } = require('./delta');
+const { buildFindSourcesCode, buildItemsCode, diffItems } = require('./figma-find');
 
 const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/';
 const LOCAL = path.join(__dirname, '..', '..');
@@ -51,8 +52,21 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
   if (state.place.kind === 'branch') {
     if (!read.isCore) return { ok: false, why: '이 파일에는 "🌏 마스터 파일" 페이지가 없습니다 — Core 파일의 브랜치가 맞나요?', costUsd };
     const preferred = preferCoreScreens(state.analysis, read);
-    const delta = computeDelta(state.analysis, read);
-    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, core: read, delta, preferred, analysis: state.analysis, costUsd };
+    let cost = costUsd || 0;
+    // 대표 후보에 없는 Core 화면은 문서 전체에서 원본을 찾는다 (이름·점수 때문에 후보에서 빠진 원본을 놓치지 않게)
+    const chosenSigs = new Set(Object.values(state.analysis.platforms).flat().flatMap(e => e.picks.map(p => (p.candidates.find(c => c.id === p.chosen) || {}).sig)));
+    const targets = Object.values(read.platforms).flatMap(p => p.screens).filter(s => !chosenSigs.has(s.sig)).map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
+    let sources = {};
+    if (targets.length) { const f = await runner(state.fileKey, buildFindSourcesCode(targets), 'Core 도우미: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.data.sources || {}; cost += f.costUsd || 0; }
+    const delta = computeDelta(state.analysis, read, sources);
+    // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
+    const checks = delta.rows.filter(r => r.check && r.target);
+    if (checks.length) {
+      const [a, b] = await Promise.all([runner(state.fileKey, buildItemsCode(checks.map(r => r.source.id)), 'Core 도우미: 차이 비교 — 프로젝트 (읽기 전용)'), runner(link.workKey, buildItemsCode(checks.map(r => r.target.id)), 'Core 도우미: 차이 비교 — Core (읽기 전용)')]);
+      cost += (a.costUsd || 0) + (b.costUsd || 0);
+      for (const r of checks) r.diff = diffItems(a.data.items[r.source.id], b.data.items[r.target.id]);
+    }
+    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, delta, preferred, analysis: state.analysis, costUsd: cost };
   }
   if (read.isCore) return { ok: false, why: '이미 "🌏 마스터 파일" 페이지가 있는 파일입니다 — 새로 Duplicate한 복사본을 주세요', costUsd };
   const projectPages = knowledge.rules.fileKind.projectPagePatterns;
@@ -80,7 +94,7 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
   const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), screenName: screenName ? screenName.name : null };
   const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 도우미: 기존 Core 갱신 (브랜치)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 도우미: 갱신 결과 확인 (읽기 전용)');
-  const after = computeDelta(state.analysis, r.data);
+  const after = computeDelta(state.analysis, r.data, work.sources || {});
   return { apply: a.data, after, core: r.data, costUsd: (a.costUsd || 0) + (r.costUsd || 0) };
 }
 

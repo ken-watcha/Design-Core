@@ -29,9 +29,13 @@ function checkLink(place, url) {
   const l = parseLink(url);
   if (!l) return { ok: false, why: 'Figma 디자인 파일 링크가 아닙니다' };
   if (place.kind === 'branch') {
-    if (!l.branchKey) return { ok: false, why: `브랜치 링크가 아닙니다. ${place.coreName} 본 파일에는 쓰지 않습니다 — 브랜치를 만들고 그 링크를 주세요` };
-    if (place.coreKey && l.fileKey !== place.coreKey) return { ok: false, why: `${place.coreName}의 브랜치가 아닙니다 (다른 파일의 브랜치)` };
-    return { ok: true, workKey: l.branchKey };
+    // 브랜치 링크는 두 모양이 있다: …/design/<Core 키>/branch/<브랜치 키>/… 와 …/design/<브랜치 키>/<브랜치 이름> (Ken 2026-10-12)
+    if (l.branchKey) {
+      if (place.coreKey && l.fileKey !== place.coreKey) return { ok: false, why: `${place.coreName}의 브랜치가 아닙니다 (다른 파일의 브랜치)` };
+      return { ok: true, workKey: l.branchKey };
+    }
+    if (place.coreKey && l.fileKey === place.coreKey) return { ok: false, why: `${place.coreName} 본 파일입니다. 본 파일에는 쓰지 않습니다 — 브랜치 "${BRANCH_NAME}"를 만들고 그 링크를 주세요` };
+    return { ok: true, workKey: l.fileKey, unverifiedBranch: true };
   }
   if (l.branchKey) return { ok: false, why: '브랜치가 아니라 프로젝트 파일을 Duplicate한 복사본 링크가 필요합니다' };
   if (l.fileKey === place.sourceKey) return { ok: false, why: '원본 프로젝트 문서입니다. Duplicate한 복사본 링크를 주세요 (원본에는 쓰지 않습니다)' };
