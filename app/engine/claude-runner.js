@@ -45,35 +45,60 @@ async function ask(prompt, tools, opts = {}) {
   const model = opts.model ? ['--model', opts.model] : [];
   const say = (stage) => { if (progressSink && opts.label) try { progressSink({ label: opts.label, stage }); } catch (e) {} };
   say('start');
+  let lastTool = null;
   // stream-json으로 받으면 Claude가 Figma 도구를 부르는 순간·끝나는 순간을 알 수 있다
-  const raw = await runClaude(['-p', '--output-format', 'stream-json', '--verbose', ...model, '--mcp-config', MCP_CONFIG, '--strict-mcp-config', '--allowedTools', ...tools], prompt, Object.assign({}, opts, {
+  let raw;
+  try { raw = await runClaude(['-p', '--output-format', 'stream-json', '--verbose', ...model, '--mcp-config', MCP_CONFIG, '--strict-mcp-config', '--allowedTools', ...tools], prompt, Object.assign({}, opts, {
     onLine: (line) => {
       let ev; try { ev = JSON.parse(line); } catch (e) { return; }
       const content = (ev.message && ev.message.content) || [];
       if (ev.type === 'assistant' && content.some(c => c.type === 'tool_use')) say('figma');
-      else if (ev.type === 'user' && content.some(c => c.type === 'tool_result')) say('wrap');
+      else if (ev.type === 'user' && content.some(c => c.type === 'tool_result')) {
+        say('wrap');
+        const tr = content.find(c => c.type === 'tool_result');
+        const t = typeof tr.content === 'string' ? tr.content : (tr.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+        lastTool = { text: t, isError: !!tr.is_error };
+      }
     }
-  }));
-  const env = raw.trim().split('\n').map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(e => e && e.type === 'result').pop();
-  if (!env) throw new Error('Claude 결과를 읽지 못했습니다: ' + raw.slice(-300));
-  say('done');
-  if (env.is_error) throw new Error(env.result || 'Claude 실행 오류');
-  const data = extractJson(env.result || '');
-  if (data && data.error) throw new Error('Figma: ' + data.error);
-  return { data, costUsd: env.total_cost_usd || null };
+  })); } catch (e) { if (lastTool) e.afterTool = true; throw e; }
+  try {
+    const env = raw.trim().split('\n').map(l => { try { return JSON.parse(l); } catch (e) { return null; } }).filter(e => e && e.type === 'result').pop();
+    if (!env) throw new Error('Claude 결과를 읽지 못했습니다: ' + raw.slice(-300));
+    say('done');
+    if (env.is_error) throw new Error(env.result || 'Claude 실행 오류');
+    // 도구 결과를 직접 읽는다 — Claude가 결과를 다시 받아 적게 하면 그만큼(수십 초) 더 걸린다 (2026-10-12 윤우: 문서 읽기가 느림)
+    if (opts.toolResult && lastTool) {
+      if (lastTool.isError) throw new Error('Figma: ' + lastTool.text.slice(0, 500));
+      let d = null;
+      try { d = JSON.parse(lastTool.text); } catch (e) { try { d = extractJson(lastTool.text); } catch (e2) {} }
+      if (d && d.error) throw new Error('Figma: ' + d.error);
+      if (d) return { data: d, costUsd: env.total_cost_usd || null };
+      throw new Error('Figma 결과를 읽지 못했습니다: ' + lastTool.text.slice(0, 300));
+    }
+    const data = extractJson(env.result || '');
+    if (data && data.error) throw new Error('Figma: ' + data.error);
+    return { data, costUsd: env.total_cost_usd || null };
+  } catch (e) { if (lastTool) e.afterTool = true; throw e; }
 }
 
 // Figma에서 플러그인 API 코드 1회 실행
-function runFigma(fileKey, code, description, opts) {
-  return ask([
+// 줄 전체가 주석인 줄은 빼고 보낸다 — Claude가 코드를 그대로 옮겨 적는 시간이 줄어든다
+const slim = (code) => code.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
+async function runFigma(fileKey, code, description, opts) {
+  const prompt = [
     `Call the ${TOOLS.useFigma} tool exactly once with:`,
     `- fileKey: ${fileKey}`,
     `- description: ${description}`,
     `- skillNames: figma-use`,
     `- code: the exact contents between <code> and </code> below, unchanged.`,
-    `Then reply with ONLY the tool's raw result (JSON), nothing else. If the tool errors, reply with {"error": "<message>"}.`,
-    '<code>', code, '</code>'
-  ].join('\n'), [TOOLS.useFigma], Object.assign({ label: description }, opts));
+    `Then reply with ONLY the word OK (the app reads the tool result itself). If the tool errors, reply with {"error": "<message>"}.`,
+    '<code>', slim(code), '</code>'
+  ].join('\n');
+  const o = Object.assign({ label: description, toolResult: true }, opts);
+  // 코드를 옮겨 적기만 하면 되니 빠른 모델(sonnet)로, 안 되면 기본 모델로
+  try { return await ask(prompt, [TOOLS.useFigma], Object.assign({ model: 'sonnet' }, o)); }
+  // Figma가 이미 실행됐으면 다시 돌리지 않는다 (쓰기가 두 번 되지 않게)
+  catch (e) { if (e.afterTool || /^Figma:/.test(e.message)) throw e; return ask(prompt, [TOOLS.useFigma], o); }
 }
 
 // 준비 상태: Claude Code 설치·로그인 + Figma 연결. whoami 한 번으로 둘 다 확인된다
