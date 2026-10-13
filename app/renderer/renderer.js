@@ -223,7 +223,7 @@ $('#setup').addEventListener('click', () => { $('#setup').textContent = '준비 
 function bindOpen(root = document) { root.querySelectorAll('[data-open]').forEach(b => { if (b.dataset.bound) return; b.dataset.bound = 1; b.addEventListener('click', () => window.core.open(b.dataset.open)); }); }
 // 쓰기 전 Named version: 이 연결(use_figma)은 자동 저장을 거부해서(2026-09-18) 사람이 저장하고 체크해야 버튼이 켜진다
 // 쓰기 전 버전 저장 체크박스는 없앴다: 복제본·브랜치 자체가 되돌릴 지점이라 (2026-10-13 윤우)
-const SAFE_NOTE = (kind) => `<p class="hint">${kind === 'branch' ? '브랜치에서만 고쳐요. 직접 합치기 전까지 Core 본 파일은 그대로예요.' : '복사본에만 써요. 결과가 이상하면 이 복사본을 지우고 다시 복제하면 돼요.'}</p>`;
+const SAFE_NOTE = (kind) => `<p class="hint">${kind === 'branch' ? '브랜치는 Core의 복사본이라 바로 고쳐도 괜찮아요. 직접 합치기 전까지 Core 본 파일은 그대로예요.' : '복사본이라 바로 작업해도 원본 문서는 그대로예요. 결과가 이상하면 이 복사본을 지우고 다시 복제하면 돼요.'}</p>`;
 const openBtn = (url, label = 'Figma에서 보기') => `<button class="link" data-open="${esc(url)}">${esc(label)}</button>`;
 // ---------- 진행 막대 (2026-10-12 윤우: 얼마나 남았는지) ----------
 // 실제 단계(Claude 켜기 → Figma 읽기/쓰기 → 정리)는 엔진이 알려 주고, 남은 시간은 지난번에 걸린 시간으로 어림한다
