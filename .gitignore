@@ -1,5 +1,6 @@
 .DS_Store
 *.png
 !docs/img/*.png
+!app/build/icon.png
 __pycache__/
 .cache/
