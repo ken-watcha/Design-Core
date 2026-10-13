@@ -6,15 +6,56 @@ let current = null;   // 분석 상태(analysis·verdict·place) — 단계마�
 let work = null;      // 확인된 작업 위치(+ 갱신이면 Core 읽기·Δ)
 const linkTo = (base, id) => base.split('?')[0].replace(/\/$/, '') + '/?node-id=' + String(id).replace(':', '-');
 
+let setupOk = false;
+let lastSetup = null;   // 마지막 준비 상태 확인 결과 (null = 확인 중)
 async function showSetup() {
   const el = $('#setup');
-  try {
-    const s = await window.core.setup();
-    if (s.claude && s.figma) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
-    else if (!s.claude) el.innerHTML = `<span class="bad">● Claude Code 필요</span> · 설치·로그인 안내는 README 1단계`;
-    else el.innerHTML = `<span class="bad">● Figma 연결 필요</span> · README 2단계 (터미널에서 claude → /mcp → figma → Authenticate)`;
-    el.title = [s.detail, el.dataset.rules].filter(Boolean).join('\n');
-  } catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; }
+  lastSetup = null; renderOnboard();
+  let s;
+  try { s = await window.core.setup(); }
+  catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; lastSetup = { failed: e.message }; renderOnboard(); return; }
+  lastSetup = s;
+  setupOk = !!(s.claude && s.figma);
+  if (setupOk) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
+  else if (!s.installed) el.innerHTML = `<span class="bad">● Claude Code 설치 필요</span>`;
+  else if (!s.claude) el.innerHTML = `<span class="bad">● Claude 로그인 필요</span>`;
+  else el.innerHTML = `<span class="bad">● Figma 연결 필요</span>`;
+  el.title = [s.detail, el.dataset.rules].filter(Boolean).join('\n');
+  renderOnboard();
+}
+
+// 연결 목록: 필요한 연결을 먼저 목록으로 보여 주고, 전부 연결되면 그때 링크 입력칸을 보여 준다
+// (2026-10-13 윤우: "이거이거 연결 필요하다를 리스트로 먼저 알려주고 연결된다면 링크 붙여넣는 인풋이 나타나도")
+function renderOnboard() {
+  const s = lastSetup, checking = !s, failed = !!(s && s.failed);
+  const inst = !!(s && s.installed), login = !!(s && s.claude), figma = !!(s && s.claude && s.figma);
+  const ready = !checking && !failed && figma && tokenOn;
+  const form = $('#form').closest('.panel');
+  form.hidden = !ready;
+  let box = $('#onboard');
+  if (ready) { if (box) box.remove(); return; }
+  if (!box) { box = document.createElement('section'); box.id = 'onboard'; box.className = 'panel onboard'; $('main').prepend(box); }
+  const items = [
+    { key: 'install', done: inst, title: 'Claude Code 설치', body: '앱이 Figma를 읽고 쓰는 데 쓰는 프로그램이에요. 버튼을 누르면 자동으로 설치돼요 (1분 안팎).', btns: '<button id="obInstall" type="button">설치</button>' },
+    { key: 'login', done: login, title: 'Claude 로그인', body: '버튼을 누르면 터미널 창이 열려요. <b>/login</b> 을 입력하고 브라우저에서 회사 계정으로 로그인해 주세요. 이어서 아래 Figma 연결까지 같은 창에서 하면 돼요.', btns: '<button class="obConnect" type="button">연결 창 열기</button><button class="obRecheck ghost" type="button">다시 확인</button>', needs: inst },
+    { key: 'figma', done: figma, title: 'Figma 연결', body: '터미널 창에서 <b>/mcp</b> → figma → Authenticate → 브라우저에서 허용. "Connected to figma"가 보이면 창을 닫고 [다시 확인]을 눌러 주세요.', btns: '<button class="obConnect" type="button">연결 창 열기</button><button class="obRecheck ghost" type="button">다시 확인</button>', needs: login },
+    { key: 'token', done: tokenOn, title: '피그마 토큰 연결', body: '화면 그림을 Figma에서 바로 받는 데 써요. Figma Settings → Security에서 만든 토큰을 붙여 넣어 주세요.', btns: '<button id="obToken" type="button">토큰 붙여 넣기</button>', always: true },
+  ];
+  const nowKey = (items.find(i => !i.done && (i.always || i.needs !== false)) || {}).key;
+  const state = (i) => i.done ? '<span class="st ok">연결됨</span>' : (i.key === 'token' ? !tokenKnown : checking) ? '<span class="st">확인 중…</span>' : '<span class="st bad">필요</span>';
+  const li = (i, n) => {
+    const open = !i.done && !(i.key === 'token' ? !tokenKnown : checking) && (i.key === nowKey || i.key === 'token');
+    return `<li class="${i.done ? 'done' : open ? 'now' : ''}"><span class="num">${i.done ? '✓' : n}</span><div class="body"><div class="head"><b>${i.title}</b>${state(i)}</div>${open ? `<div class="muted">${i.body}<div class="row-btn">${i.btns}</div></div>` : ''}</div></li>`;
+  };
+  const left = items.filter(i => !i.done).length;
+  box.innerHTML = `<h2>${checking ? '연결 상태를 확인하고 있어요' : `연결이 ${left}개 필요해요`}</h2>
+    <p class="muted lead">${failed ? '상태를 확인하지 못했어요: ' + esc(s.failed) + ' <button class="link obRecheck" type="button">다시 확인</button>' : '아래가 모두 <b>연결됨</b>이 되면 프로젝트 링크를 넣는 칸이 나타나요. 처음 한 번만 하면 돼요.'}</p>
+    <ol class="steps">${items.map((i, k) => li(i, k + 1)).join('')}</ol><div class="msg muted" id="obMsg"></div>`;
+  const msg = (t, cls) => { const m = $('#obMsg'); m.textContent = t; m.className = 'msg ' + (cls || 'muted'); };
+  const b1 = $('#obInstall'); if (b1) b1.addEventListener('click', async () => { b1.disabled = true; msg('설치 중… 창을 닫지 말아 주세요.'); try { await window.core.installClaude(); msg('설치됐어요. 확인 중…', 'ok'); showSetup(); } catch (e) { msg('설치하지 못했어요: ' + String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 'bad'); b1.disabled = false; } });
+  box.querySelectorAll('.obConnect').forEach(b => b.addEventListener('click', async () => { await window.core.openConnect(); msg('터미널 창에서 순서대로 한 뒤 [다시 확인]을 눌러 주세요.'); }));
+  box.querySelectorAll('.obRecheck').forEach(b => b.addEventListener('click', () => { $('#setup').textContent = '준비 상태 다시 확인 중…'; showSetup(); }));
+  const bt = $('#obToken'); if (bt) bt.addEventListener('click', () => openToken(false));
 }
 
 async function showKnowledge() {
@@ -131,16 +172,22 @@ $('#form').addEventListener('submit', async (ev) => {
 
 // ---------- 피그마 토큰 연결 (필수) ----------
 // 화면 그림을 Figma에서 바로 받는 데 쓴다. 연결 전에는 분석·확인·반영을 막고 연결 창을 띄운다 (2026-10-12 윤우 결정)
-let tokenOn = false;
+let tokenOn = false, tokenKnown = false;
 async function showFast() {
   try { const s = await window.core.tokenStatus(); tokenOn = !!s.on; } catch (e) {}
+  tokenKnown = true;
   const b = $('#fast'); b.textContent = tokenOn ? '피그마 토큰 연결 완료' : '피그마 토큰 연결 필요';
   b.classList.toggle('on', tokenOn); b.classList.toggle('off', !tokenOn);
+  renderOnboard();
 }
 async function needToken() {
+  if (!setupOk && !lastSetup) await showSetup();   // 아직 확인 전이면 기다린다
   if (!tokenOn) await showFast();
-  if (tokenOn) return true;
-  openToken(true); return false;
+  if (setupOk && tokenOn) return true;
+  const ob = $('#onboard');
+  if (ob) { ob.scrollIntoView({ behavior: 'smooth' }); ob.classList.add('flash'); setTimeout(() => ob.classList.remove('flash'), 1200); }
+  if (setupOk && !tokenOn) openToken(true);
+  return false;
 }
 function openToken(blocked) {
   const back = document.createElement('div'); back.className = 'cmp-back';
@@ -290,13 +337,14 @@ const shotKey = (it) => it.fileKey + '|' + it.nodeId;
 // 화면을 4장씩 묶어 Claude 3개가 동시에 받는다 (2026-10-12 윤우: 후보 화면이 늦게 뜸).
 // 한 번에 전부 묶으면 마지막 장까지 다 받아야 한 장도 못 봤다. 지금 보려는 화면은 줄 맨 앞으로 끼운다.
 const SHOT_CHUNK = 4, SHOT_WORKERS = 3;
-const shotQueue = []; let shotBusy = 0;
+const shotQueue = []; let shotBusy = 0, shotNote = null;   // shotNote: 토큰으로 못 받은 이유(있으면 보기 창에 표시)
 function pumpShots(extra) {
   // 지금 보려는 화면(extra)은 다른 일이 다 차 있어도 하나 더 띄워 바로 받는다
   while ((shotBusy < SHOT_WORKERS || extra-- > 0) && shotQueue.length) {
-    const chunk = shotQueue.splice(0, SHOT_CHUNK); shotBusy++;
+    // 토큰이 있으면 Figma에 한 번에 많이 묻는 게 빠르고 요청 횟수 제한에도 덜 걸린다
+    const chunk = shotQueue.splice(0, tokenOn ? 40 : SHOT_CHUNK); shotBusy++;
     window.core.screens(chunk.map(q => q.it))
-      .then(r => chunk.forEach((q, i) => q.done(r.images[i] || null)))
+      .then(r => { if (r.restError) shotNote = r.restError; chunk.forEach((q, i) => q.done(r.images[i] || null)); })
       .catch(() => chunk.forEach(q => { shotCache.delete(shotKey(q.it)); q.done(null); }))
       .finally(() => { shotBusy--; pumpShots(); });
   }
@@ -361,14 +409,18 @@ async function openViewer({ pill, title, why, sides }) {
     requestAnimationFrame(() => { lock = false; });
   }));
   const want = sides.filter(sd => sd.x);
+  // 토큰으로 못 받고 느린 방식으로 돌아갔으면 이유를 보여 준다
+  const showNote = () => { if (!shotNote || box.querySelector('.shot-note')) return; box.querySelector('.cmp-head').insertAdjacentHTML('afterend', `<div class="shot-note">피그마 토큰으로 그림을 받지 못해 느린 방식으로 받고 있어요 · ${esc(shotNote)}</div>`); };
+  showNote(); const noteTimer = setInterval(showNote, 1000);
   try {
     const imgs = await loadShots(want.map(sd => ({ fileKey: sd.fileKey, nodeId: sd.x.id, w: sd.x.w, h: sd.x.h })));
+    clearInterval(noteTimer); showNote();
     if (!$('#cmp') || $('#cmp') !== box) return;
     want.forEach((sd, j) => {
       const pane = panes[sides.indexOf(sd)];
       pane.innerHTML = imgs[j] ? `<img src="${imgs[j]}" alt="${esc(sd.label)}"${sd.x.w ? ` style="width:${sd.x.w}px"` : ''}>` : '<div class="empty">화면을 받지 못했어요. Figma에서 열어 확인해 주세요.</div>';
     });
-  } catch (e) { panes.forEach(p => { if (p.querySelector('.spinner')) p.innerHTML = `<div class="empty">화면을 받지 못했어요: ${esc(e.message)}</div>`; }); }
+  } catch (e) { clearInterval(noteTimer); panes.forEach(p => { if (p.querySelector('.spinner')) p.innerHTML = `<div class="empty">화면을 받지 못했어요: ${esc(e.message)}</div>`; }); }
 }
 
 async function onApply() {

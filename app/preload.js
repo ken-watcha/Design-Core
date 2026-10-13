@@ -1,6 +1,8 @@
 const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('core', {
   setup: () => ipcRenderer.invoke('setup'),
+  installClaude: () => ipcRenderer.invoke('installClaude'),
+  openConnect: () => ipcRenderer.invoke('openConnect'),
   knowledge: () => ipcRenderer.invoke('knowledge'),
   analyze: (url) => ipcRenderer.invoke('analyze', url),
   checkWorkplace: (state, url) => ipcRenderer.invoke('checkWorkplace', state, url),
