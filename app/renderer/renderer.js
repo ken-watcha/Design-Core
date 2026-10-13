@@ -468,7 +468,7 @@ async function onBuild() {
       ${(b.log || []).filter(l => /⚠|대신/.test(l)).map(l => `<p class="muted">${esc(l)}</p>`).join('')}
       <p class="hint">이 Core를 앱의 Core 목록에 추가했습니다 — 다음 판별부터 "기존 Core"로 잡힙니다. 남은 사람 손: 파일 이름·Core 폴더 이동, 원본 커버 Final/아카이브.</p>${money(r.costUsd)}</section>`;
     bindOpen($('#work'));
-  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">복제본에 반쯤 만든 페이지가 남았을 수 있습니다. 복제본을 지우고 다시 Duplicate해 주세요.</p></section>`; $('#buildGo').disabled = false; }
+  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">${/SyntaxError/.test(e.message) ? 'Figma가 코드를 실행하기 전에 멈춰서 복사본은 그대로예요. 다시 눌러 보세요.' : '복사본에 반쯤 만든 페이지가 남았을 수 있어요. 복사본을 지우고 다시 복제해 주세요.'}</p></section>`; $('#buildGo').disabled = false; }
 }
 
 showSetup();

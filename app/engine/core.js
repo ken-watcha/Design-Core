@@ -85,9 +85,11 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
 }
 
 // 새 Core 만들기: 1회차 만들기 → 2회차 깎기 → 결과를 다시 읽어 색인(로컬)에 추가
+// Figma로 보내는 코드는 Claude가 그대로 옮겨 적는다. 길수록 옮겨 적다 틀리기 쉬워서(2026-10-13 SyntaxError) 쓰는 값만 넣는다
+const planPlatforms = (pf) => Object.fromEntries(Object.entries(pf || {}).map(([k, es]) => [k, es.map(e => ({ cls: e.cls, desc: e.desc, picks: e.picks.filter(p => p.chosen).map(p => ({ chosen: p.chosen })) }))]));
 async function buildNewCore(state, work, knowledge, runner = runFigma) {
   const cover = state.analysis.cover || {};
-  const plan = { projectName: projectNameOf(state.verdict), sourceUrl: state.sourceUrl, sourceFileKey: state.fileKey, releaseMonth: month(), owner: cover.owner || ((cover.nameKR || '').split(/\s+I\s+/)[1] || ''), platforms: state.analysis.platforms };
+  const plan = { projectName: projectNameOf(state.verdict), sourceUrl: state.sourceUrl, sourceFileKey: state.fileKey, releaseMonth: month(), owner: cover.owner || ((cover.nameKR || '').split(/\s+I\s+/)[1] || ''), platforms: planPlatforms(state.analysis.platforms) };
   const b = await runner(work.workKey, buildNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 마스터 만들기 (복제본)');
   const t = await runner(work.workKey, trimNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 깎기 (복제본)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 만든 Core 확인 (읽기 전용)');
