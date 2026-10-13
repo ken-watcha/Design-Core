@@ -7,10 +7,15 @@
 
 ## Core 업데이트 앱 설치 (팀원, 맥)
 
-1. GitHub Desktop → File → Clone repository → `ken-watcha/Design-Core` → Clone
-2. Finder에서 받은 폴더(기본 `문서/GitHub/Design-Core`)의 **`설치하기.command`** 더블클릭
-3. 터미널 안내대로 브라우저 로그인(Claude · Figma) → 끝나면 앱이 열린다 → 오른쪽 위 **피그마 토큰 연결 필요**에서 토큰 붙여 넣기
+터미널(Spotlight → "터미널")에 한 줄 붙여 넣기:
 
+```
+curl -fsSL https://raw.githubusercontent.com/ken-watcha/Design-Core/main/install.sh | bash
+```
+
+응용 프로그램 폴더에 **Core 업데이트**가 설치되고 열린다. 앱 첫 화면의 안내대로 ① Claude Code 설치(버튼) ② Claude 로그인·Figma 연결(브라우저) ③ 피그마 토큰 연결을 하면 끝. GitHub Desktop·Node·저장소 받기는 필요 없다. 앱은 켤 때마다 GitHub main의 최신 코드로 바뀐다.
+
+(개발용: 저장소를 Clone했다면 `설치하기.command` 더블클릭 — 저장소 폴더에서 바로 실행하는 개발판)
 자세한 내용: `app/README.md`
 
 ## 구조

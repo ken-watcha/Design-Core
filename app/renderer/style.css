@@ -110,3 +110,16 @@ button.fast.on { color:var(--ok); } button.fast.off { color:var(--bad); }
 .tok .msg.bad { color:var(--bad); } .tok .msg.ok { color:var(--ok); }
 .tok .foot { display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
 .shot-note { padding:8px 16px; font-size:12px; color:var(--warn); border-bottom:1px solid var(--line); }
+/* 처음 설치 도우미 */
+.onboard h2 { margin-bottom:8px; }
+.onboard .steps { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:10px; }
+.onboard .steps li { display:flex; gap:12px; align-items:flex-start; color:var(--muted); }
+.onboard .steps li.now, .onboard .steps li.done { color:var(--text); }
+.onboard .num { flex:none; width:24px; height:24px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; border:1px solid var(--line); }
+.onboard li.now .num { background:var(--accent); border-color:var(--accent); color:#fff; }
+.onboard li.done .num { background:var(--ok); border-color:var(--ok); color:#fff; }
+.onboard .row-btn { display:flex; gap:8px; margin-top:8px; }
+button.ghost { background:transparent; color:var(--text); border:1px solid var(--line); }
+.onboard .msg { margin-top:10px; font-size:13px; } .onboard .msg.bad { color:var(--bad); } .onboard .msg.ok { color:var(--ok); }
+.onboard.flash { outline:2px solid var(--accent); }
+body.home main > .panel.onboard { background:var(--surface); border:1px solid var(--line); padding:18px 20px; border-radius:12px; margin-bottom:24px; }

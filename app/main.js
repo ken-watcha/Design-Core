@@ -1,6 +1,7 @@
 // Core 업데이트 데스크톱 앱 — 창과 엔진 연결. 앱 로그인 없음, Figma·Claude는 각자 노트북의 Claude Code 로그인을 쓴다.
 // 화면은 진행 상태(state: 분석 결과 + 판별 + 작업 위치)를 들고 있다가 단계마다 통째로 넘긴다.
 const { app, BrowserWindow, ipcMain, shell, safeStorage } = require('electron');
+const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
@@ -26,6 +27,29 @@ function createWindow() {
 }
 
 ipcMain.handle('setup', async () => checkSetup());
+// 처음 설치 도우미 (2026-10-13 윤우: 설치 파일만 받으면 앱 안에서 Claude·Figma 연결까지)
+ipcMain.handle('installClaude', async () => new Promise((resolve, reject) => {
+  execFile('/bin/bash', ['-c', 'curl -fsSL https://claude.ai/install.sh | bash'], { timeout: 300000 }, (err, out, errOut) => err ? reject(new Error((errOut || err.message).slice(-400))) : resolve({ ok: true }));
+}));
+ipcMain.handle('openConnect', async () => {
+  // 터미널에서 Claude를 Figma 연결 설정과 함께 연다. 로그인(/login)·Figma 인증(/mcp)은 사람이 브라우저에서 한다.
+  const f = path.join(app.getPath('userData'), 'Claude-연결하기.command');
+  const mcp = path.join(__dirname, 'mcp.json');
+  fs.writeFileSync(f, `#!/bin/bash
+export PATH="$HOME/.local/bin:$HOME/.claude/local:/opt/homebrew/bin:/usr/local/bin:$PATH"
+clear
+echo "Core 업데이트 · Claude·Figma 연결"
+echo ""
+echo "  ① 'Please run /login' 같은 말이 보이면 → /login 입력 → 브라우저에서 회사 계정으로 로그인"
+echo "  ② /mcp 입력 → figma 선택 → Authenticate → 브라우저에서 허용"
+echo "  ③ 'Connected to figma'가 보이면 이 창을 닫고 앱에서 [다시 확인]"
+echo ""
+cd "$HOME"
+claude --mcp-config ${JSON.stringify(mcp)}
+`, { mode: 0o755 });
+  await shell.openPath(f);
+  return { ok: true };
+});
 ipcMain.handle('knowledge', async () => {
   knowledge = await loadKnowledge();
   return { from: knowledge.from, rulesVersion: knowledge.rulesVersion, cores: knowledge.index.files.length };

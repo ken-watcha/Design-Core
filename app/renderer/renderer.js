@@ -6,15 +6,37 @@ let current = null;   // 분석 상태(analysis·verdict·place) — 단계마�
 let work = null;      // 확인된 작업 위치(+ 갱신이면 Core 읽기·Δ)
 const linkTo = (base, id) => base.split('?')[0].replace(/\/$/, '') + '/?node-id=' + String(id).replace(':', '-');
 
+let setupOk = false;
 async function showSetup() {
   const el = $('#setup');
-  try {
-    const s = await window.core.setup();
-    if (s.claude && s.figma) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
-    else if (!s.claude) el.innerHTML = `<span class="bad">● Claude Code 필요</span> · 설치·로그인 안내는 README 1단계`;
-    else el.innerHTML = `<span class="bad">● Figma 연결 필요</span> · README 2단계 (터미널에서 claude → /mcp → figma → Authenticate)`;
-    el.title = [s.detail, el.dataset.rules].filter(Boolean).join('\n');
-  } catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; }
+  let s;
+  try { s = await window.core.setup(); }
+  catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; return; }
+  setupOk = !!(s.claude && s.figma);
+  if (setupOk) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
+  else if (!s.installed) el.innerHTML = `<span class="bad">● Claude Code 설치 필요</span>`;
+  else if (!s.claude) el.innerHTML = `<span class="bad">● Claude 로그인 필요</span>`;
+  else el.innerHTML = `<span class="bad">● Figma 연결 필요</span>`;
+  el.title = [s.detail, el.dataset.rules].filter(Boolean).join('\n');
+  renderOnboard(s);
+}
+
+// 처음 설치 도우미: 준비가 안 됐으면 링크 입력 위에 할 일을 순서대로 보여 준다 (2026-10-13 윤우: 설치 파일만으로 쓰게)
+function renderOnboard(s) {
+  let box = $('#onboard');
+  if (setupOk) { if (box) box.remove(); return; }
+  if (!box) { box = document.createElement('section'); box.id = 'onboard'; box.className = 'panel onboard'; $('main').prepend(box); }
+  const step = (n, done, now, title, body) => `<li class="${done ? 'done' : now ? 'now' : ''}"><span class="num">${done ? '✓' : n}</span><div><b>${title}</b>${now ? `<div class="muted">${body}</div>` : ''}</div></li>`;
+  const inst = !!s.installed, login = !!s.claude;
+  box.innerHTML = `<h2>처음 한 번만 준비해 주세요</h2><ol class="steps">
+    ${step(1, inst, !inst, 'Claude Code 설치', '앱이 Figma를 읽고 쓰는 데 쓰는 프로그램이에요. 버튼을 누르면 자동으로 설치돼요 (1분 안팎).<div class="row-btn"><button id="obInstall" type="button">Claude Code 설치</button></div>')}
+    ${step(2, inst && login && s.figma, inst, 'Claude 로그인 · Figma 연결', '버튼을 누르면 터미널 창이 열려요. 창에 적힌 순서대로 ① /login 으로 회사 계정 로그인 ② /mcp → figma → Authenticate 를 한 뒤 창을 닫고 [다시 확인]을 눌러 주세요.<div class="row-btn"><button id="obConnect" type="button">연결 창 열기</button><button id="obRecheck" type="button" class="ghost">다시 확인</button></div>')}
+    ${step(3, false, false, '피그마 토큰 연결', '')}
+  </ol><div class="msg muted" id="obMsg"></div>`;
+  const msg = (t, cls) => { const m = $('#obMsg'); m.textContent = t; m.className = 'msg ' + (cls || 'muted'); };
+  const b1 = $('#obInstall'); if (b1) b1.addEventListener('click', async () => { b1.disabled = true; msg('설치 중… 창을 닫지 말아 주세요.'); try { await window.core.installClaude(); msg('설치됐어요. 확인 중…', 'ok'); showSetup(); } catch (e) { msg('설치하지 못했어요: ' + String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 'bad'); b1.disabled = false; } });
+  const b2 = $('#obConnect'); if (b2) b2.addEventListener('click', async () => { await window.core.openConnect(); msg('터미널 창에서 순서대로 한 뒤 [다시 확인]을 눌러 주세요.'); });
+  const b3 = $('#obRecheck'); if (b3) b3.addEventListener('click', () => { msg('확인 중… (10초쯤)'); $('#setup').textContent = '준비 상태 다시 확인 중…'; showSetup(); });
 }
 
 async function showKnowledge() {
@@ -138,6 +160,8 @@ async function showFast() {
   b.classList.toggle('on', tokenOn); b.classList.toggle('off', !tokenOn);
 }
 async function needToken() {
+  if (!setupOk && !$('#onboard')) await showSetup();   // 아직 확인 전이면 기다린다
+  if (!setupOk) { const ob = $('#onboard'); if (ob) { ob.scrollIntoView({ behavior: 'smooth' }); ob.classList.add('flash'); setTimeout(() => ob.classList.remove('flash'), 1200); } return false; }
   if (!tokenOn) await showFast();
   if (tokenOn) return true;
   openToken(true); return false;

@@ -1,0 +1,40 @@
+# 맥 배포판 "Core 업데이트" 앱을 만들어 GitHub 릴리스 "mac-latest"에 올린다 (2026-10-13 윤우: 설치 파일 하나로).
+# 앱은 켤 때마다 GitHub main의 최신 코드를 받으므로, 여기서 다시 만드는 건 껍데기(launcher)·아이콘·Electron이 바뀔 때뿐이다.
+# 받는 주소: https://github.com/ken-watcha/Design-Core/releases/download/mac-latest/Core-Update-mac-arm64.zip (Intel 맥은 -x64)
+name: mac-app
+on:
+  push:
+    branches: [main]
+    paths: ['app/launcher/**', 'app/build/**', 'app/scripts/build-mac-app.sh', 'app/package.json', 'app/package-lock.json', '.github/workflows/mac-app.yml']
+  pull_request:
+    paths: ['app/launcher/**', 'app/build/**', 'app/scripts/build-mac-app.sh', '.github/workflows/mac-app.yml']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: 의존성
+        working-directory: app
+        run: npm ci
+      - name: 엔진 시험
+        working-directory: app
+        run: npm test
+      - name: 앱 만들기 (Apple 칩 · Intel)
+        working-directory: app
+        run: |
+          ARCH=arm64 bash scripts/build-mac-app.sh --release
+          ARCH=x64 bash scripts/build-mac-app.sh --release
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with: { name: core-update-mac, path: app/dist/*.zip }
+      - name: 릴리스 mac-latest에 올리기
+        if: github.event_name != 'pull_request'
+        env: { GH_TOKEN: '${{ github.token }}' }
+        run: |
+          gh release view mac-latest >/dev/null 2>&1 || gh release create mac-latest --title "Core 업데이트 (맥)" --notes "설치: 터미널에 한 줄 붙여 넣기 — README 참고. 앱은 켤 때마다 최신 코드로 바뀝니다." --latest
+          gh release upload mac-latest app/dist/*.zip --clobber

@@ -13,7 +13,9 @@
 
 ## 설치 (디자이너, 처음 한 번)
 
-**쉬운 길 (2026-10-13~)**: GitHub Desktop으로 `ken-watcha/Design-Core`를 Clone → 저장소 맨 위 `설치하기.command` 더블클릭. main으로 맞추기·Claude Code 설치 확인·로그인/Figma 연결 확인·`npm install`·앱 만들기·앱 열기를 차례로 하고, 사람은 안내가 나올 때 브라우저 로그인만 한다. 이미 된 단계는 건너뛰니 여러 번 실행해도 된다. 마지막으로 앱 오른쪽 위 **피그마 토큰 연결 필요**에서 Figma 토큰(File content: Read only)을 넣는다.
+**배포판 (2026-10-13~, 팀원 기본)**: 터미널에 `curl -fsSL https://raw.githubusercontent.com/ken-watcha/Design-Core/main/install.sh | bash` 한 줄. GitHub 릴리스 `mac-latest`의 앱(zip)을 받아 응용 프로그램 폴더에 넣고 연다. 앱 첫 화면이 Claude Code 설치(버튼)·로그인/Figma 연결(터미널 창을 열어 줌)·토큰 연결을 순서대로 안내한다. 배포판은 저장소 없이 켤 때마다 GitHub main의 최신 코드(app·plugin·core-index)를 `~/Library/Application Support/Core 업데이트/code/<커밋>/`에 받아 실행한다(못 받으면 지난 코드 → 앱에 든 사본). 앱 묶음은 `.github/workflows/mac-app.yml`이 `launcher/`·아이콘이 바뀔 때만 다시 만든다. 서명하지 않은 앱이라 브라우저로 zip을 받으면 맥이 막을 수 있어 한 줄 설치(curl)를 쓴다.
+
+**개발판**: GitHub Desktop으로 `ken-watcha/Design-Core`를 Clone → 저장소 맨 위 `설치하기.command` 더블클릭. main으로 맞추기·Claude Code 설치 확인·로그인/Figma 연결 확인·`npm install`·앱 만들기·앱 열기를 차례로 하고, 사람은 안내가 나올 때 브라우저 로그인만 한다. 이미 된 단계는 건너뛰니 여러 번 실행해도 된다. 마지막으로 앱 오른쪽 위 **피그마 토큰 연결 필요**에서 Figma 토큰(File content: Read only)을 넣는다.
 
 손으로 할 때:
 1. **Claude Code 설치·로그인**: 터미널에서 `curl -fsSL https://claude.ai/install.sh | bash` → `claude` 실행 → 회사 Claude 계정으로 로그인. (Claude Code 데스크톱 앱만 쓰던 사람도 터미널 로그인이 한 번 필요할 수 있다)

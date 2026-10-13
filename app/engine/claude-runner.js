@@ -104,13 +104,13 @@ async function runFigma(fileKey, code, description, opts) {
 // 준비 상태: Claude Code 설치·로그인 + Figma 연결. whoami 한 번으로 둘 다 확인된다
 async function checkSetup() {
   try { await runClaude(['--version'], null, { timeoutMs: 20000 }); }
-  catch (e) { return { claude: false, figma: false, detail: e.message }; }
+  catch (e) { return { claude: false, figma: false, installed: false, detail: e.message }; }
   try {
     const { data } = await ask(`Call the ${TOOLS.whoami} tool once and reply with ONLY {"handle": "<handle>", "email": "<email>"} from its result. If it fails, reply {"error": "<message>"}.`, [TOOLS.whoami], { timeoutMs: 120000 });
     return { claude: true, figma: true, who: data };
   } catch (e) {
     const notLoggedIn = /log ?in|auth|credential|api key/i.test(e.message) && !/figma/i.test(e.message);
-    return { claude: !notLoggedIn, figma: false, detail: e.message };
+    return { claude: !notLoggedIn, figma: false, installed: true, detail: e.message };
   }
 }
 
