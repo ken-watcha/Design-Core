@@ -12,13 +12,13 @@ function proposePlace(verdict, sourceUrl, sourceKey) {
     return {
       kind: 'branch', coreName: verdict.target, coreKey: core.key, coreUrl: core.url,
       steps: [`${verdict.target} 파일을 엽니다`, '파일 이름 옆 ⌄ → Create branch → 이름은 자유 (예: 이번 프로젝트 이름. 이미 만든 브랜치가 있으면 그걸 엽니다)', '브랜치 안의 내용은 지우지 않고 그대로 둡니다 (앱이 그 안의 화면만 고칩니다)', '브랜치 링크를 아래 칸에 붙여 넣습니다'],
-      why: '기존 Core는 본 파일에 직접 쓰지 않고 브랜치에서 고친 뒤 사람이 확인하고 합칩니다'
+      why: 'Core 본 파일은 그대로 두고 브랜치에서 고쳐요. 결과를 보고 괜찮으면 직접 합치면 돼요.'
     };
   }
   return {
     kind: 'duplicate', coreName: verdict.target, sourceUrl, sourceKey,
     steps: ['프로젝트 파일 이름 옆 ⌄ → Duplicate', `복사본 이름을 "${verdict.target}"로 바꿉니다 (폴더 이동은 나중에 해도 됩니다)`, '복사본 링크를 아래 칸에 붙여 넣습니다'],
-    why: '원본 프로젝트 문서는 기준 문서로 그대로 두고, 복제본을 깎아 Core로 만듭니다 (Figma는 프로그램에 파일 간 복사를 열어 주지 않음)'
+    why: '원본 프로젝트 문서는 그대로 두고, 복사본을 정리해서 Core로 만들어요.'
   };
 }
 
