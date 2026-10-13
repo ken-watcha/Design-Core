@@ -222,8 +222,8 @@ $('#setup').addEventListener('click', () => { $('#setup').textContent = '준비 
 
 function bindOpen(root = document) { root.querySelectorAll('[data-open]').forEach(b => { if (b.dataset.bound) return; b.dataset.bound = 1; b.addEventListener('click', () => window.core.open(b.dataset.open)); }); }
 // 쓰기 전 Named version: 이 연결(use_figma)은 자동 저장을 거부해서(2026-09-18) 사람이 저장하고 체크해야 버튼이 켜진다
-const VERSION_GATE = (btnId) => `<label class="check"><input type="checkbox" data-gate="${btnId}"> 쓰기 전에 이 파일 버전을 저장했어요 (Figma: File → Save to version history)</label>`;
-function bindGate(root) { root.querySelectorAll('[data-gate]').forEach(c => { const b = document.getElementById(c.dataset.gate); if (!b) return; b.disabled = !c.checked; c.addEventListener('change', () => { b.disabled = !c.checked; }); }); }
+// 쓰기 전 버전 저장 체크박스는 없앴다: 복제본·브랜치 자체가 되돌릴 지점이라 (2026-10-13 윤우)
+const SAFE_NOTE = (kind) => `<p class="hint">${kind === 'branch' ? '브랜치는 Core의 복사본이라 바로 고쳐도 괜찮아요. 직접 합치기 전까지 Core 본 파일은 그대로예요.' : '복사본이라 바로 작업해도 원본 문서는 그대로예요. 결과가 이상하면 이 복사본을 지우고 다시 복제하면 돼요.'}</p>`;
 const openBtn = (url, label = 'Figma에서 보기') => `<button class="link" data-open="${esc(url)}">${esc(label)}</button>`;
 // ---------- 진행 막대 (2026-10-12 윤우: 얼마나 남았는지) ----------
 // 실제 단계(Claude 켜기 → Figma 읽기/쓰기 → 정리)는 엔진이 알려 주고, 남은 시간은 지난번에 걸린 시간으로 어림한다
@@ -265,14 +265,14 @@ const money = (v) => v != null ? `<p class="hint">이번 단계 Claude 사용량
 // ---------- 📍 작업 위치 ----------
 function placeHtml(r) {
   const pl = r.place; if (!pl) return '';
-  const head = pl.kind === 'branch' ? `기존 Core 갱신 → ${esc(pl.coreName)}의 브랜치` : `새 Core → 프로젝트 파일의 복제본 (${esc(pl.coreName)})`;
+  const head = pl.kind === 'branch' ? `기존 Core 갱신 → ${esc(pl.coreName)}의 브랜치` : `새 Core → 프로젝트 파일 복사본 (${esc(pl.coreName)})`;
   const link = pl.kind === 'branch' ? (pl.coreUrl ? openBtn(pl.coreUrl, pl.coreName + ' 열기') : '') : openBtn(r.sourceUrl, '프로젝트 파일 열기');
   return `<section class="panel"><h2>📍 작업 위치</h2>
     <div class="verdict"><span class="big">${head}</span>${link}</div>
     <p class="muted">${esc(pl.why)}</p>
     <ol>${pl.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
-    <form id="placeForm"><div class="row"><input id="placeUrl" type="url" required autocomplete="off" placeholder="${pl.kind === 'branch' ? '브랜치 링크 (…/branch/…)' : '복제본 링크'}"><button id="placeGo" type="submit">확인</button></div></form>
-    <p class="hint">되돌릴 지점이 필요하면 그 파일에서 먼저 버전 저장(⌥⌘S)을 해 두세요 — 이 연결로는 자동 저장이 안 됩니다. 확인은 읽기만 합니다.</p></section>`;
+    <form id="placeForm"><div class="row"><input id="placeUrl" type="url" required autocomplete="off" placeholder="${pl.kind === 'branch' ? '브랜치 링크 (…/branch/…)' : '복사본 링크'}"><button id="placeGo" type="submit">확인</button></div></form>
+    <p class="hint">[확인]은 파일을 읽기만 해요. 아직 아무것도 바뀌지 않아요.</p></section>`;
 }
 
 async function onPlace(ev) {
@@ -312,7 +312,7 @@ function showDelta() {
     <ol><li>아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul></li>
     <li>브랜치의 🌏 마스터 파일 페이지 빈 곳에 ⌘V ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</li>
     <li>[반영]을 누르면 앱이 붙여 넣은 화면을 알아보고 교체(이름·위치·링크 유지, 속만 바꿈)·추가(🔵 바와 함께)·링크 카드 기준 날짜를 고칩니다</li></ol>
-    ${VERSION_GATE('applyGo')}<button id="applyGo">반영</button>` : '';
+    <button id="applyGo">반영</button>${SAFE_NOTE('branch')}` : '';
   // 결론을 맨 위에 (2026-10-12 윤우: 결과 표만 보고는 "그래서 뭘 하라는 건지" 몰랐음)
   const checks = d.rows.filter(r => r.check && r.action === '유지').length;
   const next = [checks ? `"확인 필요" ${checks}칸은 거의 같은 화면이에요. 한 번 눈으로 보고 괜찮으면 넘어가세요.` : '', s.missing ? `미수록 ${s.missing}개는 문서에만 있는 섹션이에요. 넣지 않아도 돼요.` : ''].filter(Boolean);
@@ -326,7 +326,7 @@ function showDelta() {
     <table class="delta"><tr><th class="act"></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th><th></th></tr>${rows}${miss}</table>
     ${work.unverifiedBranch ? '<p class="hint">이 링크가 브랜치인지 복제본인지는 앱이 가릴 수 없습니다. 복제본이면 나중에 Core에 합칠(머지) 수 없으니, Figma에서 브랜치인지 한 번 확인해 주세요.</p>' : ''}
     ${paste}${money(work.costUsd)}</section>`;
-  bindOpen($('#work')); bindGate($('#work'));
+  bindOpen($('#work'));
   $('#work').querySelectorAll('tr.pick').forEach(tr => tr.addEventListener('click', (ev) => { if (ev.target.closest('button')) return; openCompare(tr.dataset.row != null ? d.rows[tr.dataset.row] : null, tr.dataset.miss != null ? d.missing[tr.dataset.miss] : null); }));
   $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
 }
@@ -447,9 +447,8 @@ async function onApply() {
 function showBuild() {
   const n = Object.values(current.analysis.platforms).flat().reduce((a, e) => a + e.picks.filter(p => p.chosen).length, 0);
   $('#work').innerHTML = `<section class="panel"><h2>새 Core 만들기 — ${esc(current.place.coreName)}</h2>
-    <p class="muted">복제본 확인됨 (페이지 ${work.pages.length}개). 위 대표 화면 ${n}장을 마스터에 넣고, 작업 페이지를 지워 Cover / --- / 🌏 마스터 파일만 남깁니다. 원본 프로젝트 문서는 건드리지 않습니다.</p>
-    ${VERSION_GATE('buildGo')}<button id="buildGo">새 Core 만들기</button>${money(work.costUsd)}</section>`;
-  bindGate($('#work'));
+    <p class="muted">복사본을 확인했어요. 누르면 위 대표 화면 ${n}장을 🌏 마스터 파일 페이지로 모으고, 나머지 작업 페이지는 지워서 Cover · --- · 🌏 마스터 파일만 남겨요.</p>
+    <button id="buildGo">새 Core 만들기</button>${SAFE_NOTE('copy')}${money(work.costUsd)}</section>`;
   $('#buildGo').addEventListener('click', onBuild);
 }
 
@@ -469,7 +468,7 @@ async function onBuild() {
       ${(b.log || []).filter(l => /⚠|대신/.test(l)).map(l => `<p class="muted">${esc(l)}</p>`).join('')}
       <p class="hint">이 Core를 앱의 Core 목록에 추가했습니다 — 다음 판별부터 "기존 Core"로 잡힙니다. 남은 사람 손: 파일 이름·Core 폴더 이동, 원본 커버 Final/아카이브.</p>${money(r.costUsd)}</section>`;
     bindOpen($('#work'));
-  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">복제본에 반쯤 만든 페이지가 남았을 수 있습니다. 복제본을 지우고 다시 Duplicate해 주세요.</p></section>`; $('#buildGo').disabled = false; }
+  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">${/SyntaxError/.test(e.message) ? 'Figma가 코드를 실행하기 전에 멈춰서 복사본은 그대로예요. 다시 눌러 보세요.' : '복사본에 반쯤 만든 페이지가 남았을 수 있어요. 복사본을 지우고 다시 복제해 주세요.'}</p></section>`; $('#buildGo').disabled = false; }
 }
 
 showSetup();

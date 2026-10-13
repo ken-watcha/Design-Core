@@ -98,7 +98,8 @@ async function runFigma(fileKey, code, description, opts) {
   // 코드를 옮겨 적기만 하면 되니 빠른 모델(sonnet)로, 안 되면 기본 모델로
   try { return await ask(prompt, [TOOLS.useFigma], Object.assign({ model: 'sonnet' }, o)); }
   // Figma가 이미 실행됐으면 다시 돌리지 않는다 (쓰기가 두 번 되지 않게)
-  catch (e) { if (e.afterTool || /^Figma:/.test(e.message)) throw e; return ask(prompt, [TOOLS.useFigma], o); }
+  // 단, 문법 오류는 Figma가 코드를 한 줄도 실행하지 않은 것이라(옮겨 적다 틀림) 기본 모델로 한 번 더 보낸다
+  catch (e) { if (!/SyntaxError/.test(e.message) && (e.afterTool || /^Figma:/.test(e.message))) throw e; return ask(prompt, [TOOLS.useFigma], o); }
 }
 
 // 준비 상태: Claude Code 설치·로그인 + Figma 연결. whoami 한 번으로 둘 다 확인된다
