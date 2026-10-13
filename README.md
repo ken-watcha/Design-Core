@@ -5,6 +5,14 @@
 
 **원칙: 판단과 실행은 분리. Figma 원본에는 Ken 승인 없이 아무것도 쓰지 않는다.**
 
+## Core 업데이트 앱 설치 (팀원, 맥)
+
+1. GitHub Desktop → File → Clone repository → `ken-watcha/Design-Core` → Clone
+2. Finder에서 받은 폴더(기본 `문서/GitHub/Design-Core`)의 **`설치하기.command`** 더블클릭
+3. 터미널 안내대로 브라우저 로그인(Claude · Figma) → 끝나면 앱이 열린다 → 오른쪽 위 **피그마 토큰 연결 필요**에서 토큰 붙여 넣기
+
+자세한 내용: `app/README.md`
+
 ## 구조
 
 | 위치 | 무엇 | 비고 |

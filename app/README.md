@@ -13,9 +13,14 @@
 
 ## 설치 (디자이너, 처음 한 번)
 
+**쉬운 길 (2026-10-13~)**: GitHub Desktop으로 `ken-watcha/Design-Core`를 Clone → 저장소 맨 위 `설치하기.command` 더블클릭. main으로 맞추기·Claude Code 설치 확인·로그인/Figma 연결 확인·`npm install`·앱 만들기·앱 열기를 차례로 하고, 사람은 안내가 나올 때 브라우저 로그인만 한다. 이미 된 단계는 건너뛰니 여러 번 실행해도 된다. 마지막으로 앱 오른쪽 위 **피그마 토큰 연결 필요**에서 Figma 토큰(File content: Read only)을 넣는다.
+
+손으로 할 때:
 1. **Claude Code 설치·로그인**: 터미널에서 `curl -fsSL https://claude.ai/install.sh | bash` → `claude` 실행 → 회사 Claude 계정으로 로그인. (Claude Code 데스크톱 앱만 쓰던 사람도 터미널 로그인이 한 번 필요할 수 있다)
-2. **Figma 연결**: 터미널에서 이 `app` 폴더로 이동 → `claude --mcp-config mcp.json` → 채팅에 `/mcp` → `figma` → **Authenticate** → 브라우저에서 Figma 허용. 한 번 하면 끝.
-3. **앱 실행**: (지금은 개발용) Node.js 설치 → 이 폴더에서 `npm install` → `npm start`. 배포용 `.app` 묶음은 다음 단계에서 만든다.
+2. **저장소는 main으로**: GitHub 기본 갈래가 main이 아니면 Clone 뒤 `git checkout main` (앱은 main일 때만 켤 때마다 최신으로 받는다)
+3. **Figma 연결**: 터미널에서 이 `app` 폴더로 이동 → `claude --mcp-config mcp.json` → 채팅에 `/mcp` → `figma` → **Authenticate** → 브라우저에서 Figma 허용. 한 번 하면 끝.
+4. **앱 만들기**: Node.js 설치 → 이 폴더에서 `npm install` → `bash scripts/build-mac-app.sh` → 바탕화면 `Core 업데이트.app`
+5. **피그마 토큰 연결**: 앱 오른쪽 위에서 토큰 붙여 넣기 (맥 키체인으로 암호화해 그 노트북에만 저장)
 
 앱 상단에 `● 준비됨 · Figma <내 핸들>`이 보이면 된다.
 
