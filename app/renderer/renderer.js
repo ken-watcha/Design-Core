@@ -447,8 +447,8 @@ async function onApply() {
 function showBuild() {
   const n = Object.values(current.analysis.platforms).flat().reduce((a, e) => a + e.picks.filter(p => p.chosen).length, 0);
   $('#work').innerHTML = `<section class="panel"><h2>새 Core 만들기 — ${esc(current.place.coreName)}</h2>
-    <p class="muted">복사본을 확인했어요. 누르면 위 대표 화면 ${n}장을 🌏 마스터 파일 페이지로 모으고, 나머지 작업 페이지는 지워서 Cover · --- · 🌏 마스터 파일만 남겨요.</p>
-    <button id="buildGo">새 Core 만들기</button>${SAFE_NOTE('copy')}${money(work.costUsd)}</section>`;
+    <p class="muted">${work.resume ? '이 복사본은 마스터 페이지까지 만들어졌고, 작업 페이지 정리에서 멈췄어요. 누르면 나머지 작업 페이지를 지워 Cover · --- · 🌏 마스터 파일만 남겨요.' : `복사본을 확인했어요. 누르면 위 대표 화면 ${n}장을 🌏 마스터 파일 페이지로 모으고, 나머지 작업 페이지는 지워서 Cover · --- · 🌏 마스터 파일만 남겨요.`}</p>
+    <button id="buildGo">${work.resume ? '이어서 정리하기' : '새 Core 만들기'}</button>${SAFE_NOTE('copy')}${money(work.costUsd)}</section>`;
   $('#buildGo').addEventListener('click', onBuild);
 }
 

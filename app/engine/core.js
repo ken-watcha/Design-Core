@@ -78,9 +78,12 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     }
     return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, delta, preferred, analysis: state.analysis, costUsd: cost };
   }
-  if (read.isCore) return { ok: false, why: '이미 "🌏 마스터 파일" 페이지가 있는 파일입니다 — 새로 Duplicate한 복사본을 주세요', costUsd };
   const projectPages = knowledge.rules.fileKind.projectPagePatterns;
-  if (!projectPages.some(pat => read.pages.some(n => n.includes(pat)))) return { ok: false, why: '프로젝트 문서 복사본이 아닙니다 (✅ Mobile·✅ Web 페이지가 없음). 파일 전체를 Duplicate해 주세요', costUsd };
+  const hasProject = projectPages.some(pat => read.pages.some(n => n.includes(pat)));
+  // 만들기는 끝났는데 정리(작업 페이지 지우기)에서 멈춘 복사본이면 이어서 정리한다 (2026-10-13 피쳐링셀 test)
+  if (read.isCore && hasProject) return { ok: true, kind: 'duplicate', resume: true, workKey: link.workKey, workUrl: url, pages: read.pages, costUsd };
+  if (read.isCore) return { ok: false, why: '이미 Core로 정리된 파일이에요 ("🌏 마스터 파일" 페이지만 있어요). 새로 복제한 복사본 링크를 주세요', costUsd };
+  if (!hasProject) return { ok: false, why: '프로젝트 문서 복사본이 아닙니다 (✅ Mobile·✅ Web 페이지가 없음). 파일 전체를 Duplicate해 주세요', costUsd };
   return { ok: true, kind: 'duplicate', workKey: link.workKey, workUrl: url, pages: read.pages, costUsd };
 }
 
@@ -90,7 +93,7 @@ const planPlatforms = (pf) => Object.fromEntries(Object.entries(pf || {}).map(([
 async function buildNewCore(state, work, knowledge, runner = runFigma) {
   const cover = state.analysis.cover || {};
   const plan = { projectName: projectNameOf(state.verdict), sourceUrl: state.sourceUrl, sourceFileKey: state.fileKey, releaseMonth: month(), owner: cover.owner || ((cover.nameKR || '').split(/\s+I\s+/)[1] || ''), platforms: planPlatforms(state.analysis.platforms) };
-  const b = await runner(work.workKey, buildNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 마스터 만들기 (복제본)');
+  const b = work.resume ? { data: { resumed: true }, costUsd: 0 } : await runner(work.workKey, buildNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 마스터 만들기 (복제본)');
   const t = await runner(work.workKey, trimNewCoreCode(knowledge.rules, plan), 'Core 업데이트: 새 Core 깎기 (복제본)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 만든 Core 확인 (읽기 전용)');
   const entry = entryFromCoreRead(r.data, state.verdict.target, { origin: `앱이 프로젝트 문서(${state.fileKey})를 복제해 만든 새 Core (${new Date().toISOString().slice(0, 10)})`, source_projects: [state.fileKey] });

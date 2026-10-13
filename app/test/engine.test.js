@@ -82,6 +82,12 @@ const fixture = require('./fixture-stepmade.json');
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'core-helper-'));
   process.env.HOME = home;
   const store = require('../engine/index-store');
+  // 만들기 뒤 정리에서 멈춘 복사본(마스터 + 작업 페이지)은 이어서 정리
+  const half = await checkWorkplace(stNew, dupUrl, k, async () => ({ data: Object.assign({}, coreRead, { pages: coreRead.pages.concat(analysisSig.pages) }), costUsd: 0 }));
+  assert(half.ok && half.resume, '반쯤 만든 복사본은 이어서 정리');
+  const rc = [];
+  await buildNewCore(stNew, half, { rules, index: { files: [] }, memory: {} }, async (key, code, desc) => { rc.push(desc); return { data: /깎기/.test(desc) ? { removed: [], detached: 0, pages: [] } : Object.assign({}, coreRead, { fileKey: 'DDDDDDDDDDDDDDDDDDDDDD' }), costUsd: 0 }; });
+  assert(!rc.some(d => /마스터 만들기/.test(d)) && rc.some(d => /깎기/.test(d)), '이어서 정리는 만들기를 건너뜀');
   const calls = [];
   const kk = { rules, index: JSON.parse(JSON.stringify(indexNoCore)), memory: {} };
   const built = await buildNewCore(stNew, wn, kk, async (key, code, desc) => { calls.push(desc); return { data: /깎기/.test(desc) ? { removed: [], detached: 0, pages: [] } : /확인/.test(desc) ? Object.assign({}, coreRead, { fileKey: 'CCCCCCCCCCCCCCCCCCCCCC' }) : { screens: [], rootId: '1:1' }, costUsd: 0 }; });
