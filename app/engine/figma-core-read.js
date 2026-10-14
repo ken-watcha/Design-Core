@@ -27,15 +27,16 @@ if (master) {
   if (root) out.root = { id: root.id, name: root.name };
   const card = master.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name));
   if (card) {
-    const texts = card.findAll(n => n.type === 'TEXT');
-    out.linkCard = { id: card.id, name: card.name, texts: texts.map(t => ({ id: t.id, chars: t.characters })) };
+    out.linkCard = { id: card.id, name: card.name };
   }
   for (const platform of Object.keys(RULES.sizeClasses)) {
     const sec = master.findOne(n => n.type === 'SECTION' && n.name.trim() === platform);
     if (!sec) continue;
     const cfg = RULES.sizeClasses[platform];
     const bars = [];
-    for (const i of sec.findAll(n => n.type === 'INSTANCE')) { const k = await barKind(i); if (k) bars.push(Object.assign({ id: i.id, kind: k, title: barTitle(i) }, abs(i))); }
+    // 설명 바는 화면 밖(섹션·그룹 바로 아래)에만 있다. 화면 안 인스턴스(SVOD는 5만 개)는 보지 않는다.
+    const outside = []; const walk = (n) => { for (const c of n.children || []) { if (c.type === 'INSTANCE') outside.push(c); else if (c.type !== 'FRAME') walk(c); } }; walk(sec);
+    for (const i of outside) { const k = await barKind(i); if (k) bars.push(Object.assign({ id: i.id, kind: k, title: barTitle(i) }, abs(i))); }
     const frames = sec.children.filter(n => n.type === 'FRAME');
     const screens = frames.map(f => {
       const a = abs(f);
@@ -44,11 +45,18 @@ if (master) {
       const byTitle = blue && cfg.classes.find(c => c.name === blue.title);
       const byWidth = cfg.classes.find(c => [c.width].concat(c.extraWidths || []).some(w => Math.abs(w - f.width) < 0.5));
       const cls = (byTitle || byWidth || {}).name || null;
-      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), x: Math.round(f.x), y: Math.round(f.y), cls, clsBasis: byTitle ? '설명 바' : (byWidth ? '폭' : null), bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', ...sigs(f) };
+      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), cls, bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', ...sigs(f) };
     });
-    out.platforms[platform] = { sectionId: sec.id, w: Math.round(sec.width), h: Math.round(sec.height), bars: bars.map(b => ({ id: b.id, kind: b.kind, title: b.title })), screens };
+    out.platforms[platform] = { sectionId: sec.id, screens };
   }
 }
+// 20KB 한도: 화면이 아주 많은 Core면 이름을 줄이고, 그래도 넘으면 묶음 이름·화면 이름 순으로 뺀다 (지문·크기·id는 그대로 — Δ 계산에 필요)
+const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
+const all = () => Object.values(out.platforms).flatMap(p => p.screens);
+if (bytes(out) > 18000) { for (const s of all()) { s.name = s.name.slice(0, 24); s.group = s.group.slice(0, 16); } out.trimmed = 'names'; }
+if (bytes(out) > 18000) { for (const s of all()) delete s.group; out.trimmed = 'group'; }
+if (bytes(out) > 18000) { for (const s of all()) s.name = ''; out.trimmed = 'nameless'; }
+if (bytes(out) > 19500) return { error: 'Core 화면이 너무 많아 한 번에 읽지 못했어요 (' + all().length + '장)' };
 return out;
 `;
 

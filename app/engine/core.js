@@ -9,7 +9,7 @@ const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('./figma-write');
 const { proposePlace, checkLink } = require('./place');
 const { computeDelta, preferCoreScreens } = require('./delta');
-const { buildFindSourcesCode, buildItemsCode, diffItems } = require('./figma-find');
+const { findSources, diffCounts, readItemCounts, readItemLabels } = require('./figma-find');
 
 const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/';
 const LOCAL = path.join(__dirname, '..', '..');
@@ -71,14 +71,19 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     const chosenSigs = new Set(Object.values(state.analysis.platforms).flat().flatMap(e => e.picks.map(p => (p.candidates.find(c => c.id === p.chosen) || {}).sig)));
     const targets = Object.values(read.platforms).flatMap(p => p.screens).filter(s => !chosenSigs.has(s.sig)).map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
     let sources = {};
-    if (targets.length) { const f = await runner(state.fileKey, buildFindSourcesCode(targets), 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.data.sources || {}; cost += f.costUsd || 0; }
+    if (targets.length) { const f = await findSources(runner, state.fileKey, targets, 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.sources; cost += f.cost; }
     const delta = computeDelta(state.analysis, read, sources);
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
     const checks = delta.rows.filter(r => r.check && r.target);
     if (checks.length) {
-      const [a, b] = await Promise.all([runner(state.fileKey, buildItemsCode(checks.map(r => r.source.id)), 'Core 업데이트: 차이 비교 — 프로젝트 (읽기 전용)'), runner(link.workKey, buildItemsCode(checks.map(r => r.target.id)), 'Core 업데이트: 차이 비교 — Core (읽기 전용)')]);
-      cost += (a.costUsd || 0) + (b.costUsd || 0);
-      for (const r of checks) r.diff = diffItems(a.data.items[r.source.id], b.data.items[r.target.id]);
+      const [a, b] = await Promise.all([readItemCounts(runner, state.fileKey, checks.map(r => r.source.id), 'Core 업데이트: 차이 비교 — 프로젝트 (읽기 전용)'), readItemCounts(runner, link.workKey, checks.map(r => r.target.id), 'Core 업데이트: 차이 비교 — Core (읽기 전용)')]);
+      cost += a.cost + b.cost;
+      const diffs = checks.map(r => diffCounts(a.counts[r.source.id], b.counts[r.target.id]));
+      const wantA = {}, wantB = {};
+      checks.forEach((r, i) => { if (diffs[i].onlyA.length) wantA[r.source.id] = [...new Set(diffs[i].onlyA)]; if (diffs[i].onlyB.length) wantB[r.target.id] = [...new Set(diffs[i].onlyB)]; });
+      const [la, lb] = await Promise.all([readItemLabels(runner, state.fileKey, wantA, 'Core 업데이트: 차이 이름 — 프로젝트 (읽기 전용)'), readItemLabels(runner, link.workKey, wantB, 'Core 업데이트: 차이 이름 — Core (읽기 전용)')]);
+      cost += la.cost + lb.cost;
+      checks.forEach((r, i) => { const d = diffs[i], na = la.labels[r.source.id] || {}, nb = lb.labels[r.target.id] || {}; r.diff = Object.assign({}, d, { onlyA: d.onlyA.map(h => na[h] || '(이름 못 읽음)'), onlyB: d.onlyB.map(h => nb[h] || '(이름 못 읽음)') }); });
     }
     return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, delta, preferred, analysis: state.analysis, costUsd: cost };
   }

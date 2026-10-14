@@ -44,7 +44,12 @@ const fixture = require('./fixture-stepmade.json');
   // 원본 찾기·차이 비교 호출은 설명으로 구분해 고정 자료를 돌려준다
   const fakeBranch = async (key, code, desc) => {
     if (/원본 찾기/.test(desc)) return { data: { sources: find768 }, costUsd: 0 };
-    if (/차이 비교/.test(desc)) { const ids = JSON.parse(/const IDS = (.*);/.exec(code)[1]); const items = {}; for (const id of ids) items[id] = ['요소 "a"', '글자 "b"']; return { data: { items }, costUsd: 0 }; }
+    // 차이 비교·이름은 실제 코드를 작은 가짜 화면에 돌린다: 프로젝트 쪽에만 "가이드" 사각형이 하나 더 있다
+    if (/차이 (비교|이름)/.test(desc)) {
+      const kids = [{ name: 'a' }, { name: 'b', type: 'TEXT', characters: '안녕' }].concat(key === st.fileKey ? [{ name: '가이드' }] : []);
+      const figma = { getNodeByIdAsync: async (id) => ({ id, name: 'screen', children: kids }) };
+      return { data: await new AsyncFn('figma', code)(figma), costUsd: 0 };
+    }
     return { data: coreRead, costUsd: 0 };
   };
   const w = await checkWorkplace(st, branchUrl, k, fakeBranch);
@@ -56,6 +61,13 @@ const fixture = require('./fixture-stepmade.json');
   assert.strictEqual(w.delta.summary.near, 1, 'WEB 768 = 거의 같음 (확인 필요)');
   const r768 = w.delta.rows.find(r => r.platform === 'WEB' && r.width === 768);
   assert(r768.check && /높이/.test(r768.why) && r768.diff, '거의 같음은 다른 점을 적는다');
+  assert.deepStrictEqual(r768.diff.onlyA, ['요소 "가이드"'], '원본에만 있는 요소를 이름으로 적는다');
+  assert.deepStrictEqual(r768.diff.onlyB, [], 'Core에만 있는 요소 없음');
+  // 20KB 한도: 한 번에 못 담은 화면(rest)은 다시 불러 모두 받는다 (2026-10-14 SVOD (홈) 56KB)
+  const { readItemCounts } = require('../engine/figma-find');
+  let nCalls = 0;
+  const rcs = await readItemCounts(async (key, code) => { nCalls++; const ids = JSON.parse(/const IDS = (.*);/.exec(code)[1]); return { data: { counts: { [ids[0]]: 'x' }, rest: ids.slice(1) }, costUsd: 0 }; }, 'K', ['1:1', '1:2', '1:3'], '차이 비교');
+  assert.strictEqual(nCalls, 3); assert.deepStrictEqual(Object.keys(rcs.counts), ['1:1', '1:2', '1:3']);
   assert.strictEqual(w.delta.summary.missing, 1, '더보기 팝업 미수록');
   // 브랜치 링크 두 번째 모양(…/design/<브랜치 키>/<이름>)도 받는다. Core 본 파일 키는 거절
   assert(checkLink(st.place, 'https://www.figma.com/design/oQwfxim46wbwy2zvx65OLB/Core-x').ok, '브랜치 키 모양 링크');

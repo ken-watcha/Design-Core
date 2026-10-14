@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "test": "node test/engine.test.js"
+    "test": "node test/engine.test.js && node test/limit.test.js"
   },
   "devDependencies": {
     "electron": "^38.0.0"

@@ -84,7 +84,7 @@ async function ask(prompt, tools, opts = {}) {
 // Figma에서 플러그인 API 코드 1회 실행
 // 줄 전체가 주석인 줄은 빼고 보낸다 — Claude가 코드를 그대로 옮겨 적는 시간이 줄어든다
 const slim = (code) => code.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('//')).join('\n');
-async function runFigma(fileKey, code, description, opts) {
+async function runFigmaOnce(fileKey, code, description, opts) {
   const prompt = [
     `Call the ${TOOLS.useFigma} tool exactly once with:`,
     `- fileKey: ${fileKey}`,
@@ -100,6 +100,21 @@ async function runFigma(fileKey, code, description, opts) {
   // Figma가 이미 실행됐으면 다시 돌리지 않는다 (쓰기가 두 번 되지 않게)
   // 단, 문법 오류는 Figma가 코드를 한 줄도 실행하지 않은 것이라(옮겨 적다 틀림) 기본 모델로 한 번 더 보낸다
   catch (e) { if (!/SyntaxError/.test(e.message) && (e.afterTool || /^Figma:/.test(e.message))) throw e; return ask(prompt, [TOOLS.useFigma], o); }
+}
+
+// Figma 연결은 한 번에 20KB까지만 돌려준다. 앱이 읽는 코드는 모두 나눠 받게 해 두었지만(rest), 그래도 넘으면 무엇이 넘었는지 알아듣게 알린다.
+function friendlyLimit(e, description) {
+  const m = /exceeds the (\d+)-byte limit \((\d+) bytes\)/.exec(e.message || '');
+  if (!m) return e;
+  const step = String(description || '').replace(/^Core 업데이트:\s*/, '').replace(/\s*\(.*\)$/, '');
+  const err = new Error(`"${step}" 단계에서 읽은 양(${Math.round(m[2] / 1024)}KB)이 한 번에 받을 수 있는 양(${Math.round(m[1] / 1024)}KB)을 넘었어요. ${/읽기 전용/.test(description) ? '읽기만 하는 단계라 파일은 바뀌지 않았어요.' : '작업은 Figma에 반영됐을 수 있으니 파일을 먼저 확인해 주세요.'} 이 화면을 캡처해 알려 주세요. (${e.message})`);
+  err.afterTool = e.afterTool; err.limit = true;
+  return err;
+}
+
+async function runFigma(fileKey, code, description, opts) {
+  try { return await runFigmaOnce(fileKey, code, description, opts); }
+  catch (e) { throw friendlyLimit(e, description); }
 }
 
 // 준비 상태: Claude Code 설치·로그인 + Figma 연결. whoami 한 번으로 둘 다 확인된다
@@ -200,4 +215,4 @@ async function claudeShots(items) {
   return { images, costUsd };
 }
 
-module.exports = { runFigma, checkSetup, extractJson, screenshots, setProgressSink, setRestToken, restCheck, restFileGone };
+module.exports = { friendlyLimit, runFigma, checkSetup, extractJson, screenshots, setProgressSink, setRestToken, restCheck, restFileGone };
