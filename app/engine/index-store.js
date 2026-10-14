@@ -39,4 +39,10 @@ function addLocal(entry, file = localFile()) {
   fs.writeFileSync(file, JSON.stringify({ files }, null, 1));
 }
 
-module.exports = { mergeIndex, entryFromCoreRead, addLocal, readLocal, localFile };
+function removeLocal(keys, file = localFile()) {
+  const files = readLocal(file); const left = files.filter(f => !keys.includes(f.key));
+  if (left.length !== files.length) fs.writeFileSync(file, JSON.stringify({ files: left }, null, 1));
+  return files.length - left.length;
+}
+
+module.exports = { mergeIndex, entryFromCoreRead, addLocal, readLocal, removeLocal, localFile };

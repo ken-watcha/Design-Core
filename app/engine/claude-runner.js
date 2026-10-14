@@ -128,6 +128,11 @@ async function restCheck(token) {
   if (!r.ok) throw new Error(r.status === 403 || r.status === 401 ? '토큰이 맞지 않아요 (' + r.status + ')' : 'Figma 응답 ' + r.status);
   const me = await r.json(); return { handle: me.handle, email: me.email };
 }
+// 파일이 지워졌는지(404) 토큰으로 확인. 토큰이 없거나 다른 오류면 모른다(false)
+async function restFileGone(key) {
+  if (!restToken) return false;
+  try { const r = await fetch(`https://api.figma.com/v1/files/${encodeURIComponent(key)}?depth=1`, { headers: { 'X-Figma-Token': restToken } }); return r.status === 404; } catch (e) { return false; }
+}
 const toDataUrl = async (u) => {
   // Figma 그림 주소만 받는다 (MCP는 figma.com, 이미지 API는 figma-alpha-api S3)
   if (!u || !/^https:\/\/(([a-z0-9-]+\.)*figma\.com|figma-alpha-api\.s3\.[a-z0-9-]+\.amazonaws\.com)\//.test(u)) return null;
@@ -195,4 +200,4 @@ async function claudeShots(items) {
   return { images, costUsd };
 }
 
-module.exports = { runFigma, checkSetup, extractJson, screenshots, setProgressSink, setRestToken, restCheck };
+module.exports = { runFigma, checkSetup, extractJson, screenshots, setProgressSink, setRestToken, restCheck, restFileGone };
