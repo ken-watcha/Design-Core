@@ -228,7 +228,7 @@ const openBtn = (url, label = 'Figma에서 보기') => `<button class="link" dat
 // ---------- 진행 막대 (2026-10-12 윤우: 얼마나 남았는지) ----------
 // 실제 단계(Claude 켜기 → Figma 읽기/쓰기 → 정리)는 엔진이 알려 주고, 남은 시간은 지난번에 걸린 시간으로 어림한다
 const STAGE_TEXT = { start: 'Claude를 켜는 중', figma: 'Figma와 주고받는 중', wrap: '결과 정리 중', done: '마무리 중' };
-const EXPECT = { analyze: 45, place: 60, apply: 90, build: 180 };
+const EXPECT = { analyze: 45, place: 60, apply: 90, build: 180, gather: 40 };
 const store = { get: (k) => { try { return Number(localStorage.getItem(k)) || 0; } catch (e) { return 0; } }, set: (k, v) => { try { localStorage.setItem(k, String(v)); } catch (e) {} } };
 let prog = null;
 function progressHtml(op, title, id = '') {
@@ -308,9 +308,17 @@ function showDelta() {
     <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go"><span class="go-in">비교${CHEV}</span></td></tr>`).join('');
   const miss = d.missing.map((m, i) => `<tr class="pick" data-miss="${i}" title="눌러서 화면 보기"><td class="act"><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)}</td><td class="muted">${esc(m.why)}</td><td class="go"><span class="go-in">보기${CHEV}</span></td></tr>`).join('');
   const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가');
+  // 파일 사이로는 앱이 화면을 못 옮긴다. 프로젝트 문서 브랜치에 바꿀 화면을 한 섹션으로 모아 섹션 하나만 복사하게 한다 (2026-10-14 윤우)
+  const oneByOne = `<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul>`;
+  const copyStep = work.gathered
+    ? `<li>모은 화면을 열고 섹션 이름(📦 Core로 보낼 화면)을 눌러 섹션째 선택 → ⌘C ${openBtn(linkTo(work.gathered.url, work.gathered.sectionId), '모은 화면 열기')}${work.gathered.missing.length ? `<div class="hint">못 찾은 화면: ${esc(work.gathered.missing.join(' · '))} — 이 화면은 아래처럼 한 장씩 복사해 주세요${oneByOne}</div>` : ''}</li>`
+    : `<li><b>바꿀 화면 ${todo.length}장을 한 번에 복사하게 모아 드려요.</b> 프로젝트 문서에서 파일 이름 옆 ⌄ → Create branch(이름 자유)로 브랜치를 만들고 링크를 넣어 주세요. ${openBtn(current.sourceUrl, '프로젝트 문서 열기')}
+        <form id="gatherForm"><div class="row"><input id="gatherUrl" type="url" required autocomplete="off" placeholder="프로젝트 문서 브랜치 링크"><button id="gatherGo" type="submit">모으기</button></div></form>
+        <p class="hint">프로젝트 문서 브랜치도 복사본이라 원본은 그대로예요. 다 쓰면 합치지 말고 버리면 돼요.</p>
+        <details><summary class="hint">브랜치 없이 한 장씩 복사하기</summary><p class="hint">아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C</p>${oneByOne}</details></li>`;
   const paste = todo.length ? `<h2 style="margin-top:18px">붙여넣기 (사람 손 1회)</h2>
-    <ol><li>아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul></li>
-    <li>브랜치의 🌏 마스터 파일 페이지 빈 곳에 ⌘V ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</li>
+    <ol>${copyStep}
+    <li>Core 브랜치의 🌏 마스터 파일 페이지 빈 곳에 ⌘V ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</li>
     <li>[반영]을 누르면 앱이 붙여 넣은 화면을 알아보고 교체(이름·위치·링크 유지, 속만 바꿈)·추가(🔵 바와 함께)·링크 카드 기준 날짜를 고칩니다</li></ol>
     <button id="applyGo">반영</button>${SAFE_NOTE('branch')}` : '';
   // 결론을 맨 위에 (2026-10-12 윤우: 결과 표만 보고는 "그래서 뭘 하라는 건지" 몰랐음)
@@ -329,6 +337,22 @@ function showDelta() {
   bindOpen($('#work'));
   $('#work').querySelectorAll('tr.pick').forEach(tr => tr.addEventListener('click', (ev) => { if (ev.target.closest('button')) return; openCompare(tr.dataset.row != null ? d.rows[tr.dataset.row] : null, tr.dataset.miss != null ? d.missing[tr.dataset.miss] : null); }));
   $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
+  $('#gatherForm') && $('#gatherForm').addEventListener('submit', onGather);
+}
+
+async function onGather(ev) {
+  ev.preventDefault();
+  if (!(await needToken())) return;
+  const url = $('#gatherUrl').value.trim();
+  $('#gatherGo').disabled = true;
+  $('#gatherForm').insertAdjacentHTML('afterend', progressHtml('gather', '바꿀 화면을 한곳에 모으고 있어요', 'gatherBusy')); startProgress('gather');
+  try {
+    const g = await window.core.gatherForPaste(current, work, url);
+    stopProgress(true);
+    if (!g.ok) { const b = $('#gatherBusy'); if (b) b.outerHTML = `<p class="muted">${esc(g.why)}</p>`; $('#gatherGo').disabled = false; return; }
+    work.gathered = g; work.costUsd = (work.costUsd || 0) + (g.costUsd || 0);
+    showDelta();
+  } catch (e) { stopProgress(); const b = $('#gatherBusy'); if (b) b.outerHTML = `<p class="muted">모으지 못했어요: ${esc(e.message)}</p>`; $('#gatherGo').disabled = false; }
 }
 
 // ---------- 두 화면 나란히 보기 (2026-10-12 윤우: 링크로 Figma를 오가지 말고 앱 안에서 비교) ----------

@@ -6,8 +6,8 @@ const { judge } = require('./judge');
 const { runFigma, restFileGone } = require('./claude-runner');
 const { mergeIndex, readLocal, removeLocal, entryFromCoreRead, addLocal } = require('./index-store');
 const { buildCoreReadCode } = require('./figma-core-read');
-const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('./figma-write');
-const { proposePlace, checkLink } = require('./place');
+const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode, gatherPasteCode, GATHER_SECTION } = require('./figma-write');
+const { proposePlace, checkLink, parseLink } = require('./place');
 const { computeDelta, preferCoreScreens } = require('./delta');
 const { findSources, diffCounts, readItemCounts, readItemLabels } = require('./figma-find');
 
@@ -122,4 +122,25 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
   return { apply: a.data, after, core: r.data, costUsd: (a.costUsd || 0) + (r.costUsd || 0) };
 }
 
-module.exports = { loadKnowledge, analyzeProject, parseFigmaUrl, checkWorkplace, buildNewCore, applyUpdate };
+// 붙여넣기 준비: 프로젝트 문서의 브랜치(또는 복제본)에 바꿀 화면을 한 섹션으로 모은다 → 사람은 섹션 하나만 복사
+function checkGatherLink(state, url) {
+  const l = parseLink(url);
+  if (!l) return { ok: false, why: 'Figma 디자인 파일 링크가 아닙니다' };
+  if (l.branchKey) {
+    if (l.fileKey !== state.fileKey) return { ok: false, why: '이 프로젝트 문서의 브랜치가 아니에요 (다른 파일의 브랜치)' };
+    return { ok: true, key: l.branchKey };
+  }
+  if (l.fileKey === state.fileKey) return { ok: false, why: '원본 프로젝트 문서예요. 원본에는 쓰지 않아요. 프로젝트 문서에서 ⌄ → Create branch로 브랜치를 만들고 그 링크를 주세요' };
+  if (state.place && l.fileKey === state.place.coreKey) return { ok: false, why: 'Core 파일 링크예요. 여기에는 프로젝트 문서의 브랜치 링크를 넣어 주세요' };
+  return { ok: true, key: l.fileKey };
+}
+async function gatherForPaste(state, work, url, runner = runFigma) {
+  const link = checkGatherLink(state, url);
+  if (!link.ok) return link;
+  const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가');
+  const plan = { sourceKey: state.fileKey, coreKey: state.place && state.place.coreKey, pageName: GATHER_SECTION, sectionName: `${GATHER_SECTION} ${rows.length}장`, screens: rows.map(r => ({ id: r.source.id, label: `${r.platform} ${r.cls} ${r.width}px` })) };
+  const { data, costUsd } = await runner(link.key, gatherPasteCode(plan), 'Core 업데이트: 붙여 넣을 화면 모으기 (프로젝트 문서 브랜치)');
+  return Object.assign({ ok: true, url, costUsd }, data);
+}
+
+module.exports = { loadKnowledge, analyzeProject, parseFigmaUrl, checkWorkplace, buildNewCore, applyUpdate, gatherForPaste, checkGatherLink };

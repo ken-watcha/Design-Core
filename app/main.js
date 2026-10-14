@@ -4,7 +4,7 @@ const { app, BrowserWindow, ipcMain, shell, safeStorage } = require('electron');
 const { execFile } = require('child_process');
 const fs = require('fs');
 const path = require('path');
-const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate } = require('./engine/core');
+const { loadKnowledge, analyzeProject, checkWorkplace, buildNewCore, applyUpdate, gatherForPaste } = require('./engine/core');
 const { checkSetup, screenshots, setProgressSink, setRestToken, restCheck } = require('./engine/claude-runner');
 
 // Figma 개인 액세스 토큰(그림 빨리 받기용) — 맥 키체인으로 암호화해 앱 데이터 폴더에만 둔다. 채팅·저장소에는 남기지 않는다.
@@ -58,6 +58,7 @@ ipcMain.handle('analyze', async (_e, url) => analyzeProject(url, await ensureKno
 ipcMain.handle('checkWorkplace', async (_e, state, url) => checkWorkplace(state, url, await ensureKnowledge()));
 ipcMain.handle('buildNewCore', async (_e, state, work) => buildNewCore(state, work, await ensureKnowledge()));
 ipcMain.handle('applyUpdate', async (_e, state, work) => applyUpdate(state, work, await ensureKnowledge()));
+ipcMain.handle('gatherForPaste', async (_e, state, work, url) => gatherForPaste(state, work, url));
 ipcMain.handle('screens', async (_e, items) => screenshots(items));
 ipcMain.handle('tokenStatus', async () => ({ on: fs.existsSync(tokenFile()), who: tokenWho }));
 ipcMain.handle('tokenSave', async (_e, token) => {
