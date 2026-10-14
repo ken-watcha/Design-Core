@@ -3,8 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { buildAnalyzeCode } = require('./figma-analyze');
 const { judge } = require('./judge');
-const { runFigma } = require('./claude-runner');
-const { mergeIndex, readLocal, entryFromCoreRead, addLocal } = require('./index-store');
+const { runFigma, restFileGone } = require('./claude-runner');
+const { mergeIndex, readLocal, removeLocal, entryFromCoreRead, addLocal } = require('./index-store');
 const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('./figma-write');
 const { proposePlace, checkLink } = require('./place');
@@ -22,7 +22,11 @@ async function loadJson(rel) {
 async function loadKnowledge() {
   const [rules, index, memory] = await Promise.all([loadJson('plugin/rules.json'), loadJson('core-index/core-index.json'), loadJson('plugin/memory.json').catch(() => ({ data: {} }))]);
   let copy = null; try { copy = JSON.parse(fs.readFileSync(path.join(LOCAL, 'core-index/core-index.json'), 'utf8')); } catch (e) {}
-  const merged = mergeIndex(index.data, copy, readLocal());
+  // 앱이 만든 Core(로컬 추가분) 중 Figma에서 지운 파일은 잊는다 (2026-10-13 피쳐링셀: 지운 복사본으로 계속 판별될 뻔함)
+  let local = readLocal();
+  const gone = (await Promise.all(local.map(async f => (await restFileGone(f.key)) ? f.key : null))).filter(Boolean);
+  if (gone.length) { removeLocal(gone); local = local.filter(f => !gone.includes(f.key)); }
+  const merged = mergeIndex(index.data, copy, local);
   return { rules: rules.data, index: merged.index, memory: memory.data || {}, from: `규칙 ${rules.from} · 색인 ${index.from}${merged.added.length ? ' + ' + merged.added.length + '개 추가' : ''}`, rulesVersion: rules.data.version, addedCores: merged.added };
 }
 

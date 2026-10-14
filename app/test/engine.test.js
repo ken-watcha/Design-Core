@@ -95,5 +95,7 @@ const fixture = require('./fixture-stepmade.json');
   assert(kk.index.files.some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '새 Core를 색인에 추가');
   assert(built.core);
   assert(store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '로컬 추가분 파일에 기록');
+  assert.strictEqual(store.removeLocal(['CCCCCCCCCCCCCCCCCCCCCC']), 1);
+  assert(!store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '지운 Core는 로컬 추가분에서 빠짐');
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });
