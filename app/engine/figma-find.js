@@ -22,28 +22,66 @@ for (const t of TARGETS) {
 return { scanned: pool.length, sources: out };
 `;
 
+// 큰 Core 화면은 요소가 1,000개가 넘어 목록을 그대로 돌려주면 20KB 한도를 넘는다 (2026-10-14 SVOD (홈) 56KB).
+// 그래서 1) 요소마다 짧은 해시와 개수만 받아 앱에서 차이를 세고, 2) 차이 나는 해시의 이름·글자만 다시 받는다.
+// 한 번에 다 못 담으면 남은 화면(rest)을 돌려주고 앱이 다시 부른다.
+const ITEM_FN = String.raw`
+const H = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+const itemsOf = (root) => { const items = []; const walk = (n, top) => { if (n.visible === false) return; if (!top) { items.push('요소 "' + n.name + '"'); if (n.type === 'TEXT') items.push('글자 "' + n.characters.slice(0, 30) + '"'); } if ('children' in n) for (const c of n.children) walk(c, false); }; walk(root, true); return items; };
+`;
+
 const ITEMS = String.raw`
-const out = {};
+const out = {}, rest = []; let size = 0;
 for (const id of IDS) {
+  if (size > 14000) { rest.push(id); continue; }
   const root = await figma.getNodeByIdAsync(id); if (!root) { out[id] = null; continue; }
-  const items = [];
-  const walk = (n, top) => { if (n.visible === false) return; if (!top) { items.push('요소 "' + n.name + '"'); if (n.type === 'TEXT') items.push('글자 "' + n.characters.slice(0, 30) + '"'); } if ('children' in n) for (const c of n.children) walk(c, false); };
-  walk(root, true);
-  out[id] = items;
+  const m = {}; for (const it of itemsOf(root)) { const k = H(it); m[k] = (m[k] || 0) + 1; }
+  const len = JSON.stringify(m).length;
+  if (size && size + len > 14000) { rest.push(id); continue; }
+  size += len; out[id] = m;
 }
-return { items: out };
+return { counts: out, rest };
+`;
+
+const LABELS = String.raw`
+const out = {};
+for (const id of Object.keys(WANT)) {
+  const root = await figma.getNodeByIdAsync(id); if (!root) continue;
+  const want = new Set(WANT[id]); out[id] = {};
+  for (const it of itemsOf(root)) { const k = H(it); if (want.has(k) && !out[id][k]) out[id][k] = it; }
+}
+return { labels: out };
 `;
 
 const buildFindSourcesCode = (targets) => `const TARGETS = ${JSON.stringify(targets)};\n` + SIG_FN + FIND;
-const buildItemsCode = (ids) => `const IDS = ${JSON.stringify(ids)};\n` + ITEMS;
+const buildItemsCode = (ids) => `const IDS = ${JSON.stringify(ids)};\n` + ITEM_FN + ITEMS;
+const buildLabelsCode = (want) => `const WANT = ${JSON.stringify(want)};\n` + ITEM_FN + LABELS;
 
-// 두 목록의 차이(중복 개수까지 센다): 한쪽에만 있는 것
-function diffItems(a, b, max = 5) {
-  const count = (xs) => xs.reduce((m, x) => m.set(x, (m.get(x) || 0) + 1), new Map());
-  const ca = count(a || []), cb = count(b || []);
-  const only = (x, y) => { const r = []; for (const [k, v] of x) { const d = v - (y.get(k) || 0); for (let i = 0; i < d; i++) r.push(k); } return r; };
-  const oa = only(ca, cb), ob = only(cb, ca);
+// 두 개수표({해시: 개수})의 차이: 한쪽에만 있는 해시 (중복 개수까지 센다)
+function diffCounts(a, b, max = 5) {
+  const only = (x, y) => { const r = []; for (const k of Object.keys(x || {})) { const d = x[k] - ((y || {})[k] || 0); for (let i = 0; i < d; i++) r.push(k); } return r; };
+  const oa = only(a, b), ob = only(b, a);
   return { onlyA: oa.slice(0, max), onlyB: ob.slice(0, max), moreA: Math.max(0, oa.length - max), moreB: Math.max(0, ob.length - max) };
 }
 
-module.exports = { buildFindSourcesCode, buildItemsCode, diffItems };
+// 화면들의 요소 개수표를 받는다. 한도 때문에 남긴 화면(rest)이 있으면 다시 부른다.
+async function readItemCounts(runner, key, ids, label) {
+  const counts = {}; let todo = ids, cost = 0;
+  while (todo.length) {
+    const r = await runner(key, buildItemsCode(todo), label);
+    Object.assign(counts, r.data.counts || {}); cost += r.costUsd || 0;
+    const rest = r.data.rest || [];
+    if (rest.length >= todo.length) break;
+    todo = rest;
+  }
+  return { counts, cost };
+}
+
+// 차이 나는 해시만 이름·글자로 바꾼다
+async function readItemLabels(runner, key, want, label) {
+  if (!Object.keys(want).length) return { labels: {}, cost: 0 };
+  const r = await runner(key, buildLabelsCode(want), label);
+  return { labels: r.data.labels || {}, cost: r.costUsd || 0 };
+}
+
+module.exports = { buildFindSourcesCode, buildItemsCode, buildLabelsCode, diffCounts, readItemCounts, readItemLabels };
