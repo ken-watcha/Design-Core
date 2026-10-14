@@ -50,6 +50,13 @@ if (master) {
     out.platforms[platform] = { sectionId: sec.id, screens };
   }
 }
+// 20KB 한도: 화면이 아주 많은 Core면 이름을 줄이고, 그래도 넘으면 묶음 이름·화면 이름 순으로 뺀다 (지문·크기·id는 그대로 — Δ 계산에 필요)
+const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
+const all = () => Object.values(out.platforms).flatMap(p => p.screens);
+if (bytes(out) > 18000) { for (const s of all()) { s.name = s.name.slice(0, 24); s.group = s.group.slice(0, 16); } out.trimmed = 'names'; }
+if (bytes(out) > 18000) { for (const s of all()) delete s.group; out.trimmed = 'group'; }
+if (bytes(out) > 18000) { for (const s of all()) s.name = ''; out.trimmed = 'nameless'; }
+if (bytes(out) > 19500) return { error: 'Core 화면이 너무 많아 한 번에 읽지 못했어요 (' + all().length + '장)' };
 return out;
 `;
 

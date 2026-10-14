@@ -11,15 +11,20 @@ const widths = [...new Set(TARGETS.map(t => t.w))];
 const pool = [];
 for (const page of figma.root.children) for (const f of page.findAll(n => n.type === 'FRAME' && widths.some(w => Math.abs(n.width - w) < 0.5))) pool.push(f);
 const fp = new Map(); for (const f of pool) fp.set(f.id, sigs(f));
-const out = {};
+const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
+const out = {}, rest = []; let size = 0;
 for (const t of TARGETS) {
+  if (size > 14000) { rest.push(t.id); continue; }
   const same = pool.filter(f => Math.abs(f.width - t.w) < 0.5);
   // 가까운 순: 요소 수 차이 + 높이 차이 (내용이 같은 후보가 여럿일 때 — 768에서 "Guide"와 "Body: 탭바 적용된 케이스"가 둘 다 내용이 같았다)
   const gap = (f) => Math.abs(fp.get(f.id).n - t.n) + Math.abs(f.height - t.h) / 10;
   const pick = (ok) => same.filter(f => ok(fp.get(f.id))).sort((a, b) => gap(a) - gap(b)).slice(0, 3).map(f => Object.assign({ id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), path: pathOf(f) }, fp.get(f.id)));
-  out[t.id] = { exact: pick(s => s.sig === t.sig), content: pick(s => s.csig === t.csig && s.sig !== t.sig) };
+  const r = { exact: pick(s => s.sig === t.sig), content: pick(s => s.csig === t.csig && s.sig !== t.sig) };
+  const len = bytes(r);
+  if (size && size + len > 14000) { rest.push(t.id); continue; }
+  size += len; out[t.id] = r;
 }
-return { scanned: pool.length, sources: out };
+return { scanned: pool.length, sources: out, rest };
 `;
 
 // 큰 Core 화면은 요소가 1,000개가 넘어 목록을 그대로 돌려주면 20KB 한도를 넘는다 (2026-10-14 SVOD (홈) 56KB).
@@ -36,9 +41,11 @@ for (const id of IDS) {
   if (size > 14000) { rest.push(id); continue; }
   const root = await figma.getNodeByIdAsync(id); if (!root) { out[id] = null; continue; }
   const m = {}; for (const it of itemsOf(root)) { const k = H(it); m[k] = (m[k] || 0) + 1; }
-  const len = JSON.stringify(m).length;
-  if (size && size + len > 14000) { rest.push(id); continue; }
-  size += len; out[id] = m;
+  // "해시,해시*개수,…" 한 줄로 줄인다. 한 화면만으로도 너무 크면 "!"(다 세지 못함)
+  let line = Object.keys(m).map(k => m[k] > 1 ? k + '*' + m[k] : k).join(',');
+  if (line.length > 16000) line = '!';
+  if (size && size + line.length > 14000) { rest.push(id); continue; }
+  size += line.length; out[id] = line;
 }
 return { counts: out, rest };
 `;
@@ -57,24 +64,45 @@ const buildFindSourcesCode = (targets) => `const TARGETS = ${JSON.stringify(targ
 const buildItemsCode = (ids) => `const IDS = ${JSON.stringify(ids)};\n` + ITEM_FN + ITEMS;
 const buildLabelsCode = (want) => `const WANT = ${JSON.stringify(want)};\n` + ITEM_FN + LABELS;
 
+// "해시,해시*개수" 한 줄 → {해시: 개수}. "!"는 너무 커서 다 세지 못한 화면
+function parseCounts(line) {
+  if (line === '!') return null;
+  const m = {}; for (const t of String(line || '').split(',')) { if (!t) continue; const [k, c] = t.split('*'); m[k] = Number(c || 1); }
+  return m;
+}
+
 // 두 개수표({해시: 개수})의 차이: 한쪽에만 있는 해시 (중복 개수까지 센다)
 function diffCounts(a, b, max = 5) {
+  if (a === null || b === null) return { partial: true, onlyA: [], onlyB: [], moreA: 0, moreB: 0 };
   const only = (x, y) => { const r = []; for (const k of Object.keys(x || {})) { const d = x[k] - ((y || {})[k] || 0); for (let i = 0; i < d; i++) r.push(k); } return r; };
   const oa = only(a, b), ob = only(b, a);
   return { onlyA: oa.slice(0, max), onlyB: ob.slice(0, max), moreA: Math.max(0, oa.length - max), moreB: Math.max(0, ob.length - max) };
 }
 
-// 화면들의 요소 개수표를 받는다. 한도 때문에 남긴 화면(rest)이 있으면 다시 부른다.
-async function readItemCounts(runner, key, ids, label) {
-  const counts = {}; let todo = ids, cost = 0;
+// use_figma 결과는 20KB까지다. 한 번에 다 못 담으면 Figma 쪽 코드가 남은 것(rest: id 목록)을 돌려주고, 여기서 남은 것만 다시 부른다.
+async function readInParts(runner, key, list, build, field, label, idOf = (x) => x) {
+  const got = {}; let todo = list, cost = 0;
   while (todo.length) {
-    const r = await runner(key, buildItemsCode(todo), label);
-    Object.assign(counts, r.data.counts || {}); cost += r.costUsd || 0;
-    const rest = r.data.rest || [];
-    if (rest.length >= todo.length) break;
-    todo = rest;
+    const r = await runner(key, build(todo), label);
+    Object.assign(got, r.data[field] || {}); cost += r.costUsd || 0;
+    const rest = new Set(r.data.rest || []);
+    if (!rest.size || rest.size >= todo.length) break;
+    todo = todo.filter(x => rest.has(idOf(x)));
   }
+  return { got, cost };
+}
+
+// 화면들의 요소 개수표
+async function readItemCounts(runner, key, ids, label) {
+  const { got, cost } = await readInParts(runner, key, ids, buildItemsCode, 'counts', label);
+  const counts = {}; for (const id of Object.keys(got)) counts[id] = got[id] === null ? undefined : parseCounts(got[id]);
   return { counts, cost };
+}
+
+// Core 화면들의 원본 찾기 (문서 전체에서)
+async function findSources(runner, key, targets, label) {
+  const { got, cost } = await readInParts(runner, key, targets, buildFindSourcesCode, 'sources', label, (t) => t.id);
+  return { sources: got, cost };
 }
 
 // 차이 나는 해시만 이름·글자로 바꾼다
@@ -84,4 +112,4 @@ async function readItemLabels(runner, key, want, label) {
   return { labels: r.data.labels || {}, cost: r.costUsd || 0 };
 }
 
-module.exports = { buildFindSourcesCode, buildItemsCode, buildLabelsCode, diffCounts, readItemCounts, readItemLabels };
+module.exports = { buildFindSourcesCode, buildItemsCode, buildLabelsCode, diffCounts, readItemCounts, readItemLabels, findSources };

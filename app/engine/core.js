@@ -9,7 +9,7 @@ const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('./figma-write');
 const { proposePlace, checkLink } = require('./place');
 const { computeDelta, preferCoreScreens } = require('./delta');
-const { buildFindSourcesCode, diffCounts, readItemCounts, readItemLabels } = require('./figma-find');
+const { findSources, diffCounts, readItemCounts, readItemLabels } = require('./figma-find');
 
 const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/';
 const LOCAL = path.join(__dirname, '..', '..');
@@ -71,7 +71,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     const chosenSigs = new Set(Object.values(state.analysis.platforms).flat().flatMap(e => e.picks.map(p => (p.candidates.find(c => c.id === p.chosen) || {}).sig)));
     const targets = Object.values(read.platforms).flatMap(p => p.screens).filter(s => !chosenSigs.has(s.sig)).map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
     let sources = {};
-    if (targets.length) { const f = await runner(state.fileKey, buildFindSourcesCode(targets), 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.data.sources || {}; cost += f.costUsd || 0; }
+    if (targets.length) { const f = await findSources(runner, state.fileKey, targets, 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.sources; cost += f.cost; }
     const delta = computeDelta(state.analysis, read, sources);
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
     const checks = delta.rows.filter(r => r.check && r.target);

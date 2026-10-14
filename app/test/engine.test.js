@@ -66,7 +66,7 @@ const fixture = require('./fixture-stepmade.json');
   // 20KB 한도: 한 번에 못 담은 화면(rest)은 다시 불러 모두 받는다 (2026-10-14 SVOD (홈) 56KB)
   const { readItemCounts } = require('../engine/figma-find');
   let nCalls = 0;
-  const rcs = await readItemCounts(async (key, code) => { nCalls++; const ids = JSON.parse(/const IDS = (.*);/.exec(code)[1]); return { data: { counts: { [ids[0]]: { x: 1 } }, rest: ids.slice(1) }, costUsd: 0 }; }, 'K', ['1:1', '1:2', '1:3'], '차이 비교');
+  const rcs = await readItemCounts(async (key, code) => { nCalls++; const ids = JSON.parse(/const IDS = (.*);/.exec(code)[1]); return { data: { counts: { [ids[0]]: 'x' }, rest: ids.slice(1) }, costUsd: 0 }; }, 'K', ['1:1', '1:2', '1:3'], '차이 비교');
   assert.strictEqual(nCalls, 3); assert.deepStrictEqual(Object.keys(rcs.counts), ['1:1', '1:2', '1:3']);
   assert.strictEqual(w.delta.summary.missing, 1, '더보기 팝업 미수록');
   // 브랜치 링크 두 번째 모양(…/design/<브랜치 키>/<이름>)도 받는다. Core 본 파일 키는 거절
