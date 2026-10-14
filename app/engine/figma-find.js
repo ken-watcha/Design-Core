@@ -36,16 +36,19 @@ const itemsOf = (root) => { const items = []; const walk = (n, top) => { if (n.v
 `;
 
 const ITEMS = String.raw`
+// IDS: "화면 id" 또는 "화면 id@몇 번째부터". 아주 큰 화면은 여러 번에 나눠 보낸다 (남은 부분은 rest에 "id@다음 위치")
 const out = {}, rest = []; let size = 0;
-for (const id of IDS) {
-  if (size > 14000) { rest.push(id); continue; }
+for (const entry of IDS) {
+  const [id, at] = entry.split('@'); const from = Number(at || 0);
+  if (size > 14000) { rest.push(entry); continue; }
   const root = await figma.getNodeByIdAsync(id); if (!root) { out[id] = null; continue; }
   const m = {}; for (const it of itemsOf(root)) { const k = H(it); m[k] = (m[k] || 0) + 1; }
-  // "해시,해시*개수,…" 한 줄로 줄인다. 한 화면만으로도 너무 크면 "!"(다 세지 못함)
-  let line = Object.keys(m).map(k => m[k] > 1 ? k + '*' + m[k] : k).join(',');
-  if (line.length > 16000) line = '!';
-  if (size && size + line.length > 14000) { rest.push(id); continue; }
-  size += line.length; out[id] = line;
+  // "해시,해시*개수,…" 한 줄로 줄인다
+  const toks = Object.keys(m).map(k => m[k] > 1 ? k + '*' + m[k] : k);
+  let i = from, part = [];
+  while (i < toks.length && size + toks[i].length + 1 <= 14000) { part.push(toks[i]); size += toks[i].length + 1; i++; }
+  if (part.length || toks.length === 0) out[id + '@' + from] = part.join(',');
+  if (i < toks.length) rest.push(id + '@' + i);
 }
 return { counts: out, rest };
 `;
@@ -64,30 +67,29 @@ const buildFindSourcesCode = (targets) => `const TARGETS = ${JSON.stringify(targ
 const buildItemsCode = (ids) => `const IDS = ${JSON.stringify(ids)};\n` + ITEM_FN + ITEMS;
 const buildLabelsCode = (want) => `const WANT = ${JSON.stringify(want)};\n` + ITEM_FN + LABELS;
 
-// "해시,해시*개수" 한 줄 → {해시: 개수}. "!"는 너무 커서 다 세지 못한 화면
-function parseCounts(line) {
-  if (line === '!') return null;
-  const m = {}; for (const t of String(line || '').split(',')) { if (!t) continue; const [k, c] = t.split('*'); m[k] = Number(c || 1); }
+// "해시,해시*개수" 조각들 → {해시: 개수}
+function parseCounts(lines) {
+  const m = {}; for (const line of lines) for (const t of String(line || '').split(',')) { if (!t) continue; const [k, c] = t.split('*'); m[k] = (m[k] || 0) + Number(c || 1); }
   return m;
 }
 
 // 두 개수표({해시: 개수})의 차이: 한쪽에만 있는 해시 (중복 개수까지 센다)
 function diffCounts(a, b, max = 5) {
-  if (a === null || b === null) return { partial: true, onlyA: [], onlyB: [], moreA: 0, moreB: 0 };
   const only = (x, y) => { const r = []; for (const k of Object.keys(x || {})) { const d = x[k] - ((y || {})[k] || 0); for (let i = 0; i < d; i++) r.push(k); } return r; };
   const oa = only(a, b), ob = only(b, a);
   return { onlyA: oa.slice(0, max), onlyB: ob.slice(0, max), moreA: Math.max(0, oa.length - max), moreB: Math.max(0, ob.length - max) };
 }
 
 // use_figma 결과는 20KB까지다. 한 번에 다 못 담으면 Figma 쪽 코드가 남은 것(rest: id 목록)을 돌려주고, 여기서 남은 것만 다시 부른다.
-async function readInParts(runner, key, list, build, field, label, idOf = (x) => x) {
+// next(todo, rest): 다음에 보낼 목록. 같은 목록이 그대로 돌아오면(진행 없음) 멈춘다.
+async function readInParts(runner, key, list, build, field, label, next = (todo, rest) => rest) {
   const got = {}; let todo = list, cost = 0;
   while (todo.length) {
     const r = await runner(key, build(todo), label);
     Object.assign(got, r.data[field] || {}); cost += r.costUsd || 0;
-    const rest = new Set(r.data.rest || []);
-    if (!rest.size || rest.size >= todo.length) break;
-    todo = todo.filter(x => rest.has(idOf(x)));
+    const nt = next(todo, r.data.rest || []);
+    if (!nt.length || JSON.stringify(nt) === JSON.stringify(todo)) break;
+    todo = nt;
   }
   return { got, cost };
 }
@@ -95,13 +97,14 @@ async function readInParts(runner, key, list, build, field, label, idOf = (x) =>
 // 화면들의 요소 개수표
 async function readItemCounts(runner, key, ids, label) {
   const { got, cost } = await readInParts(runner, key, ids, buildItemsCode, 'counts', label);
-  const counts = {}; for (const id of Object.keys(got)) counts[id] = got[id] === null ? undefined : parseCounts(got[id]);
+  const pieces = {}; for (const k of Object.keys(got)) { if (got[k] === null) continue; const id = k.split('@')[0]; (pieces[id] = pieces[id] || []).push(got[k]); }
+  const counts = {}; for (const id of Object.keys(pieces)) counts[id] = parseCounts(pieces[id]);
   return { counts, cost };
 }
 
 // Core 화면들의 원본 찾기 (문서 전체에서)
 async function findSources(runner, key, targets, label) {
-  const { got, cost } = await readInParts(runner, key, targets, buildFindSourcesCode, 'sources', label, (t) => t.id);
+  const { got, cost } = await readInParts(runner, key, targets, buildFindSourcesCode, 'sources', label, (todo, rest) => todo.filter(t => rest.includes(t.id)));
   return { sources: got, cost };
 }
 

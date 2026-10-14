@@ -56,13 +56,14 @@ const runner = async (key, code, desc) => {
   const want = Object.fromEntries(ids.map(id => [id, Object.keys(a.counts[id]).slice(0, 5)]));
   const l = await readItemLabels(runner, 'CORE', want, '차이 이름');
   assert(Object.values(l.labels).every(m => Object.keys(m).length === 5), '차이 이름을 받음');
-  // 한 화면만으로도 너무 큰 경우: 다 세지 못했다고 표시하고 멈추지 않는다
-  const huge = node('FRAME', '아주 큰 화면', {}, Array.from({ length: 3000 }, (_, k) => node('TEXT', `글자 ${k}`, { characters: `${LONG} ${k}` })));
+  // 한 화면만으로도 한 번에 못 담는 경우(서로 다른 요소 3,000개): 나눠 받아 끝까지 센다
+  const huge = node('FRAME', '아주 큰 화면', {}, Array.from({ length: 3000 }, (_, k) => node('TEXT', `글자 ${k}`, { characters: `내용 ${k}` })));
   idx(huge); core.root.children[1].children[0].children[0].children.push(huge);
-  const { diffCounts } = require('../engine/figma-find');
+  const before = runs.length;
   const h = await readItemCounts(runner, 'CORE', [huge.id, ids[0]], '차이 비교');
-  assert.strictEqual(h.counts[huge.id], null, '너무 큰 화면은 다 세지 못함으로');
-  assert(diffCounts(h.counts[huge.id], h.counts[ids[0]]).partial);
+  assert(runs.length - before > 1, '여러 번에 나눠 받음');
+  assert.strictEqual(Object.keys(h.counts[huge.id]).length, 6000, '큰 화면의 요소를 빠짐없이 셈 (요소 3,000 + 글자 3,000)');
+  assert.deepStrictEqual(h.counts[ids[0]], a.counts[ids[0]], '함께 보낸 화면도 그대로');
   const max = Math.max(...runs.map(r => r.b));
   console.log(`한도 시험 통과 · 호출 ${runs.length}번 · 가장 큰 결과 ${Math.round(max / 1024)}KB`);
 })().catch(e => { console.error(e); process.exit(1); });

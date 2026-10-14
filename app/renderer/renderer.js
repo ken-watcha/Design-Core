@@ -294,7 +294,6 @@ async function onPlace(ev) {
 // ---------- 기존 Core 갱신 ----------
 const diffHtml = (d) => {
   if (!d) return '';
-  if (d.partial) return '<div class="diff">요소가 너무 많아 차이를 다 세지 못했어요. Figma에서 두 화면을 직접 비교해 주세요.</div>';
   const part = (label, xs, more) => xs.length ? `<div>${label}: ${xs.map(esc).join(', ')}${more ? ` 외 ${more}개` : ''}</div>` : '';
   const body = part('원본에만', d.onlyA, d.moreA) + part('Core에만', d.onlyB, d.moreB);
   return body ? `<div class="diff">${body}</div>` : '<div class="diff">요소·글자 차이 없음</div>';
