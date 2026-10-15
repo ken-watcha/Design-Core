@@ -207,9 +207,28 @@ if (done.length && PLAN.month) {
   const t = card && card.findOne(n => n.type === 'TEXT' && /^기준:/.test(n.characters.trim()));
   if (t) { await loadTextFonts(t); t.characters = t.characters.replace(/기준:\s*\d{4}\.(\d{2}|__)/, '기준: ' + PLAN.month); cardUpdated = true; }
 }
-const root = page.children.find(n => n.type === 'SECTION');
+// 모아서 붙여 넣은 섹션(📦)이 비었으면 지운다
+for (const s of page.findAll(n => n.type === 'SECTION' && n.name.startsWith('📦') && n.children.length === 0)) s.remove();
+const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
 if (root) fitSection(root, L.rootPadding);
 return { step: 'update', done, notFound, pastedSeen: pasted.length, cardUpdated, log };
+`;
+
+// ---------- 기존 Core 갱신: 붙여 넣을 화면을 한곳에 모으기 (프로젝트 문서의 브랜치·복제본에서) ----------
+// 파일 사이로는 코드가 화면을 못 옮긴다. 대신 같은 파일 안에서 바꿀 화면을 한 섹션에 모아, 사람이 섹션 하나만 ⌘C 하게 한다 (2026-10-14 윤우).
+// 원본 프로젝트 문서·Core 본 파일에는 쓰지 않는다.
+const GATHER = String.raw`
+if (figma.fileKey && (figma.fileKey === PLAN.sourceKey || figma.fileKey === PLAN.coreKey)) throw new Error('원본 프로젝트 문서나 Core 본 파일입니다. 여기에는 쓰지 않습니다');
+const found = [], missing = [];
+for (const s of PLAN.screens) { const n = await figma.getNodeByIdAsync(s.id); if (n && n.type === 'FRAME') found.push(n); else missing.push(s.label); }
+if (!found.length) throw new Error('보낼 화면을 하나도 찾지 못했어요. 이 프로젝트 문서의 브랜치(또는 복제본) 링크가 맞는지 확인해 주세요');
+let page = figma.root.children.find(p => p.name === PLAN.pageName);
+if (page) { for (const c of [...page.children]) c.remove(); } else { page = figma.createPage(); page.name = PLAN.pageName; }
+const sec = figma.createSection(); page.appendChild(sec); sec.name = PLAN.sectionName;
+let x = 80, h = 0;
+for (const n of found) { const c = n.clone(); sec.appendChild(c); c.x = x; c.y = 80; x += c.width + 80; h = Math.max(h, c.height); }
+sec.x = 0; sec.y = 0; sec.resizeWithoutConstraints(x, h + 160);
+return { pageId: page.id, sectionId: sec.id, count: found.length, missing };
 `;
 
 function head(rules, plan) {
@@ -220,5 +239,6 @@ function head(rules, plan) {
 const buildNewCoreCode = (rules, plan) => head(rules, plan) + NEW_BUILD;
 const trimNewCoreCode = (rules, plan) => head(rules, plan) + NEW_TRIM;
 const applyUpdateCode = (rules, plan) => head(rules, plan) + UPDATE_APPLY;
+const gatherPasteCode = (plan) => `const PLAN = ${JSON.stringify(plan)};\n` + GATHER;
 
-module.exports = { buildNewCoreCode, trimNewCoreCode, applyUpdateCode };
+module.exports = { buildNewCoreCode, trimNewCoreCode, applyUpdateCode, gatherPasteCode, GATHER_SECTION: '📦 Core로 보낼 화면' };

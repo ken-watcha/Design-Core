@@ -23,11 +23,31 @@ const fixture = require('./fixture-stepmade.json');
   const os = require('os'), path = require('path'), fs = require('fs');
   const { checkWorkplace, buildNewCore, applyUpdate } = require('../engine/core');
   const { buildCoreReadCode } = require('../engine/figma-core-read');
-  const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode } = require('../engine/figma-write');
+  const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode, gatherPasteCode } = require('../engine/figma-write');
   const { checkLink } = require('../engine/place');
   const { mergeIndex } = require('../engine/index-store');
   const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
   for (const c of [buildCoreReadCode(rules), buildNewCoreCode(rules, {}), trimNewCoreCode(rules, {}), applyUpdateCode(rules, {})]) { new AsyncFn('figma', c); assert(c.length < 50000); }
+  // 붙여 넣을 화면 모으기 (2026-10-14): 프로젝트 문서 브랜치 안에서만, 바꿀 화면을 새 페이지의 한 섹션으로 복제
+  {
+    const { checkGatherLink, gatherForPaste } = require('../engine/core');
+    const st0 = { fileKey: 'SRCSRCSRCSRCSRCSRCSRC1', place: { coreKey: 'CORECORECORECORECORE12' } };
+    assert(!checkGatherLink(st0, 'https://www.figma.com/design/SRCSRCSRCSRCSRCSRCSRC1/x').ok, '원본 프로젝트 문서 거절');
+    assert(!checkGatherLink(st0, 'https://www.figma.com/design/CORECORECORECORECORE12/x').ok, 'Core 파일 거절');
+    assert(!checkGatherLink(st0, 'https://www.figma.com/design/OTHEROTHEROTHEROTHER12/branch/BRBRBRBRBRBRBRBRBRBRBR/x').ok, '다른 파일의 브랜치 거절');
+    assert.strictEqual(checkGatherLink(st0, 'https://www.figma.com/design/SRCSRCSRCSRCSRCSRCSRC1/branch/BRBRBRBRBRBRBRBRBRBRBR/x').key, 'BRBRBRBRBRBRBRBRBRBRBR');
+    let made = null;
+    const fr = (id, w) => ({ id, type: 'FRAME', name: 'f' + id, width: w, height: 800, clone() { return Object.assign({}, this, { id: id + 'c' }); } });
+    const nodes = { '1:1': fr('1:1', 375), '1:2': fr('1:2', 768) };
+    const fakeFigma = (fileKey) => ({ fileKey, root: { children: [] }, getNodeByIdAsync: async (id) => nodes[id] || null,
+      createPage() { const p = { id: '9:1', name: '', children: [], appendChild(c) { this.children.push(c); } }; this.root.children.push(p); return p; },
+      createSection() { made = { id: '9:2', name: '', children: [], appendChild(c) { this.children.push(c); }, resizeWithoutConstraints() {} }; return made; } });
+    const wk = { delta: { rows: [{ action: '교체', platform: 'APP', cls: 'small', width: 375, source: { id: '1:1' } }, { action: '추가', platform: 'APP', cls: 'medium', width: 768, source: { id: '1:2' } }, { action: '추가', platform: 'WEB', cls: 'large', width: 1440, source: { id: '7:7' } }, { action: '유지', source: { id: '1:3' } }] } };
+    const g = await gatherForPaste(st0, wk, 'https://www.figma.com/design/SRCSRCSRCSRCSRCSRCSRC1/branch/BRBRBRBRBRBRBRBRBRBRBR/x', async (key, code) => ({ data: await new AsyncFn('figma', code)(fakeFigma(key)), costUsd: 0 }));
+    assert(g.ok && g.count === 2 && made.children.length === 2, '바꿀 화면만 모음 (유지 칸 제외)');
+    assert.deepStrictEqual(g.missing, ['WEB large 1440px'], '못 찾은 화면을 알려 줌');
+    await assert.rejects(new AsyncFn('figma', gatherPasteCode({ sourceKey: 'S', coreKey: 'C', screens: [] }))(fakeFigma('S')), /원본/, 'Figma 쪽에서도 원본 파일이면 멈춤');
+  }
 
   const coreRead = require('./fixture-core-stepmade.json');
   const analysisSig = require('./fixture-stepmade-sig.json');

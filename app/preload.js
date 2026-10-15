@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld('core', {
   checkWorkplace: (state, url) => ipcRenderer.invoke('checkWorkplace', state, url),
   buildNewCore: (state, work) => ipcRenderer.invoke('buildNewCore', state, work),
   applyUpdate: (state, work) => ipcRenderer.invoke('applyUpdate', state, work),
+  gatherForPaste: (state, work, url) => ipcRenderer.invoke('gatherForPaste', state, work, url),
   screens: (items) => ipcRenderer.invoke('screens', items),
   onProgress: (cb) => ipcRenderer.on('progress', (_e, ev) => cb(ev)),
   tokenStatus: () => ipcRenderer.invoke('tokenStatus'),
