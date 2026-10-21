@@ -74,7 +74,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     if (targets.length) { const f = await findSources(runner, state.fileKey, targets, 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.sources; cost += f.cost; }
     const delta = computeDelta(state.analysis, read, sources);
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
-    const checks = delta.rows.filter(r => r.check && r.target);
+    const checks = delta.rows.filter(r => r.check && r.target && r.source);
     if (checks.length) {
       const [a, b] = await Promise.all([readItemCounts(runner, state.fileKey, checks.map(r => r.source.id), 'Core 업데이트: 차이 비교 — 프로젝트 (읽기 전용)'), readItemCounts(runner, link.workKey, checks.map(r => r.target.id), 'Core 업데이트: 차이 비교 — Core (읽기 전용)')]);
       cost += a.cost + b.cost;

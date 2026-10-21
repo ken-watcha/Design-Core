@@ -130,5 +130,15 @@ const fixture = require('./fixture-stepmade.json');
   assert(store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '로컬 추가분 파일에 기록');
   assert.strictEqual(store.removeLocal(['CCCCCCCCCCCCCCCCCCCCCC']), 1);
   assert(!store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '지운 Core는 로컬 추가분에서 빠짐');
+  // 대표 화면(크기 칸 바 없음)은 교체 대상이 아니고, 그대로 칸에 이유를 적는다 (2026-10-21 SVOD 🌏 SVOD_APP)
+  {
+    const { computeDelta } = require('../engine/delta');
+    const an = { platforms: { APP: [{ cls: 'small', desc: '', picks: [{ width: 375, chosen: 'P1', candidates: [{ id: 'P1', name: 'p', w: 375, h: 812, sig: 'new' }] }] }] } };
+    const co = { platforms: { APP: { screens: [{ id: 'REP', name: '🌏 SVOD_APP', w: 375, h: 4816, cls: 'small', bar: null, sig: 'a' }, { id: 'S1', name: '로그인/구독_small', w: 375, h: 4816, cls: 'small', bar: 'B1', sig: 'b' }] } } };
+    const dd = computeDelta(an, co, {});
+    assert.strictEqual(dd.rows.find(r => r.action === '교체').target.id, 'S1', '크기 칸 화면을 먼저 교체');
+    const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
+    assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
+  }
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });
