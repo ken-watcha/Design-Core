@@ -114,8 +114,7 @@ async function buildNewCore(state, work, knowledge, runner = runFigma) {
 // 기존 Core 갱신: 붙여 넣은 화면을 반영 → 다시 읽어 Δ로 확인
 async function applyUpdate(state, work, knowledge, runner = runFigma) {
   const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가');
-  const screenName = ((work.core.platforms.APP || work.core.platforms.WEB || {}).screens || [])[0];
-  const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), screenName: screenName ? screenName.name : null };
+  const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month() };
   const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 업데이트: 기존 Core 갱신 (브랜치)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 갱신 결과 확인 (읽기 전용)');
   const after = computeDelta(state.analysis, r.data, work.sources || {});

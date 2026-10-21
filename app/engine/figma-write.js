@@ -191,7 +191,7 @@ for (const r of want) {
     const frames = sec.children.filter(n => n.type === 'FRAME' && n !== nf);
     const right = frames.length ? Math.max(...frames.map(f => f.x + f.width)) + L.gap : L.sectionPadding;
     const screenY = frames.length ? frames[0].y : L.barSizeY + 154;
-    sec.appendChild(nf); nf.x = right; nf.y = screenY; nf.name = PLAN.screenName || nf.name;
+    sec.appendChild(nf); nf.x = right; nf.y = screenY; // 이름은 붙여 넣은 원본 이름 그대로
     await bar('barBlue', sec, right, L.barSizeY, nf.width, r.cls, r.desc);
     // ⚫·⚪ 바를 새 폭까지 늘린다
     const inner = right + nf.width - L.sectionPadding;
@@ -207,8 +207,8 @@ if (done.length && PLAN.month) {
   const t = card && card.findOne(n => n.type === 'TEXT' && /^기준:/.test(n.characters.trim()));
   if (t) { await loadTextFonts(t); t.characters = t.characters.replace(/기준:\s*\d{4}\.(\d{2}|__)/, '기준: ' + PLAN.month); cardUpdated = true; }
 }
-// 모아서 붙여 넣은 섹션(📦)이 비었으면 지운다
-for (const s of page.findAll(n => n.type === 'SECTION' && n.name.startsWith('📦') && n.children.length === 0)) s.remove();
+// 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
+for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
 if (root) fitSection(root, L.rootPadding);
 return { step: 'update', done, notFound, pastedSeen: pasted.length, cardUpdated, log };
