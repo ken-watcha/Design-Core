@@ -36,6 +36,7 @@ const fixture = require('./fixture-stepmade.json');
     assert(!checkGatherLink(st0, 'https://www.figma.com/design/CORECORECORECORECORE12/x').ok, 'Core 파일 거절');
     assert(!checkGatherLink(st0, 'https://www.figma.com/design/OTHEROTHEROTHEROTHER12/branch/BRBRBRBRBRBRBRBRBRBRBR/x').ok, '다른 파일의 브랜치 거절');
     assert.strictEqual(checkGatherLink(st0, 'https://www.figma.com/design/SRCSRCSRCSRCSRCSRCSRC1/branch/BRBRBRBRBRBRBRBRBRBRBR/x').key, 'BRBRBRBRBRBRBRBRBRBRBR');
+    assert(!checkGatherLink(st0, 'https://www.figma.com/design/COREBRANCHCOREBRANCH12/test?node-id=0-1', { workKey: 'COREBRANCHCOREBRANCH12' }).ok, 'Core 브랜치 링크 거절 (2026-10-21)');
     let made = null;
     const fr = (id, w) => ({ id, type: 'FRAME', name: 'f' + id, width: w, height: 800, clone() { return Object.assign({}, this, { id: id + 'c' }); } });
     const nodes = { '1:1': fr('1:1', 375), '1:2': fr('1:2', 768) };

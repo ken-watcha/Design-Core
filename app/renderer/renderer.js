@@ -312,8 +312,8 @@ function showDelta() {
   const oneByOne = `<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul>`;
   const copyStep = work.gathered
     ? `<li>모은 화면을 열고 섹션 이름(📦 Core로 보낼 화면)을 눌러 섹션째 선택 → ⌘C ${openBtn(linkTo(work.gathered.url, work.gathered.sectionId), '모은 화면 열기')}${work.gathered.missing.length ? `<div class="hint">못 찾은 화면: ${esc(work.gathered.missing.join(' · '))} — 이 화면은 아래처럼 한 장씩 복사해 주세요${oneByOne}</div>` : ''}</li>`
-    : `<li><b>바꿀 화면 ${todo.length}장을 한 번에 복사하게 모아 드려요.</b> 프로젝트 문서에서 파일 이름 옆 ⌄ → Create branch(이름 자유)로 브랜치를 만들고 링크를 넣어 주세요. ${openBtn(current.sourceUrl, '프로젝트 문서 열기')}
-        <form id="gatherForm"><div class="row"><input id="gatherUrl" type="url" required autocomplete="off" placeholder="프로젝트 문서 브랜치 링크"><button id="gatherGo" type="submit">모으기</button></div></form>
+    : `<li><b>바꿀 화면 ${todo.length}장을 한 번에 복사하게 모아 드려요.</b> <b>Core가 아니라 프로젝트 문서</b>에서 파일 이름 옆 ⌄ → Create branch(이름 자유)로 브랜치를 만들고 그 링크를 넣어 주세요. ${openBtn(current.sourceUrl, '프로젝트 문서 열기')}
+        <form id="gatherForm"><div class="row"><input id="gatherUrl" type="url" required autocomplete="off" placeholder="프로젝트 문서의 브랜치 링크 (Core 브랜치 아님)"><button id="gatherGo" type="submit">모으기</button></div></form>
         <p class="hint">프로젝트 문서 브랜치도 복사본이라 원본은 그대로예요. 다 쓰면 합치지 말고 버리면 돼요.</p>
         <details><summary class="hint">브랜치 없이 한 장씩 복사하기</summary><p class="hint">아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C</p>${oneByOne}</details></li>`;
   const paste = todo.length ? `<h2 style="margin-top:18px">붙여넣기 (사람 손 1회)</h2>
