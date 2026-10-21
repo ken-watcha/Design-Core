@@ -56,7 +56,8 @@ function computeDelta(analysis, core, sources = {}) {
           src = chosenOf(p);
         }
         if (!src) continue;
-        if (!target) { target = slot[0] || null; action = target ? '교체' : '추가'; why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음` : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`; }
+        if (!target) { target = slot.find(s => s.bar) || slot[0] || null; // 대표 화면(바 없음)보다 크기 칸 화면을 먼저 바꾼다
+          action = target ? '교체' : '추가'; why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음` : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`; }
         if (target) usedCore.add(target.id);
         rows.push({
           platform, cls: e.cls, width: p.width, desc: e.desc, action, why,
@@ -66,7 +67,12 @@ function computeDelta(analysis, core, sources = {}) {
         });
       }
     }
-    for (const s of coreScreens) if (!usedCore.has(s.id)) rows.push({ platform, cls: s.cls, width: s.w, action: '그대로', source: null, target: { id: s.id, name: s.name, w: s.w, h: s.h }, why: '프로젝트에 맞는 칸이 없어 손대지 않음' });
+    for (const s of coreScreens) if (!usedCore.has(s.id)) rows.push({
+      platform, cls: s.cls, width: s.w, action: '그대로', source: null, target: { id: s.id, name: s.name, w: s.w, h: s.h },
+      // 크기 칸 바(🔵)가 없는 화면 = 섹션 왼쪽의 대표 화면(전체 길이). 프로젝트 화면 한 장은 Core 한 칸에만 들어가므로 여기엔 안 들어간다
+      why: s.bar ? '프로젝트에 맞는 칸이 없어 손대지 않음' : '대표 화면(크기 칸 바 없음)이라 앱이 바꾸지 않음 — 프로젝트에서 바뀐 부분이 이 화면에도 보이면 직접 고쳐 주세요',
+      check: !s.bar
+    });
   }
   const missing = (analysis.coverage || []).filter(c => !c.to).map(c => ({ action: '미수록', section: c.section, id: c.id, why: c.note }));
   const count = (a) => rows.filter(r => r.action === a).length;

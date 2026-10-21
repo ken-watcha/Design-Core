@@ -74,7 +74,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     if (targets.length) { const f = await findSources(runner, state.fileKey, targets, 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.sources; cost += f.cost; }
     const delta = computeDelta(state.analysis, read, sources);
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
-    const checks = delta.rows.filter(r => r.check && r.target);
+    const checks = delta.rows.filter(r => r.check && r.target && r.source);
     if (checks.length) {
       const [a, b] = await Promise.all([readItemCounts(runner, state.fileKey, checks.map(r => r.source.id), 'Core 업데이트: 차이 비교 — 프로젝트 (읽기 전용)'), readItemCounts(runner, link.workKey, checks.map(r => r.target.id), 'Core 업데이트: 차이 비교 — Core (읽기 전용)')]);
       cost += a.cost + b.cost;
@@ -112,10 +112,11 @@ async function buildNewCore(state, work, knowledge, runner = runFigma) {
 }
 
 // 기존 Core 갱신: 붙여 넣은 화면을 반영 → 다시 읽어 Δ로 확인
+// 링크 카드에 적을 프로젝트 이름: 표지의 한글 이름("피쳐링셀 I 담당자")에서 앞부분
+const updateProjectName = (analysis) => { const c = (analysis && analysis.cover) || {}; return ((c.nameKR || '').split(/\s+I\s+/)[0] || c.nameEN || '').trim() || null; };
 async function applyUpdate(state, work, knowledge, runner = runFigma) {
   const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가');
-  const screenName = ((work.core.platforms.APP || work.core.platforms.WEB || {}).screens || [])[0];
-  const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), screenName: screenName ? screenName.name : null };
+  const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), sourceUrl: state.sourceUrl, projectName: updateProjectName(state.analysis) };
   const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 업데이트: 기존 Core 갱신 (브랜치)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 갱신 결과 확인 (읽기 전용)');
   const after = computeDelta(state.analysis, r.data, work.sources || {});

@@ -102,6 +102,7 @@ const fixture = require('./fixture-stepmade.json');
   let sent = null;
   await applyUpdate(st2, w2, k, async (key, code) => { if (/const PLAN/.test(code) && !sent) sent = code; return { data: code.includes('UPDATE') || /applyUpdate|step: 'update'/.test(code) ? { done: [], notFound: [], cardUpdated: false } : coreRead, costUsd: 0 }; });
   assert(/"action":"교체"/.test(sent) && !/"action":"유지"/.test(sent), '반영 계획엔 교체·추가만');
+  assert(sent.includes('"sourceUrl":"' + st2.sourceUrl + '"'), '반영 계획에 프로젝트 문서 링크(링크 카드용)');
   // 새 Core: 원본 파일·이미 Core인 파일 거절, 만든 뒤 로컬 색인에 추가
   const indexNoCore = Object.assign({}, index, { files: index.files.filter(f => !/스텝메이드/.test(f.name)) });
   const stNew = await analyzeProject('https://www.figma.com/design/NO7uetAL9Qmk03IXWSaMej/x', { rules, index: indexNoCore, memory: {} }, async () => ({ data: JSON.parse(JSON.stringify(analysisSig)), costUsd: 0 }));
@@ -130,5 +131,15 @@ const fixture = require('./fixture-stepmade.json');
   assert(store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '로컬 추가분 파일에 기록');
   assert.strictEqual(store.removeLocal(['CCCCCCCCCCCCCCCCCCCCCC']), 1);
   assert(!store.readLocal().some(f => f.key === 'CCCCCCCCCCCCCCCCCCCCCC'), '지운 Core는 로컬 추가분에서 빠짐');
+  // 대표 화면(크기 칸 바 없음)은 교체 대상이 아니고, 그대로 칸에 이유를 적는다 (2026-10-21 SVOD 🌏 SVOD_APP)
+  {
+    const { computeDelta } = require('../engine/delta');
+    const an = { platforms: { APP: [{ cls: 'small', desc: '', picks: [{ width: 375, chosen: 'P1', candidates: [{ id: 'P1', name: 'p', w: 375, h: 812, sig: 'new' }] }] }] } };
+    const co = { platforms: { APP: { screens: [{ id: 'REP', name: '🌏 SVOD_APP', w: 375, h: 4816, cls: 'small', bar: null, sig: 'a' }, { id: 'S1', name: '로그인/구독_small', w: 375, h: 4816, cls: 'small', bar: 'B1', sig: 'b' }] } } };
+    const dd = computeDelta(an, co, {});
+    assert.strictEqual(dd.rows.find(r => r.action === '교체').target.id, 'S1', '크기 칸 화면을 먼저 교체');
+    const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
+    assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
+  }
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });
