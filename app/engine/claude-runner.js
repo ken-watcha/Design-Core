@@ -161,10 +161,12 @@ async function restShots(items) {
     const k = it.fileKey + '|' + scale; if (!groups.has(k)) groups.set(k, { fileKey: it.fileKey, scale, list: [] });
     groups.get(k).list.push(i);
   });
+  // 한 번에 많이 보내면 Figma가 시안을 다 그리지 못하고 빈칸(null)으로 돌려준다 (2026-10-21 SVOD: 11장 빈칸, 한 장 그리는 데 약 4초).
+  // 그래서 2장씩 나눠 6개까지 동시에 묻고, 빈칸은 한 장씩 한 번 더 묻는다.
   const images = new Array(items.length).fill(null);
-  await Promise.all([...groups.values()].map(async (g) => {
-    const ids = g.list.map(i => items[i].nodeId).join(',');
-    const r = await fetch(`https://api.figma.com/v1/images/${encodeURIComponent(g.fileKey)}?ids=${encodeURIComponent(ids)}&format=png&scale=${g.scale}`, { headers: { 'X-Figma-Token': restToken } });
+  const ask1 = async (fileKey, scale, list) => {
+    const ids = list.map(i => items[i].nodeId).join(',');
+    const r = await fetch(`https://api.figma.com/v1/images/${encodeURIComponent(fileKey)}?ids=${encodeURIComponent(ids)}&format=png&scale=${scale}`, { headers: { 'X-Figma-Token': restToken } });
     if (!r.ok) {
       // 왜 못 받았는지 남겨 앱 화면에 보여 준다 (2026-10-12 윤우: 토큰 연결해도 느림 — 원인 확인용)
       let why = ''; try { const b = await r.json(); why = b.err || b.message || ''; } catch (e) {}
@@ -174,8 +176,15 @@ async function restShots(items) {
     }
     const body = await r.json(); const map = body.images || {};
     if (body.err) restError = 'Figma · ' + body.err;
-    await Promise.all(g.list.map(async (i) => { images[i] = await toDataUrl(map[items[i].nodeId]); }));
-  }));
+    await Promise.all(list.map(async (i) => { images[i] = await toDataUrl(map[items[i].nodeId]); }));
+  };
+  const jobs = [];
+  for (const g of groups.values()) for (let k = 0; k < g.list.length; k += 2) jobs.push([g.fileKey, g.scale, g.list.slice(k, k + 2)]);
+  const run = async (list) => { const q = list.slice(); await Promise.all(Array.from({ length: Math.min(6, q.length) }, async () => { while (q.length) { const j = q.shift(); try { await ask1(...j); } catch (e) { restError = '연결 오류 · ' + e.message; } } })); };
+  await run(jobs);
+  const again = [];
+  for (const g of groups.values()) for (const i of g.list) if (!images[i]) again.push([g.fileKey, g.scale, [i]]);
+  if (again.length) await run(again);
   return images;
 }
 
@@ -185,7 +194,7 @@ async function screenshots(items) {
     try { images = await restShots(items); } catch (e) { images = null; restError = '연결 오류 · ' + e.message; }
     const missing = images ? items.map((_, i) => i).filter(i => !images[i]) : items.map((_, i) => i);
     if (!missing.length) return { images, costUsd: 0, via: 'token' };
-    if (!restError) restError = `그림 ${missing.length}장을 못 받음`;
+    if (!restError) restError = `시안 ${missing.length}장을 Figma가 제때 그려 주지 못함`;
     console.warn('[그림] 토큰으로 못 받아 Claude로:', restError);
     // 못 받은 것만 Claude로
     const rest = await claudeShots(missing.map(i => items[i]));

@@ -39,7 +39,7 @@ function renderOnboard() {
     { key: 'install', done: inst, title: 'Claude Code 설치', body: '앱이 Figma를 읽고 쓰는 데 쓰는 프로그램이에요. 버튼을 누르면 자동으로 설치돼요 (1분 안팎).', btns: '<button id="obInstall" type="button">설치</button>' },
     { key: 'login', done: login, title: 'Claude 로그인', body: '버튼을 누르면 터미널 창이 열려요. <b>/login</b> 을 입력하고 브라우저에서 회사 계정으로 로그인해 주세요. 이어서 아래 Figma 연결까지 같은 창에서 하면 돼요.', btns: '<button class="obConnect" type="button">연결 창 열기</button><button class="obRecheck ghost" type="button">다시 확인</button>', needs: inst },
     { key: 'figma', done: figma, title: 'Figma 연결', body: '터미널 창에서 <b>/mcp</b> → figma → Authenticate → 브라우저에서 허용. "Connected to figma"가 보이면 창을 닫고 [다시 확인]을 눌러 주세요.', btns: '<button class="obConnect" type="button">연결 창 열기</button><button class="obRecheck ghost" type="button">다시 확인</button>', needs: login },
-    { key: 'token', done: tokenOn, title: '피그마 토큰 연결', body: '화면 그림을 Figma에서 바로 받는 데 써요. Figma Settings → Security에서 만든 토큰을 붙여 넣어 주세요.', btns: '<button id="obToken" type="button">토큰 붙여 넣기</button>', always: true },
+    { key: 'token', done: tokenOn, title: '피그마 토큰 연결', body: '시안을 Figma에서 바로 받아 보여 주는 데 써요. Figma Settings → Security에서 만든 토큰을 붙여 넣어 주세요.', btns: '<button id="obToken" type="button">토큰 붙여 넣기</button>', always: true },
   ];
   const nowKey = (items.find(i => !i.done && (i.always || i.needs !== false)) || {}).key;
   const state = (i) => i.done ? '<span class="st ok">연결됨</span>' : (i.key === 'token' ? !tokenKnown : checking) ? '<span class="st">확인 중…</span>' : '<span class="st bad">필요</span>';
@@ -193,7 +193,7 @@ function openToken(blocked) {
   const back = document.createElement('div'); back.className = 'cmp-back';
   back.innerHTML = `<section class="tok"><h2>${tokenOn ? '피그마 토큰 연결 완료' : '피그마 토큰 연결 필요'}</h2>
     ${blocked ? '<p class="alert">피그마 토큰을 먼저 연결해 주세요. 연결해야 다음 단계로 넘어갈 수 있어요.</p>' : ''}
-    <p class="muted">이 앱은 피그마 토큰으로 화면 그림을 바로 받아요. 처음 한 번만 연결하면 되고, 토큰은 이 맥에만 암호화해 저장돼요. 채팅에는 붙이지 마세요.</p>
+    <p class="muted">이 앱은 피그마 토큰으로 시안을 바로 받아 보여 줘요. 처음 한 번만 연결하면 되고, 토큰은 이 맥에만 암호화해 저장돼요. 채팅에는 붙이지 마세요.</p>
     <ol><li>Figma 왼쪽 위 계정 → Settings → Security</li><li>Personal access tokens → Generate new token</li><li>권한은 <b>File content: Read only</b> 하나면 돼요</li><li>만든 토큰을 아래에 붙여 넣기</li></ol>
     <div class="row"><input id="tokIn" type="password" placeholder="${tokenOn ? '연결된 토큰이 있어요 · 바꾸려면 새로 붙여 넣기' : 'figd_…'}" autocomplete="off"><button id="tokSave" type="button">연결</button></div>
     <div class="msg muted" id="tokMsg"></div>
@@ -444,7 +444,7 @@ async function openViewer({ pill, title, why, sides }) {
   }));
   const want = sides.filter(sd => sd.x);
   // 토큰으로 못 받고 느린 방식으로 돌아갔으면 이유를 보여 준다
-  const showNote = () => { if (!shotNote || box.querySelector('.shot-note')) return; box.querySelector('.cmp-head').insertAdjacentHTML('afterend', `<div class="shot-note">피그마 토큰으로 그림을 받지 못해 느린 방식으로 받고 있어요 · ${esc(shotNote)}</div>`); };
+  const showNote = () => { if (!shotNote || box.querySelector('.shot-note')) return; box.querySelector('.cmp-head').insertAdjacentHTML('afterend', `<div class="shot-note">피그마 토큰으로 시안 일부를 받지 못해 나머지는 느린 방식으로 받고 있어요 · ${esc(shotNote)}</div>`); };
   showNote(); const noteTimer = setInterval(showNote, 1000);
   try {
     const imgs = await loadShots(want.map(sd => ({ fileKey: sd.fileKey, nodeId: sd.x.id, w: sd.x.w, h: sd.x.h })));
