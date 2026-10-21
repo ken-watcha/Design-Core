@@ -123,7 +123,7 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
 }
 
 // 붙여넣기 준비: 프로젝트 문서의 브랜치(또는 복제본)에 바꿀 화면을 한 섹션으로 모은다 → 사람은 섹션 하나만 복사
-function checkGatherLink(state, url) {
+function checkGatherLink(state, url, work) {
   const l = parseLink(url);
   if (!l) return { ok: false, why: 'Figma 디자인 파일 링크가 아닙니다' };
   if (l.branchKey) {
@@ -132,10 +132,12 @@ function checkGatherLink(state, url) {
   }
   if (l.fileKey === state.fileKey) return { ok: false, why: '원본 프로젝트 문서예요. 원본에는 쓰지 않아요. 프로젝트 문서에서 ⌄ → Create branch로 브랜치를 만들고 그 링크를 주세요' };
   if (state.place && l.fileKey === state.place.coreKey) return { ok: false, why: 'Core 파일 링크예요. 여기에는 프로젝트 문서의 브랜치 링크를 넣어 주세요' };
+  // Core 브랜치 링크(…/design/<브랜치 키>/…)를 잘못 넣는 일이 있었다 (2026-10-21 윤우)
+  if (work && work.workKey && l.workKey === work.workKey) return { ok: false, why: '위에서 넣은 Core 브랜치 링크예요. 여기에는 프로젝트 문서(원본 시안 파일)에서 만든 브랜치 링크를 넣어 주세요' };
   return { ok: true, key: l.fileKey };
 }
 async function gatherForPaste(state, work, url, runner = runFigma) {
-  const link = checkGatherLink(state, url);
+  const link = checkGatherLink(state, url, work);
   if (!link.ok) return link;
   const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가');
   const plan = { sourceKey: state.fileKey, coreKey: state.place && state.place.coreKey, pageName: GATHER_SECTION, sectionName: `${GATHER_SECTION} ${rows.length}장`, screens: rows.map(r => ({ id: r.source.id, label: `${r.platform} ${r.cls} ${r.width}px` })) };
