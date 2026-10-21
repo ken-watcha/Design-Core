@@ -310,22 +310,32 @@ function showDelta() {
   const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가');
   // 파일 사이로는 앱이 화면을 못 옮긴다. 프로젝트 문서 브랜치에 바꿀 화면을 한 섹션으로 모아 섹션 하나만 복사하게 한다 (2026-10-14 윤우)
   const oneByOne = `<ul>${todo.map(r => `<li>${esc(r.platform)} ${esc(r.cls)} ${r.width}px — ${esc(r.source.name)} ${openBtn(linkTo(current.sourceUrl, r.source.id), '원본 열기')}</li>`).join('')}</ul>`;
-  const copyStep = work.gathered
-    ? `<li>모은 화면을 열고 섹션 이름(📦 Core로 보낼 화면)을 눌러 섹션째 선택 → ⌘C ${openBtn(linkTo(work.gathered.url, work.gathered.sectionId), '모은 화면 열기')}${work.gathered.missing.length ? `<div class="hint">못 찾은 화면: ${esc(work.gathered.missing.join(' · '))} — 이 화면은 아래처럼 한 장씩 복사해 주세요${oneByOne}</div>` : ''}</li>`
-    : `<li><b>바꿀 화면 ${todo.length}장을 한 번에 복사하게 모아 드려요.</b> <b>Core가 아니라 프로젝트 문서</b>에서 파일 이름 옆 ⌄ → Create branch(이름 자유)로 브랜치를 만들고 그 링크를 넣어 주세요. ${openBtn(current.sourceUrl, '프로젝트 문서 열기')}
-        <form id="gatherForm"><div class="row"><input id="gatherUrl" type="url" required autocomplete="off" placeholder="프로젝트 문서의 브랜치 링크 (Core 브랜치 아님)"><button id="gatherGo" type="submit">모으기</button></div></form>
-        <p class="hint">프로젝트 문서 브랜치도 복사본이라 원본은 그대로예요. 다 쓰면 합치지 말고 버리면 돼요.</p>
-        <details><summary class="hint">브랜치 없이 한 장씩 복사하기</summary><p class="hint">아래 화면을 원본 프로젝트 문서에서 열어 모두 선택 → ⌘C</p>${oneByOne}</details></li>`;
-  const paste = todo.length ? `<h2 style="margin-top:18px">붙여넣기 (사람 손 1회)</h2>
-    <ol>${copyStep}
-    <li>Core 브랜치의 🌏 마스터 파일 페이지 빈 곳에 ⌘V ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</li>
-    <li>[반영]을 누르면 앱이 붙여 넣은 화면을 알아보고 교체(이름·위치·링크 유지, 속만 바꿈)·추가(🔵 바와 함께)·링크 카드 기준 날짜를 고칩니다</li></ol>
-    <button id="applyGo">반영</button>${SAFE_NOTE('branch')}` : '';
+  // 순서를 번호 + 버튼으로 (2026-10-21 윤우: "모은 화면 열기"가 직관적이지 않고, Core 브랜치 링크를 모으기 칸에 넣는 실수)
+  const cover = current.analysis.cover || {};
+  const proj = esc(cover.nameKR || cover.nameEN || '프로젝트');
+  const g = work.gathered;
+  const go = (url, label) => `<button class="ghost step-btn" data-open="${esc(url)}">${label} ↗</button>`;
+  const step = (n, state, title, body) => `<li class="${state}"><span class="num">${state === 'done' ? '✓' : n}</span><div class="step-body"><b>${title}</b>${body ? `<div>${body}</div>` : ''}</div></li>`;
+  const gatherSteps = g
+    ? step(1, 'done', `프로젝트 파일 브랜치에 바꿀 화면 ${g.count}장을 모았어요`, '')
+    : step(1, 'now', `${proj} <u>프로젝트 파일</u>의 브랜치 만들기`, `Core 파일이 아니라 시안이 있는 프로젝트 파일이에요. 파일을 열고 이름 옆 ⌄ → Create branch → 브랜치 안에서 ⌄ → Copy link
+        <div class="row-btn">${go(current.sourceUrl, `${proj} 프로젝트 파일 열기`)}</div>
+        <form id="gatherForm"><div class="row"><input id="gatherUrl" type="url" required autocomplete="off" placeholder="프로젝트 파일의 브랜치 링크를 붙여 넣어 주세요 (Core 브랜치 링크 아님)"><button id="gatherGo" type="submit">화면 모으기</button></div></form>
+        <p class="hint">프로젝트 파일 브랜치도 복사본이라 원본은 그대로예요. 다 쓰면 합치지 말고 버리면 돼요.</p>
+        <details><summary class="hint">브랜치 없이 한 장씩 복사하기</summary><p class="hint">아래 화면을 원본 프로젝트 파일에서 열어 모두 선택 → ⌘C → 3번처럼 붙여 넣기</p>${oneByOne}</details>`);
+  const copyStep = step(2, g ? 'now' : '', `모아 둔 화면 ${g ? g.count + '장' : ''} 복사하기`,
+    g ? `버튼을 누르면 모아 둔 섹션이 열려요. 섹션 이름(📦 Core로 보낼 화면)을 눌러 섹션째 선택 → ⌘C
+        <div class="row-btn">${go(linkTo(g.url, g.sectionId), '모아 둔 화면 열기')}</div>${g.missing.length ? `<div class="hint">못 찾은 화면: ${esc(g.missing.join(' · '))} — 이 화면은 아래처럼 한 장씩 복사해 주세요${oneByOne}</div>` : ''}` : '1번을 마치면 열 수 있어요');
+  const pasteStep = step(3, g ? 'now' : '', 'Core 브랜치에 붙여 넣기', `버튼을 누르면 Core 브랜치의 🌏 마스터 파일 페이지가 열려요. 빈 곳을 누르고 ⌘V
+        <div class="row-btn">${go(linkTo(work.workUrl, work.core.masterPageId), 'Core 브랜치 열기')}</div>`);
+  const applyStep = step(4, '', '[반영] 누르기', '앱이 붙여 넣은 화면을 알아보고 교체(이름·위치·링크 유지, 속만 바꿈)·추가(🔵 바와 함께)·링크 카드 기준 날짜를 고쳐요<div class="row-btn"><button id="applyGo">반영</button></div>');
+  const paste = todo.length ? `<h2 style="margin-top:18px">화면 옮기기</h2>
+    <ol class="flow">${gatherSteps}${copyStep}${pasteStep}${applyStep}</ol>${SAFE_NOTE('branch')}` : '';
   // 결론을 맨 위에 (2026-10-12 윤우: 결과 표만 보고는 "그래서 뭘 하라는 건지" 몰랐음)
   const checks = d.rows.filter(r => r.check && r.action === '유지').length;
   const next = [checks ? `"확인 필요" ${checks}칸은 거의 같은 화면이에요. 한 번 눈으로 보고 괜찮으면 넘어가세요.` : '', s.missing ? `미수록 ${s.missing}개는 문서에만 있는 섹션이에요. 넣지 않아도 돼요.` : ''].filter(Boolean);
   const verdict = todo.length
-    ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸</b> — 아래 "붙여넣기" 순서대로 하고 [반영]을 누르세요.</div>`
+    ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸</b> — 아래 "화면 옮기기" 순서대로 따라 해 주세요.</div>`
     : `<div class="conclusion ok"><b>바꿀 화면이 없어요.</b> Core가 프로젝트 문서와 같아요. 브랜치는 머지할 필요 없이 버리면 돼요.${next.length ? '<ul>' + next.map(t => `<li>${t}</li>`).join('') + '</ul>' : ''}</div>`;
   $('#work').innerHTML = `<section class="panel"><h2>Δ 바뀔 내용 — ${esc(current.place.coreName)}</h2>
     ${verdict}
