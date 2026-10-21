@@ -467,11 +467,27 @@ async function onApply() {
     stopProgress(true);
     const a = r.apply, s = r.after.summary;
     const done = a.done.map(x => `<li>${x.action} · ${esc(x.platform)} ${esc(x.cls)} ${x.width}px · ${x.same ? '<span class="pill ok">원본과 같음</span>' : '<span class="pill warn">원본과 다름 — 확인 필요</span>'} ${openBtn(linkTo(work.workUrl, x.id))}</li>`).join('');
-    $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>
-      <ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
-      ${a.notFound.length ? `<p class="muted">붙여 넣은 화면을 못 찾은 칸: ${esc(a.notFound.join(' · '))} — 붙여넣기를 확인하고 [반영]을 다시 누르세요</p>` : ''}
-      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add} · 미수록 ${s.missing}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}</p>
-      <p class="hint">브랜치를 보고 괜찮으면 Figma에서 Merge(합치기)는 직접 해 주세요. ${openBtn(linkTo(work.workUrl, work.core.masterPageId), '브랜치 마스터 열기')}</p>${money(r.costUsd)}</section>`;
+    // 결론과 다음 할 일을 맨 위에 (2026-10-21 윤우: 결과만 보고는 "그래서 어떻게 된 거지?")
+    const go = (url, label) => `<button class="ghost step-btn" data-open="${esc(url)}">${label} ↗</button>`;
+    const step = (n, title, body) => `<li class="now"><span class="num">${n}</span><div class="step-body"><b>${title}</b><div>${body}</div></div></li>`;
+    const allSame = a.done.length && a.done.every(x => x.same);
+    const clean = allSame && !a.notFound.length && !s.replace && !s.add;
+    const coreName = esc(current.place.coreName);
+    const head = !a.done.length
+      ? `<div class="conclusion warn"><b>아직 반영한 화면이 없어요.</b> 붙여 넣은 화면을 찾지 못했어요. 위 순서대로 Core 브랜치에 붙여 넣었는지 확인하고 [반영]을 다시 눌러 주세요.</div>`
+      : clean
+        ? `<div class="conclusion ok"><b>${coreName} 브랜치에 ${a.done.length}장을 반영했어요.</b> 다시 읽어 보니 모든 칸이 프로젝트 시안과 같아요${a.cardUpdated ? ' (링크 카드 기준 날짜도 고침)' : ''}. 아직 Core 본 파일은 그대로예요. 아래 순서로 마무리해 주세요.</div>`
+        : `<div class="conclusion warn"><b>${a.done.length}장을 반영했지만 확인할 게 남았어요.</b> ${a.notFound.length ? `못 찾은 칸: ${esc(a.notFound.join(' · '))}. ` : ''}${!allSame ? '"원본과 다름" 표시가 있는 화면을 Figma에서 봐 주세요. ' : ''}${s.replace || s.add ? `다시 읽어 보니 아직 바뀌지 않은 칸이 ${s.replace + s.add}개 있어요. ` : ''}확인 후 [반영]을 다시 누르거나 아래처럼 마무리해 주세요.</div>`;
+    const next = a.done.length ? `<h2 style="margin-top:18px">마무리</h2><ol class="flow">
+      ${step(1, 'Core 브랜치에서 결과 보기', `바뀐 화면을 눈으로 한 번 확인해 주세요.<div class="row-btn">${go(linkTo(work.workUrl, work.core.masterPageId), 'Core 브랜치 열기')}</div>`)}
+      ${step(2, 'Core에 합치기(Merge)', `괜찮으면 Core 브랜치에서 파일 이름 옆 ⌄ → Review and merge changes → Merge. 그때 ${coreName} 본 파일이 바뀌어요. 이상하면 합치지 말고 브랜치를 버리면 원래대로예요.`)}
+      ${step(3, '프로젝트 파일 브랜치 버리기', `화면을 모으려고 만든 프로젝트 파일 브랜치는 이제 필요 없어요. 합치지 말고 ⌄ → Archive branch로 버려 주세요.${work.gathered ? `<div class="row-btn">${go(work.gathered.url, '프로젝트 파일 브랜치 열기')}</div>` : ''}`)}
+      </ol>` : '';
+    $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>${head}${next}
+      <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
+      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add} · 미수록 ${s.missing}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}</p></details>
+      ${money(r.costUsd)}</section>`;
+    $('#work').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     bindOpen($('#work'));
     $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
   } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; }
