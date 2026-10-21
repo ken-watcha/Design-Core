@@ -211,7 +211,26 @@ if (done.length && PLAN.month) {
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
 if (root) fitSection(root, L.rootPadding);
-return { step: 'update', done, notFound, pastedSeen: pasted.length, cardUpdated, log };
+// 이번 프로젝트 문서 링크를 링크 카드에 건다. 카드가 없는 Core(SVOD 등)는 루트 섹션 위에 카드를 새로 둔다 (2026-10-21 윤우)
+let linkAdded = null;
+if (done.length && PLAN.sourceUrl) {
+  let card = page.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name)), made = false;
+  const already = card && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
+  if (!already) {
+    if (!card) {
+      card = figma.createFrame(); card.name = '📎 스펙 링크 카드'; page.appendChild(card); made = true;
+      card.layoutMode = 'VERTICAL'; card.itemSpacing = 12; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
+      card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'FIXED'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
+      card.resize(L.cardSize[0], L.cardSize[1]);
+      await text(card, RULES.linkCard.badgeText, 'Bold', 18, { r: 1, g: 1, b: 1 });
+    }
+    const label = (PLAN.projectName || '프로젝트 문서') + (PLAN.month ? ' (' + PLAN.month + ')' : '');
+    const t = await text(card, '🔗 ' + label, 'Bold', 14, { r: .47, g: .67, b: 1 }, PLAN.sourceUrl);
+    if (made && root) { card.x = root.x; card.y = root.y - card.height - 80; }
+    linkAdded = { cardId: card.id, textId: t.id, newCard: made };
+  }
+}
+return { step: 'update', done, notFound, pastedSeen: pasted.length, cardUpdated, linkAdded, log };
 `;
 
 // ---------- 기존 Core 갱신: 붙여 넣을 화면을 한곳에 모으기 (프로젝트 문서의 브랜치·복제본에서) ----------
