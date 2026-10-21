@@ -57,11 +57,15 @@ function computeDelta(analysis, core, sources = {}) {
         }
         if (!src) continue;
         if (!target) { target = slot.find(s => s.bar) || slot[0] || null; // 대표 화면(바 없음)보다 크기 칸 화면을 먼저 바꾼다
-          action = target ? '교체' : '추가'; why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음` : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`; }
+          action = target ? '교체' : '추가'; why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음` : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`;
+          // 길이(높이)가 크게 다르면(1.5배 넘게) 바꾸지 않는다 — 전체 길이 Core 화면을 첫 화면 크기 시안으로 줄이지 않게
+          // (2026-10-21 윤우: "길이는 바꾸지 말고 그대로". SVOD 4816 → 812. 676 → 753 같은 작은 차이는 그대로 교체)
+          if (target && Math.max(target.h, src.h) > 1.5 * Math.min(target.h, src.h)) { action = '그대로'; why = `길이가 달라 바꾸지 않음 (Core 높이 ${target.h} · 시안 높이 ${src.h}) — 바뀐 부분이 있으면 Core 화면에서 직접 고쳐 주세요`; }
+        }
         if (target) usedCore.add(target.id);
         rows.push({
           platform, cls: e.cls, width: p.width, desc: e.desc, action, why,
-          check: !!near || action === '교체',
+          check: !!near || action === '교체' || action === '그대로',
           source: { id: src.id, name: src.name, w: src.w, h: src.h, sig: src.sig },
           target: target ? { id: target.id, name: target.name, w: target.w, h: target.h, sig: target.sig, bar: target.bar } : null
         });

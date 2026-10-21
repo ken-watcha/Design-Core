@@ -135,11 +135,19 @@ const fixture = require('./fixture-stepmade.json');
   {
     const { computeDelta } = require('../engine/delta');
     const an = { platforms: { APP: [{ cls: 'small', desc: '', picks: [{ width: 375, chosen: 'P1', candidates: [{ id: 'P1', name: 'p', w: 375, h: 812, sig: 'new' }] }] }] } };
-    const co = { platforms: { APP: { screens: [{ id: 'REP', name: '🌏 SVOD_APP', w: 375, h: 4816, cls: 'small', bar: null, sig: 'a' }, { id: 'S1', name: '로그인/구독_small', w: 375, h: 4816, cls: 'small', bar: 'B1', sig: 'b' }] } } };
+    const co = { platforms: { APP: { screens: [{ id: 'REP', name: '🌏 SVOD_APP', w: 375, h: 4816, cls: 'small', bar: null, sig: 'a' }, { id: 'S1', name: '로그인/구독_small', w: 375, h: 812, cls: 'small', bar: 'B1', sig: 'b' }] } } };
     const dd = computeDelta(an, co, {});
     assert.strictEqual(dd.rows.find(r => r.action === '교체').target.id, 'S1', '크기 칸 화면을 먼저 교체');
     const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
     assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
+  }
+  // 길이가 다르면 교체하지 않고 그대로 + 확인 필요 (2026-10-21 윤우)
+  {
+    const { computeDelta } = require('../engine/delta');
+    const an = { platforms: { APP: [{ cls: 'small', desc: '', picks: [{ width: 375, chosen: 'P1', candidates: [{ id: 'P1', name: 'p', w: 375, h: 812, sig: 'new' }] }] }] } };
+    const co = { platforms: { APP: { screens: [{ id: 'S1', name: '로그인/구독_small', w: 375, h: 4816, cls: 'small', bar: 'B1', sig: 'b' }] } } };
+    const r1 = computeDelta(an, co, {}).rows[0];
+    assert(r1.action === '그대로' && r1.check && r1.source && /길이가 달라/.test(r1.why), '길이가 다르면 바꾸지 않음');
   }
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });
