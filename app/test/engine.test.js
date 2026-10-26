@@ -42,17 +42,25 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(r2.place, r2.places[0]);
     const v4 = judge(an({ a: [4] }), ix, rules, {});
     assert(v4.content === null && v4.suggestion === 'update', '하나도 안 겹치면 자료가 어긋난 것으로 보고 이름 판별 (피쳐링셀 → SVOD)');
-    // 2단계 메인 화면 기준 (2026-10-26 윤우): 피쳐링셀이 🌏 메인 화면에 있는 웹툰은 함께, 메인이 아닌 화면에만 있는 소식함은 빼기
-    const mainScr = (id, ns) => Object.assign(scr(id, ns), { name: '🌏 ' + id });
+    // 2단계 메인 화면 기준 (2026-10-26 윤우): 피쳐링셀이 메인 화면에 가려지지 않고 보이는 Core만. 메인 화면 = 🌏 화면, 없으면 섹션 맨 왼쪽 대표 화면(색인 main),
+    // 보이는 것 = 색인 vis (딤·바텀시트·드롭다운에 가려진 인스턴스는 빠짐)
+    const mainScr = (id, ns, plat, vis) => Object.assign(scr(id, ns), { name: id, main: plat }, vis ? { vis: vis.map(n => names.indexOf(n)) } : {});
     const fill = (k, n) => Array.from({ length: n }, (_, i) => scr(k + i, ['TopBar', 'Button', 'Row']));
+    const FC = ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'];
     const ixM = { component_names: names, files: [
-      { name: '[Core] SVOD (홈)', key: 'S', url: 's', screen_components: [mainScr('SVOD_APP', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('s', 4)) },
-      { name: '[Core] TVOD', key: 'T', url: 't', screen_components: [mainScr('TVOD_APP', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('t', 4)) },
-      { name: '[Core] 웹툰', key: 'W', url: 'w', screen_components: [mainScr('웹툰_APP', ['TopBar', 'Featuring Cell', 'Webtoon Cell'])].concat(fill('w', 4)) },
-      { name: '[Core] 소식함', key: 'N', url: 'n', screen_components: [scr('n0', ['TopBar', 'Featuring Cell', 'Cell'])].concat(fill('n', 4)) }] };
+      { name: '[Core] SVOD (홈)', key: 'S', url: 's', screen_components: [mainScr('🌏 SVOD_APP', FC, 'APP'), mainScr('🌏 SVOD_WEB', FC, 'WEB')].concat(fill('s', 4)) },
+      { name: '[Core] TVOD', key: 'T', url: 't', screen_components: [mainScr('🌏 TVOD_APP', FC, 'APP')].concat(fill('t', 4)) },
+      // 🌏 표시 없는 Core: 섹션 맨 왼쪽 대표 화면
+      { name: '[Core] 웹툰', key: 'W', url: 'w', screen_components: [mainScr('웹툰_APP', ['TopBar', 'Featuring Cell', 'Webtoon Cell'], 'APP'), mainScr('웹툰_WEB', ['TopBar', 'Featuring Cell'], 'WEB')].concat(fill('w', 4)) },
+      // WEB 대표 화면에서 드롭다운 뒤에 홈이 깔린 Core — 피쳐링셀이 가려져 있어서 빠져야 함
+      { name: '[Core] 소식함', key: 'N', url: 'n', screen_components: [mainScr('소식함_APP', ['TopBar', 'Cell'], 'APP'), mainScr('소식함_WEB', ['TopBar', 'Featuring Cell', 'Cell'], 'WEB', ['TopBar', 'Cell'])].concat(fill('n', 4)) },
+      // 대표 화면 하나뿐인데 피쳐링셀이 막 뒤에 깔린 Core (로그인/가입 시작) — 빠져야 함
+      { name: '[Core] 로그인', key: 'L', url: 'l', screen_components: [mainScr('로그인 시작', FC, 'APP', ['TopBar', 'Button'])].concat(fill('l', 4)) },
+      // 대표 화면이 아닌 곳에 홈 화면을 그대로 넣어 둔 Core (2026-10-26 피쳐링셀 문서: 나의 왓챠·왓챠파티·콘상페·플레이어가 82%로 걸림) — 빠져야 함
+      { name: '[Core] 나의 왓챠', key: 'M', url: 'm', screen_components: [mainScr('나의 왓챠', ['TopBar', 'Cell'], 'APP'), scr('m0', FC)].concat(fill('m', 4)) }] };
     const vm = judge(an({ a: [0, 1, 2, 3] }), ixM, rules, {});
-    assert.deepStrictEqual(vm.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD', '[Core] 웹툰'], '메인 화면에 피쳐링셀이 있는 웹툰은 함께, 소식함은 빠짐');
-    assert(/메인 화면\(🌏 웹툰_APP\)/.test(vm.targets[2].why), '웹툰 근거는 메인 화면');
+    assert.deepStrictEqual(vm.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD', '[Core] 웹툰'], '메인 화면에 피쳐링셀이 보이는 웹툰은 함께, 소식함(드롭다운에 가려짐)과 나의 왓챠(대표 화면 아닌 곳)는 빠짐');
+    assert(/메인 화면\(웹툰_APP, 웹툰_WEB\)/.test(vm.targets[2].why), '웹툰 근거는 메인 화면');
     const v3 = judge(Object.assign(an({}), { comps: undefined }), index, rules, {});
     assert(v3.targets && v3.content === null, '컴포넌트 자료가 없으면 이름으로만 판별');
   }
