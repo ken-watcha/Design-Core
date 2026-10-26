@@ -94,11 +94,39 @@ if (kind === 'project') {
     return { section: s.platform + ' > ' + s.name, id: s.id, platform: s.platform, to: hit ? s.platform + ' > ' + hit.cls : '', note: hit ? '' : (s.cls ? '(같은 크기 섹션이 이미 있음)' : '미수록 — 어느 크기인지 골라 주세요') };
   });
 }
+// 고른 화면마다 쓰인 컴포넌트 이름 — 판별(judge.js)이 Core 화면과 겹치는 정도로 어느 Core에 넣을지 본다
+// (2026-10-26 윤우: 피쳐링셀은 SVOD 말고 TVOD에도 있다 → 이름이 아니라 내용으로 Core 전체와 비교)
+// 이름 대신 짧은 해시로 보낸다 (20KB 한도). judge.js가 색인의 이름을 같은 식으로 바꿔 비교한다
+const compHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+async function compNames(frame) {
+  const out = new Set();
+  const insts = frame.findAll(n => n.type === 'INSTANCE');
+  for (let i = 0; i < insts.length; i += 200) {
+    const mcs = await Promise.all(insts.slice(i, i + 200).map(n => n.getMainComponentAsync().catch(() => null)));
+    for (const mc of mcs) {
+      if (!mc) continue;
+      const nm = String(mc.parent && mc.parent.type === 'COMPONENT_SET' ? mc.parent.name : mc.name).trim();
+      if (nm && !nm.includes('=')) out.add(compHash(nm));
+    }
+  }
+  return out;
+}
+if (kind === 'project') {
+  const names = [], pos = {}, picks = {};
+  const chosen = [...new Set(Object.values(result.platforms).flat().flatMap(e => e.picks.map(p => p.chosen)).filter(Boolean))];
+  for (const id of chosen) {
+    const f = await figma.getNodeByIdAsync(id); if (!f) continue;
+    picks[id] = [...await compNames(f)].slice(0, 150).map(nm => pos[nm] != null ? pos[nm] : (pos[nm] = names.push(nm) - 1));
+  }
+  result.comps = { names, picks };
+}
 // 그래도 크면 글자 목록부터 버린다 (후보 차이 설명만 줄고 분석은 그대로)
 const strip = () => { for (const pf of Object.values(result.platforms)) for (const e of pf) for (const p of e.picks) for (const c of p.candidates) delete c.texts; };
 const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
 if (bytes(result) > 18000) strip();
 if (bytes(result) > 18000) for (const pf of Object.values(result.platforms)) for (const e of pf) for (const p of e.picks) p.candidates = p.candidates.slice(0, 3);
+if (bytes(result) > 18000 && result.comps) for (const id in result.comps.picks) result.comps.picks[id] = result.comps.picks[id].slice(0, 60);
+if (bytes(result) > 18000) delete result.comps;   // 마지막 수단: 판별은 이름으로만 한다
 return result;
 `;
 

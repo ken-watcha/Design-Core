@@ -19,6 +19,32 @@ const fixture = require('./fixture-stepmade.json');
   assert.strictEqual(r.analysis.kind, 'project');
   assert(r.verdict, '판별 결과');
   console.log('판별:', r.verdict.suggestion, r.verdict.target, '·', r.verdict.reason);
+  // 내용 판별 (2026-10-26 윤우: 피쳐링셀은 SVOD·TVOD 둘 다) — 시안 화면의 컴포넌트가 들어 있는 Core가 여럿이면 모두, 없으면 새 Core
+  {
+    const { judge, compHash } = require('../engine/judge');
+    const names = ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row', 'Cell', 'Webtoon Cell', 'Player'];
+    const scr = (id, ns) => ({ id, name: '화면 ' + id, w: 375, h: 812, c: ns.map(n => names.indexOf(n)) });
+    const ix = { component_names: names, files: [
+      { name: '[Core] SVOD (홈)', key: 'S', url: 's', domain: ['피쳐링셀'], screen_components: [scr('s1', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row', 'Cell'])] },
+      { name: '[Core] TVOD', key: 'T', url: 't', screen_components: [scr('t1', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])] },
+      { name: '[Core] 웹툰', key: 'W', url: 'w', screen_components: [scr('w1', ['TopBar', 'Button', 'Row', 'Webtoon Cell'])] },
+      { name: '[Core] 플레이어', key: 'P', url: 'p', screen_components: [scr('p1', ['TopBar', 'Player'])] }] };
+    const an = (picks) => ({ cover: { nameEN: 'Featuring Cell', nameKR: '피쳐링셀 개선' }, fileName: '피쳐링셀', fileKey: 'X', comps: { names: ['TopBar', 'Featuring Cell', 'Featuring Cell/Title', 'Button', '새 컴포넌트', 'Player'].map(compHash), picks } });
+    const v1 = judge(an({ a: [0, 1, 2, 3] }), ix, rules, {});
+    assert.strictEqual(v1.suggestion, 'update');
+    assert.deepStrictEqual(v1.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD'], '피쳐링셀이 든 Core 둘 다 갱신 (이름은 SVOD만 가리켜도)');
+    assert(/화면 s1/.test(v1.targets[0].why), '근거로 Core 화면 이름을 댐');
+    const v2 = judge(an({ a: [0, 4, 3, 5] }), ix, rules, {});
+    assert.strictEqual(v2.suggestion, 'new', '어느 Core에도 없는 컴포넌트가 중심이면 새 Core (이름이 SVOD 주제와 같아도)');
+    const r2 = await analyzeProject('https://www.figma.com/design/XXXXXXXXXXXXXXXXXXXXXX/x', { rules, index: ix, memory: {} }, async () => ({ data: Object.assign(JSON.parse(JSON.stringify(fixture)), { comps: an({ a: [0, 1, 2, 3] }).comps }), costUsd: 0 }));
+    assert.strictEqual(r2.places.length, 2, 'Core마다 작업 위치');
+    assert.deepStrictEqual(r2.places.map(p => [p.coreName, p.coreKey]), [['[Core] SVOD (홈)', 'S'], ['[Core] TVOD', 'T']]);
+    assert.strictEqual(r2.place, r2.places[0]);
+    const v4 = judge(an({ a: [4] }), ix, rules, {});
+    assert(v4.content === null && v4.suggestion === 'update', '하나도 안 겹치면 자료가 어긋난 것으로 보고 이름 판별 (피쳐링셀 → SVOD)');
+    const v3 = judge(Object.assign(an({}), { comps: undefined }), index, rules, {});
+    assert(v3.targets && v3.content === null, '컴포넌트 자료가 없으면 이름으로만 판별');
+  }
   // --- v0.2: 작업 위치 · Δ · 쓰기 코드 ---
   const os = require('os'), path = require('path'), fs = require('fs');
   const { checkWorkplace, buildNewCore, applyUpdate } = require('../engine/core');

@@ -1,0 +1,88 @@
+"""Core마다 마스터 페이지에 쓰인 컴포넌트 이름을 세어 core-index.json 의 각 Core에 `components` 로 넣는다 (읽기 전용).
+
+사용법: python3 scripts/figma-rest/build-component-index.py [Core 이름 일부 ...]   # 생략 시 색인의 Core 전부
+  - 마스터 페이지(색인 master.page)를 REST로 깊이 제한 없이 받는다 (TVOD 약 27MB·7초).
+  - 인스턴스 → 컴포넌트 세트 이름(세트가 없으면 컴포넌트 이름)으로 바꿔 센다. Core 전체는 많이 쓴 순서로 최대 400개(`components`),
+    섹션 바로 아래 화면마다 쓰인 컴포넌트 번호 목록(`screen_components`, 이름은 `component_names`).
+  - 받은 원본 개수는 .cache/component-index/ 에 남긴다. 일부 Core만 다시 받아도 나머지는 그 캐시로 채운다.
+  - 앱 판별(judge.js)이 프로젝트 화면의 컴포넌트와 겹치는 정도로 어느 Core에 넣을지 정할 때 쓴다 (2026-10-26 윤우: 피쳐링셀은 SVOD·TVOD 둘 다 씀).
+"""
+import json, urllib.request, sys, os, re, collections, datetime
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+IDX = os.path.join(ROOT, "core-index", "core-index.json")
+ONLY = sys.argv[1:]
+MAX = 400
+CACHE = os.path.join(ROOT, ".cache", "component-index"); os.makedirs(CACHE, exist_ok=True)
+
+def get(url):
+    with urllib.request.urlopen(urllib.request.Request(url), timeout=300) as r:
+        return json.load(r)
+
+def tally(n, name_of):
+    cnt = collections.Counter()
+    stack = [n]
+    while stack:
+        m = stack.pop()
+        if m.get("type") == "INSTANCE":
+            nm = name_of.get(m.get("componentId"), "").strip()
+            if nm: cnt[nm] += 1
+        stack.extend(m.get("children", []))
+    return cnt
+
+def count(doc, comps, sets, screens):
+    """페이지 전체 개수를 돌려주고, 섹션 바로 아래 화면(폭·높이 300 이상)마다 개수를 screens에 쌓는다."""
+    name_of = {}
+    for cid, c in comps.items():
+        s = sets.get(c.get("componentSetId") or "")
+        name_of[cid] = (s or {}).get("name") or c.get("name") or ""
+    stack = [(doc, None)]
+    while stack:
+        n, parent = stack.pop()
+        bb = n.get("absoluteBoundingBox") or {}
+        if n.get("type") == "FRAME" and parent == "SECTION" and bb.get("width", 0) >= 300 and bb.get("height", 0) >= 300:
+            c = tally(n, name_of)
+            if c: screens.append({"id": n["id"], "name": n.get("name", "")[:40], "w": round(bb["width"]), "h": round(bb["height"]), "c": c})
+            continue
+        for ch in n.get("children", []): stack.append((ch, n.get("type")))
+    return tally(doc, name_of)
+
+idx = json.load(open(IDX))
+names = []
+pos = {n: i for i, n in enumerate(names)}
+def nid(n):
+    if n not in pos: pos[n] = len(names); names.append(n)
+    return pos[n]
+for f in idx["files"]:
+    if ONLY and not any(o in f["name"] for o in ONLY): continue
+    page = (f.get("master") or {}).get("page")
+    if not page: print("건너뜀(마스터 페이지 없음):", f["name"]); continue
+    base = f"https://api.figma.com/v1/files/{f['key']}/nodes?ids="
+    cnt = collections.Counter(); screens = []
+    try:
+        node = get(base + page)["nodes"][page]
+        cnt = count(node["document"], node.get("components", {}), node.get("componentSets", {}), screens)
+    except Exception as e:
+        # 페이지가 너무 크면(SVOD 502) 페이지 바로 아래 요소를 하나씩 받는다
+        print("  페이지 통째로 실패 → 나눠 받기:", f["name"], str(e)[:80])
+        try:
+            kids = [c["id"] for c in get(base + page + "&depth=1")["nodes"][page]["document"].get("children", [])]
+            for k in kids:
+                node = get(base + k)["nodes"][k]
+                cnt += count(node["document"], node.get("components", {}), node.get("componentSets", {}), screens)
+        except Exception as e2:
+            print("실패:", f["name"], str(e2)[:200]); continue
+    f["components"] = dict(cnt.most_common(MAX))
+    json.dump({"components": cnt, "screens": [dict(s, c=dict(s["c"])) for s in screens]}, open(os.path.join(CACHE, f["key"] + ".json"), "w"), ensure_ascii=False)
+    print(f"{f['name']}: 컴포넌트 {len(cnt)}종, 인스턴스 {sum(cnt.values())}개, 화면 {len(screens)}장")
+
+# 화면별 컴포넌트: 이름표(component_names) 번호 목록. 개수는 버린다 — 판별은 "프로젝트 화면의 컴포넌트가 이 화면에 들어 있나"만 본다
+for f in idx["files"]:
+    p = os.path.join(CACHE, f["key"] + ".json")
+    if not os.path.exists(p): continue
+    f["screen_components"] = [{"id": s["id"], "name": s["name"], "w": s["w"], "h": s["h"], "c": sorted(nid(k) for k in s["c"])} for s in json.load(open(p))["screens"]]
+idx["component_names"] = names
+idx["_meta"]["components_built"] = datetime.date.today().isoformat()
+text = json.dumps(idx, ensure_ascii=False, indent=1)
+text = re.sub(r'\[\s*(\d+(?:,\s*\d+)*)\s*\]', lambda m: "[" + ",".join(m.group(1).replace(" ", "").replace("\n", "").split(",")) + "]", text)   # 번호 목록은 한 줄로
+open(IDX, "w").write(text + "\n")

@@ -64,6 +64,15 @@ async function showKnowledge() {
   catch (e) { $('#footer').textContent = '규칙을 불러오지 못했습니다: ' + e.message; }
 }
 
+// 갱신할 Core와 그렇게 본 근거(시안 컴포넌트가 들어 있는 Core 화면). 여럿이면 하나씩 차례로 한다 (2026-10-26 윤우: 피쳐링셀은 SVOD·TVOD 둘 다)
+function targetsHtml(v) {
+  const ts = v.targets || [];
+  if (v.suggestion !== 'update' || !ts.length || (ts.length === 1 && !ts[0].match)) return '';
+  const at = current.placeAt || 0;
+  const li = ts.map((t, i) => `<li>${ts.length > 1 ? `<b>${i + 1}.</b> ` : ''}${esc(t.name)}${ts.length > 1 && i < at ? ' <span class="pill ok">했음</span>' : ts.length > 1 && i === at ? ' <span class="pill warn">지금</span>' : ''}<div class="muted">${esc(t.why)}</div></li>`).join('');
+  return `<ul class="targets">${li}</ul>`;
+}
+
 function render(r) {
   const a = r.analysis, v = r.verdict;
   if (a.kind !== 'project') {
@@ -77,7 +86,8 @@ function render(r) {
     <div class="verdict"><span class="big">${v.suggestion === 'update' ? '기존 Core 갱신' : '새 Core 만들기'} → ${esc(v.target)}</span>
     ${v.sure ? '' : '<span class="pill warn">확인 필요</span>'}</div>
     <p class="muted">${esc(v.reason)}</p>
-    ${weak ? `<p class="hint">참고로 이름이 조금 겹친 Core: ${weak}. 겹친 낱말이 하나뿐이라 갱신 대상으로 보지 않았어요.</p>` : ''}
+    ${targetsHtml(v)}
+    ${weak && !v.content ? `<p class="hint">참고로 이름이 조금 겹친 Core: ${weak}. 겹친 낱말이 하나뿐이라 갱신 대상으로 보지 않았어요.</p>` : ''}
     ${!v.sure ? `<p class="hint">비슷하게 맞은 Core: ${v.candidates.slice(0, 3).map(c => esc(c.name)).join(', ')}</p>` : ''}
     <p class="hint">프로젝트: ${esc(cover.nameKR || cover.nameEN)} · 커버 ${esc(cover.badge || '상태 없음')}</p>
   </section>`;
@@ -115,6 +125,7 @@ function render(r) {
   const next = placeHtml(r) + cost.replace('<p class="hint">', '<p class="hint" style="text-align:right">');
   $('#result').innerHTML = verdictHtml + picksHtml + covHtml + next + '<div id="work"></div>';
   $('#placeForm') && $('#placeForm').addEventListener('submit', onPlace);
+  document.querySelectorAll('[data-core-at]').forEach(b => b.addEventListener('click', () => switchCore(Number(b.dataset.coreAt))));
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
     const e = current.analysis.platforms[s.dataset.pf].find(x => x.cls === s.dataset.cls); const p = e.picks.find(x => String(x.width) === s.dataset.w);
     p.chosen = s.value; p.sure = true; p.touched = true;
@@ -165,7 +176,7 @@ $('#form').addEventListener('submit', async (ev) => {
   document.body.classList.remove('home');
   $('#result').innerHTML = progressHtml('analyze', 'Figma 문서를 읽고 있어요');
   startProgress('analyze');
-  try { current = await window.core.analyze(url); stopProgress(true); render(current); if (current.analysis.kind === 'project') prefetchPicks(); }
+  try { current = await window.core.analyze(url); current.analysis0 = JSON.parse(JSON.stringify(current.analysis)); stopProgress(true); render(current); if (current.analysis.kind === 'project') prefetchPicks(); }
   catch (e) { stopProgress(); $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; }
   finally { $('#go').disabled = false; }
 });
@@ -262,12 +273,23 @@ const busy = (msg) => { $('#work').innerHTML = `<section class="panel spinner">$
 const fail = (title, e) => { $('#work').innerHTML = `<section class="panel"><h2>${esc(title)}</h2><p class="muted">${esc(e && e.message ? e.message : e)}</p></section>`; };
 const money = (v) => v != null ? `<p class="hint">이번 단계 Claude 사용량: 약 $${Number(v).toFixed(3)}</p>` : '';
 
+// 다음(또는 고른) Core로 넘어간다. 대표 화면은 Core마다 다시 맞추므로 분석 결과는 처음 받은 것으로 되돌린다
+function switchCore(i) {
+  if (!current.places || !current.places[i]) return;
+  current.placeAt = i; current.place = current.places[i];
+  if (current.analysis0) current.analysis = JSON.parse(JSON.stringify(current.analysis0));
+  work = null; render(current);
+  const el = $('#placePanel'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 // ---------- 📍 작업 위치 ----------
 function placeHtml(r) {
   const pl = r.place; if (!pl) return '';
   const head = pl.kind === 'branch' ? `기존 Core 갱신 → ${esc(pl.coreName)}의 브랜치` : `새 Core → 프로젝트 파일 복사본 (${esc(pl.coreName)})`;
   const link = pl.kind === 'branch' ? (pl.coreUrl ? openBtn(pl.coreUrl, pl.coreName + ' 열기') : '') : openBtn(r.sourceUrl, '프로젝트 파일 열기');
-  return `<section class="panel"><h2>📍 작업 위치</h2>
+  const n = (r.places || []).length, at = r.placeAt || 0;
+  const tabs = n > 1 ? `<div class="core-tabs">${r.places.map((p, i) => `<button type="button" class="${i === at ? '' : 'ghost'}" data-core-at="${i}">${i + 1}. ${esc(p.coreName.replace(/^\[Core\]\s*/, ''))}</button>`).join('')}</div><p class="hint">Core ${n}개를 하나씩 해요. 지금은 ${at + 1}번째예요. 끝나면 반영 결과 아래 버튼으로 다음 Core로 넘어가요.</p>` : '';
+  return `<section class="panel" id="placePanel"><h2>📍 작업 위치${n > 1 ? ` <span class="muted h2-sub">${at + 1} / ${n}</span>` : ''}</h2>${tabs}
     <div class="verdict"><span class="big">${head}</span>${link}</div>
     <p class="muted">${esc(pl.why)}</p>
     <ol>${pl.steps.map(s => `<li>${esc(s)}</li>`).join('')}</ol>
@@ -460,6 +482,7 @@ async function onApply() {
     const allSame = a.done.length && a.done.every(x => x.same);
     const clean = allSame && !a.notFound.length && !s.replace && !s.add;
     const coreName = esc(current.place.coreName);
+    const nextCore = (current.places || [])[(current.placeAt || 0) + 1] || null;
     const head = !a.done.length
       ? `<div class="conclusion warn"><b>아직 반영한 화면이 없어요.</b> 붙여 넣은 화면을 찾지 못했어요. 위 순서대로 Core 브랜치에 붙여 넣었는지 확인하고 [반영]을 다시 눌러 주세요.</div>`
       : clean
@@ -468,6 +491,7 @@ async function onApply() {
     const next = a.done.length ? `<h2 style="margin-top:18px">마무리</h2><ol class="flow">
       ${step(1, 'Core 브랜치에서 결과 보기', `바뀐 화면을 눈으로 한 번 확인해 주세요.<div class="row-btn">${go(linkTo(work.workUrl, work.core.masterPageId), 'Core 브랜치 열기')}</div>`)}
       ${step(2, 'Core에 합치기(Merge)', `괜찮으면 Core 브랜치에서 파일 이름 옆 ⌄ → Review and merge changes → Merge. 그때 ${coreName} 본 파일이 바뀌어요. 이상하면 합치지 말고 브랜치를 버리면 원래대로예요.`)}
+      ${nextCore ? step(3, `다음 Core: ${esc(nextCore.coreName)}`, `이 시안은 ${esc(nextCore.coreName)}에도 들어가요. 같은 순서로 한 번 더 해요.<div class="row-btn"><button id="nextCore" type="button">${esc(nextCore.coreName)} 갱신하기</button></div>`) : ''}
       </ol>` : '';
     $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>${head}${next}
       <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
@@ -476,6 +500,7 @@ async function onApply() {
     $('#work').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     bindOpen($('#work'));
     $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
+    $('#nextCore') && $('#nextCore').addEventListener('click', () => switchCore((current.placeAt || 0) + 1));
   } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; }
 }
 

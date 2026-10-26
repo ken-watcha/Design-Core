@@ -142,3 +142,6 @@ body.home main > .panel.onboard { background:var(--surface); border:1px solid va
 .flow form .row { margin-top:4px; }
 button.step-btn { padding:8px 14px; }
 .flow .step-back { cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; }
+/* 갱신할 Core 목록·Core 차례 (2026-10-26 여러 Core 갱신) */
+.targets { margin:10px 0 0; padding-left:18px; } .targets li { margin:4px 0; } .targets .muted { font-size:13px; }
+.core-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; } .core-tabs button { padding:6px 12px; font-size:13px; }

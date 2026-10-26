@@ -4,6 +4,7 @@ const assert = require('assert');
 const rules = require('../../plugin/rules.json');
 const { buildCoreReadCode } = require('../engine/figma-core-read');
 const { readItemCounts, readItemLabels, findSources } = require('../engine/figma-find');
+const { buildAnalyzeCode } = require('../engine/figma-analyze');
 const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
 const LIMIT = 20480;
 const bytes = (o) => Buffer.byteLength(JSON.stringify(o));
@@ -16,7 +17,8 @@ function node(type, name, props = {}, children = []) {
   n.findAll = (f) => { const r = []; const w = (x) => { for (const c of x.children || []) { if (f(c)) r.push(c); w(c); } }; w(n); return r; };
   n.findOne = (f) => n.findAll(f)[0] || null;
   n.loadAsync = async () => {};
-  if (type === 'INSTANCE') n.getMainComponentAsync = async () => null;
+  // 컴포넌트 이름은 길고 서로 다르게 (분석이 화면마다 컴포넌트 이름을 돌려주므로)
+  if (type === 'INSTANCE') n.getMainComponentAsync = async () => ({ name: 'Variant=' + name, parent: { type: 'COMPONENT_SET', name: `${LONG} 컴포넌트 ${name}` } });
   return n;
 }
 const LONG = '피쳐링셀 노출 영역 기본 케이스 설명 문구가 아주 길게 들어간 예시입니다';
@@ -64,6 +66,15 @@ const runner = async (key, code, desc) => {
   assert(runs.length - before > 1, '여러 번에 나눠 받음');
   assert.strictEqual(Object.keys(h.counts[huge.id]).length, 6000, '큰 화면의 요소를 빠짐없이 셈 (요소 3,000 + 글자 3,000)');
   assert.deepStrictEqual(h.counts[ids[0]], a.counts[ids[0]], '함께 보낸 화면도 그대로');
+  // 프로젝트 분석: 화면마다 컴포넌트 이름(최대 150개)을 함께 돌려준다 (2026-10-26 내용 판별)
+  const pdoc = { root: { children: [node('PAGE', 'Cover'), ...['✅ Mobile', '✅ Web'].map(pg => node('PAGE', pg, {}, [['small', 375], ['medium', 768], ['large', 1024], ['large', 1440]].map(([c, w], k) => node('SECTION', c, {}, [0, 1, 2].map(i => screen(k * 10 + i, w))))))] }, fileKey: 'DOC2' };
+  const pid = new Map(); const pidx = (n) => { pid.set(n.id, n); (n.children || []).forEach(pidx); }; pdoc.root.children.forEach(pidx);
+  pdoc.getNodeByIdAsync = async (id) => pid.get(id) || null;
+  const an = await new AsyncFn('figma', buildAnalyzeCode(rules, {}))(pdoc);
+  const ab = bytes(an); runs.push({ desc: '분석', b: ab });
+  assert(ab <= LIMIT, `분석 결과 ${ab}바이트가 한도 아래`);
+  assert.strictEqual(an.kind, 'project');
+  assert(an.comps && Object.keys(an.comps.picks).length >= 4, '고른 화면마다 컴포넌트 이름');
   const max = Math.max(...runs.map(r => r.b));
   console.log(`한도 시험 통과 · 호출 ${runs.length}번 · 가장 큰 결과 ${Math.round(max / 1024)}KB`);
 })().catch(e => { console.error(e); process.exit(1); });
