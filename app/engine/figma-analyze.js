@@ -106,7 +106,7 @@ async function compNames(frame) {
   const insts = frame.findAll(n => n.type === 'INSTANCE');
   figma.skipInvisibleInstanceChildren = skip;
   for (let i = 0; i < insts.length; i += 200) {
-    const mcs = await Promise.all(insts.slice(i, i + 200).map(n => n.getMainComponentAsync().catch(() => null)));
+    const mcs = await Promise.all(insts.slice(i, i + 200).map(async n => { try { return await n.getMainComponentAsync(); } catch (e) { return null; } }));
     for (const mc of mcs) {
       if (!mc) continue;
       const nm = String(mc.parent && mc.parent.type === 'COMPONENT_SET' ? mc.parent.name : mc.name).trim();

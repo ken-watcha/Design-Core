@@ -19,6 +19,8 @@ function node(type, name, props = {}, children = []) {
   n.loadAsync = async () => {};
   // 컴포넌트 이름은 길고 서로 다르게 (분석이 화면마다 컴포넌트 이름을 돌려주므로)
   if (type === 'INSTANCE') n.getMainComponentAsync = async () => ({ name: 'Variant=' + name, parent: { type: 'COMPONENT_SET', name: `${LONG} 컴포넌트 ${name}` } });
+  // 실제 Figma: 지워진 컴포넌트를 가리키는 인스턴스는 기다리기 전에 바로 오류를 낸다 (2026-10-26 윤우 "node ... does not exist")
+  if (type === 'INSTANCE' && seq % 97 === 0) n.getMainComponentAsync = () => { throw new Error(`The node with id "${n.id}" does not exist`); };
   return n;
 }
 const LONG = '피쳐링셀 노출 영역 기본 케이스 설명 문구가 아주 길게 들어간 예시입니다';
