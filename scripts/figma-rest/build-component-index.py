@@ -30,6 +30,44 @@ def tally(n, name_of):
         stack.extend(m.get("children", []))
     return cnt
 
+def _bb(n):
+    b = n.get("absoluteBoundingBox") or {}
+    return b.get("x", 0), b.get("y", 0), b.get("width", 0), b.get("height", 0)
+
+def _cover(a, b):
+    """a 넓이 중 b가 덮는 비율"""
+    ix = max(0, min(a[0] + a[2], b[0] + b[2]) - max(a[0], b[0])); iy = max(0, min(a[1] + a[3], b[1] + b[3]) - max(a[1], b[1]))
+    return ix * iy / max(1, a[2] * a[3])
+
+def _opaque(n):
+    if n.get("type") == "TEXT" or n.get("opacity", 1) < 0.2: return False
+    return any(f.get("visible", True) and (f.get("type") in ("SOLID", "IMAGE") or f.get("type", "").startswith("GRADIENT"))
+               for f in (n.get("fills") or []) if f.get("opacity", 1) * (f.get("color") or {}).get("a", 1) > 0.2)
+
+def visible(frame, name_of):
+    """화면에 가려지지 않고 보이는 컴포넌트 이름. 위에 딤·바텀시트·드롭다운 같은 불투명한 층이 절반 넘게 덮은 인스턴스는 뺀다
+    (2026-10-26 윤우: 그 Core의 기능 뒤에 배경으로 깔린 피쳐링셀은 그 Core 기능과 상관없음 — 소식함 드롭다운·왓챠파티 딤·나의 왓챠 비로그인 막)."""
+    order, end = [], {}
+    def walk(n):
+        if n.get("visible") is False: return
+        i = len(order); order.append(n)
+        for ch in n.get("children", []): walk(ch)
+        end[i] = len(order)
+    walk(frame)
+    screen = _bb(frame)
+    later = [(i, _bb(n)) for i, n in enumerate(order) if i and _opaque(n)]
+    out = collections.Counter()
+    i = 0
+    while i < len(order):
+        n = order[i]
+        if n.get("type") == "INSTANCE":
+            b = _bb(n)
+            if _cover(b, screen) >= 0.5 and not any(j >= end[i] and _cover(b, ob) >= 0.5 for j, ob in later):
+                out += tally(n, name_of)
+            i = end[i]; continue   # 인스턴스 안쪽은 이 인스턴스와 같이 본다
+        i += 1
+    return out
+
 def count(doc, comps, sets, screens):
     """페이지 전체 개수를 돌려주고, 섹션 바로 아래 화면(폭·높이 300 이상)마다 개수를 screens에 쌓는다."""
     name_of = {}
@@ -42,7 +80,7 @@ def count(doc, comps, sets, screens):
         bb = n.get("absoluteBoundingBox") or {}
         if n.get("type") == "FRAME" and parent and parent.get("type") == "SECTION" and bb.get("width", 0) >= 300 and bb.get("height", 0) >= 300:
             c = tally(n, name_of)
-            if c: screens.append({"id": n["id"], "name": n.get("name", "")[:40], "w": round(bb["width"]), "h": round(bb["height"]), "x": round(bb.get("x", 0)), "y": round(bb.get("y", 0)), "section": parent.get("id"), "sectionName": parent.get("name", "")[:40], "c": c})
+            if c: screens.append({"id": n["id"], "name": n.get("name", "")[:40], "w": round(bb["width"]), "h": round(bb["height"]), "x": round(bb.get("x", 0)), "y": round(bb.get("y", 0)), "section": parent.get("id"), "sectionName": parent.get("name", "")[:40], "c": c, "v": visible(n, name_of)})
             continue
         for ch in n.get("children", []): stack.append((ch, n))
     return tally(doc, name_of)
@@ -73,7 +111,7 @@ for f in idx["files"]:
         except Exception as e2:
             print("실패:", f["name"], str(e2)[:200]); continue
     f["components"] = dict(cnt.most_common(MAX))
-    json.dump({"components": cnt, "screens": [dict(s, c=dict(s["c"])) for s in screens]}, open(os.path.join(CACHE, f["key"] + ".json"), "w"), ensure_ascii=False)
+    json.dump({"components": cnt, "screens": [dict(s, c=dict(s["c"]), v=dict(s["v"])) for s in screens]}, open(os.path.join(CACHE, f["key"] + ".json"), "w"), ensure_ascii=False)
     print(f"{f['name']}: 컴포넌트 {len(cnt)}종, 인스턴스 {sum(cnt.values())}개, 화면 {len(screens)}장")
 
 # 화면별 컴포넌트: 이름표(component_names) 번호 목록. 개수는 버린다 — 판별은 "프로젝트 화면의 컴포넌트가 이 화면에 들어 있나"만 본다
@@ -97,7 +135,7 @@ for f in idx["files"]:
     p = os.path.join(CACHE, f["key"] + ".json")
     if not os.path.exists(p): continue
     screens = json.load(open(p))["screens"]; m = mains(screens)
-    f["screen_components"] = [dict({"id": s["id"], "name": s["name"], "w": s["w"], "h": s["h"]}, **({"main": m[s["id"]]} if s["id"] in m else {}), c=sorted(nid(k) for k in s["c"])) for s in screens]
+    f["screen_components"] = [dict({"id": s["id"], "name": s["name"], "w": s["w"], "h": s["h"]}, **({"main": m[s["id"]], "vis": sorted(nid(k) for k in s.get("v", {}))} if s["id"] in m else {}), c=sorted(nid(k) for k in s["c"])) for s in screens]
 idx["component_names"] = names
 idx["_meta"]["components_built"] = datetime.date.today().isoformat()
 text = json.dumps(idx, ensure_ascii=False, indent=1)
