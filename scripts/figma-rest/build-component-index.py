@@ -77,10 +77,27 @@ for f in idx["files"]:
     print(f"{f['name']}: 컴포넌트 {len(cnt)}종, 인스턴스 {sum(cnt.values())}개, 화면 {len(screens)}장")
 
 # 화면별 컴포넌트: 이름표(component_names) 번호 목록. 개수는 버린다 — 판별은 "프로젝트 화면의 컴포넌트가 이 화면에 들어 있나"만 본다
+# 메인 화면(main: APP/WEB): 🌏 화면이 있으면 그것, 없으면 섹션마다 맨 왼쪽 화면 — Core는 APP·WEB 섹션 맨 왼쪽에 대표 화면을 둔다
+# ("○○ 진입" 섹션은 다른 Core 화면을 가져다 둔 곳이라 뺀다). 2026-10-26 윤우: 🌏 표시는 Core 4개에만 있음
+def platform(s):
+    for t in (s["name"], s.get("sectionName") or ""):
+        if re.search(r"web", t, re.I): return "WEB"
+        if re.search(r"app|모바일", t, re.I): return "APP"
+    return "WEB" if s["w"] >= 1000 else "APP"
+def mains(screens):
+    globe = [s for s in screens if s["name"].startswith("🌏")]
+    if globe: return {s["id"]: platform(s) for s in globe}
+    out, by = {}, collections.defaultdict(list)
+    for s in screens:
+        if "x" in s and "진입" not in (s.get("sectionName") or ""): by[s.get("section")].append(s)
+    for ss in by.values():
+        first = min(ss, key=lambda s: (s["x"], s["y"])); out[first["id"]] = platform(first)
+    return out
 for f in idx["files"]:
     p = os.path.join(CACHE, f["key"] + ".json")
     if not os.path.exists(p): continue
-    f["screen_components"] = [{"id": s["id"], "name": s["name"], "w": s["w"], "h": s["h"], "c": sorted(nid(k) for k in s["c"])} for s in json.load(open(p))["screens"]]
+    screens = json.load(open(p))["screens"]; m = mains(screens)
+    f["screen_components"] = [dict({"id": s["id"], "name": s["name"], "w": s["w"], "h": s["h"]}, **({"main": m[s["id"]]} if s["id"] in m else {}), c=sorted(nid(k) for k in s["c"])) for s in screens]
 idx["component_names"] = names
 idx["_meta"]["components_built"] = datetime.date.today().isoformat()
 text = json.dumps(idx, ensure_ascii=False, indent=1)
