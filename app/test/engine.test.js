@@ -42,6 +42,17 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(r2.place, r2.places[0]);
     const v4 = judge(an({ a: [4] }), ix, rules, {});
     assert(v4.content === null && v4.suggestion === 'update', '하나도 안 겹치면 자료가 어긋난 것으로 보고 이름 판별 (피쳐링셀 → SVOD)');
+    // 2단계 메인 화면 기준 (2026-10-26 윤우): 피쳐링셀이 🌏 메인 화면에 있는 웹툰은 함께, 메인이 아닌 화면에만 있는 소식함은 빼기
+    const mainScr = (id, ns) => Object.assign(scr(id, ns), { name: '🌏 ' + id });
+    const fill = (k, n) => Array.from({ length: n }, (_, i) => scr(k + i, ['TopBar', 'Button', 'Row']));
+    const ixM = { component_names: names, files: [
+      { name: '[Core] SVOD (홈)', key: 'S', url: 's', screen_components: [mainScr('SVOD_APP', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('s', 4)) },
+      { name: '[Core] TVOD', key: 'T', url: 't', screen_components: [mainScr('TVOD_APP', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('t', 4)) },
+      { name: '[Core] 웹툰', key: 'W', url: 'w', screen_components: [mainScr('웹툰_APP', ['TopBar', 'Featuring Cell', 'Webtoon Cell'])].concat(fill('w', 4)) },
+      { name: '[Core] 소식함', key: 'N', url: 'n', screen_components: [scr('n0', ['TopBar', 'Featuring Cell', 'Cell'])].concat(fill('n', 4)) }] };
+    const vm = judge(an({ a: [0, 1, 2, 3] }), ixM, rules, {});
+    assert.deepStrictEqual(vm.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD', '[Core] 웹툰'], '메인 화면에 피쳐링셀이 있는 웹툰은 함께, 소식함은 빠짐');
+    assert(/메인 화면\(🌏 웹툰_APP\)/.test(vm.targets[2].why), '웹툰 근거는 메인 화면');
     const v3 = judge(Object.assign(an({}), { comps: undefined }), index, rules, {});
     assert(v3.targets && v3.content === null, '컴포넌트 자료가 없으면 이름으로만 판별');
   }

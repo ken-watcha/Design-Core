@@ -4,11 +4,17 @@
 // 내용 대조: 프로젝트 화면의 컴포넌트가 Core 화면 한 장에 얼마나 들어 있나 (0~1).
 // 여러 Core에 흔한 컴포넌트(상단 바·버튼)는 가볍게, 드문 것(피쳐링셀)·어느 Core에도 없는 새 컴포넌트는 무겁게 센다.
 // 시안은 Core 화면의 일부만 잘라 그린 경우가 많아서(전체 길이 4816 → 812) 닮은 정도가 아니라 "들어 있는 정도"를 본다.
-// 기준(2026-10-26 실제 Figma로 맞춤): 가장 많이 든 Core가 strong(70%) 이상이면 그 Core, 그리고 그 값의 follow(80%) 이상 든 Core도 함께 갱신.
-//  피쳐링셀 시안 large → SVOD·TVOD 0.81, 웹툰 0.66(=0.81의 81%, 윤우 결정 "웹툰도 넣기"), 소식함 0.48은 빠짐
-//  스텝메이드 문서(스텝메이드 Core 빼고) → 가장 높은 곳 0.59라 새 Core.
+// 1단계: 가장 많이 든 Core 화면이 strong(70%) 이상이면 그 Core (비슷하게 든 Core는 near 안에서 함께) — 피쳐링셀 시안 large → SVOD·TVOD 0.81
+// 2단계(2026-10-26 윤우 "메인 화면 기준으로"): 시안의 핵심 컴포넌트(드문 컴포넌트 묶음 중 1단계 Core의 메인 화면에 있는 것)가
+//   다른 Core의 메인 화면(🌏 대표 화면)에도 모두 있으면 그 Core도 갱신 → 웹툰(웹툰 탭 홈 맨 위 피쳐링셀).
+//   메인이 아닌 곳에 그냥 나타난 것(소식함 뒤 배경, 왓챠파티·콘상페·플레이어 입구로 넣은 홈)은 해당 없음.
+// 새 Core: 스텝메이드 문서(스텝메이드 Core 빼고) → 가장 높은 곳 0.59라 1단계에서 걸리는 Core가 없음.
 // 분석(figma-analyze.js)이 컴포넌트 이름을 이 해시로 보낸다 — 같은 식이어야 한다
 const compHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+
+// 컴포넌트 묶음 이름: 플랫폼 표시를 떼고 첫 "/" 앞까지 (Featuring Cell(Web)/Title·Featuring Cell(Mobile) → featuringcell)
+const family = (n) => String(n).toLowerCase().replace(/\((web|mobile|common|web-large|mobile,tablet)\)/g, '').replace(/\s+/g, '').split('/')[0];
+const isMain = (s) => /^🌏/.test(s.name || '');
 
 function contentMatch(analysis, index, cfg) {
   const comps = analysis.comps, names = index && index.component_names;
@@ -36,11 +42,23 @@ function contentMatch(analysis, index, cfg) {
   // 거의 하나도 안 겹치면 자료가 어긋난 것(이름 읽기 실패 등)으로 보고 이름 판별에 맡긴다 — 새 기능 화면도 상단 바·버튼 같은 공통 컴포넌트로 30% 이상은 겹친다
   if (!picks.length || Math.max(...picks.map(p => p.best)) < cfg.minAny) return null;
   const cores = files.map(f => {
-    const per = picks.map(p => ({ pick: p.id, ...(p.byCore[f.name] || { v: 0 }), strong: !!p.byCore[f.name] && p.best >= cfg.strong && p.byCore[f.name].v >= p.best * cfg.follow }));
+    const per = picks.map(p => ({ pick: p.id, ...(p.byCore[f.name] || { v: 0 }), strong: !!p.byCore[f.name] && p.byCore[f.name].v >= cfg.strong && p.byCore[f.name].v >= p.best - cfg.near }));
     const top = per.slice().sort((a, b) => b.v - a.v)[0];
     return { name: f.name, key: f.key, url: f.url, strong: per.filter(x => x.strong).length, avg: per.reduce((a, x) => a + x.v, 0) / per.length, top };
   }).sort((a, b) => b.strong - a.strong || b.top.v - a.top.v || b.avg - a.avg);
-  return { picks: picks.length, cores, targets: cores.filter(c => c.strong > 0) };
+  const primary = cores.filter(c => c.strong > 0);
+  // 2단계: 메인 화면 기준으로 같은 핵심 컴포넌트를 쓰는 Core
+  const famDf = new Map();
+  for (const x of screens) for (const fm of new Set([...x.set].map(i => family(names[i])))) famDf.set(fm, (famDf.get(fm) || 0) + 1);
+  const mainFams = new Map(files.map(f => [f.name, new Set(f.screen_components.filter(isMain).flatMap(s => s.c.map(i => family(names[i]))))]));
+  const projFams = new Set(Object.values(comps.picks).flat().map(k => pos.get(comps.names[k])).filter(i => i != null).map(i => family(names[i])));
+  const rare = [...projFams].filter(fm => (famDf.get(fm) || 0) / N <= cfg.rareShare);
+  const feature = [...new Set(primary.flatMap(c => rare.filter(fm => mainFams.get(c.name).has(fm))))];
+  const viaMain = feature.length ? cores.filter(c => !primary.includes(c) && mainFams.get(c.name).size && feature.every(fm => mainFams.get(c.name).has(fm))) : [];
+  // 사람이 읽을 이름: 그 묶음의 가장 짧은 원래 이름에서 플랫폼 표시를 뗀 것 (featuringcell → "Featuring Cell")
+  const label = (fm) => names.filter(n => family(n) === fm).map(n => n.split('/')[0].replace(/\s*\([^)]*\)\s*/g, ' ').trim()).sort((a, b) => a.length - b.length)[0] || fm;
+  viaMain.forEach(c => { c.viaMain = { screens: files.find(f => f.name === c.name).screen_components.filter(isMain).map(s => s.name), feature: feature.map(label) }; });
+  return { picks: picks.length, cores, feature, targets: primary.concat(viaMain) };
 }
 
 const pct = (v) => Math.round(v * 100) + '%';
@@ -49,7 +67,7 @@ function judge(analysis, index, rules, mem) {
   const jr = (rules && rules.judge) || {};
   const stop = jr.stopWords || [];
   const minAuto = jr.minScoreForAuto || 2;
-  const cfg = Object.assign({ strong: 0.7, follow: 0.8, nameBackup: 0.5, minAny: 0.15 }, jr.content || {});
+  const cfg = Object.assign({ strong: 0.7, near: 0.05, rareShare: 0.3, nameBackup: 0.5, minAny: 0.15 }, jr.content || {});
   const learnedWords = (mem && mem.judgeWords) || {};
   const raw = [analysis.cover.nameEN, analysis.cover.nameKR, analysis.fileName].join(' ');
   const words = [...new Set(raw.split(/[\s\/·,()\-|]+/).filter(w => w.length >= 2 && !stop.includes(w.toLowerCase())))];
@@ -79,7 +97,7 @@ function judge(analysis, index, rules, mem) {
     : top ? '이름이 확실히 겹치는 기존 Core가 없어서 새 Core로 정했어요.' : '기존 Core 어디에도 없는 이름이라 새 Core로 정했어요.';
   const base = { candidates: scored.slice(0, 5), weak: !auto && !tie ? scored.filter(c => c.total > 0).slice(0, 3) : [] };
   const asTarget = (c, why, m) => ({ name: c.name, key: c.key, url: c.url, why, match: m || null });
-  const evidence = (m) => m && m.top && m.top.screen ? `화면 "${m.top.screen}"에 시안 컴포넌트의 ${pct(m.top.v)}가 들어 있어요` : '';
+  const evidence = (m) => !m ? '' : m.viaMain ? `메인 화면(${m.viaMain.screens.join(', ')})에 시안의 핵심 컴포넌트 ${m.viaMain.feature.join(', ')}이(가) 있어요` : m.top && m.top.screen ? `화면 "${m.top.screen}"에 시안 컴포넌트의 ${pct(m.top.v)}가 들어 있어요` : '';
 
   const content = contentMatch(analysis, index, cfg);
   const source = auto && top.hits.includes('이 문서로 만든 Core') ? top : null;

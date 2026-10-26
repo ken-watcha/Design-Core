@@ -40,11 +40,11 @@ def count(doc, comps, sets, screens):
     while stack:
         n, parent = stack.pop()
         bb = n.get("absoluteBoundingBox") or {}
-        if n.get("type") == "FRAME" and parent == "SECTION" and bb.get("width", 0) >= 300 and bb.get("height", 0) >= 300:
+        if n.get("type") == "FRAME" and parent and parent.get("type") == "SECTION" and bb.get("width", 0) >= 300 and bb.get("height", 0) >= 300:
             c = tally(n, name_of)
-            if c: screens.append({"id": n["id"], "name": n.get("name", "")[:40], "w": round(bb["width"]), "h": round(bb["height"]), "c": c})
+            if c: screens.append({"id": n["id"], "name": n.get("name", "")[:40], "w": round(bb["width"]), "h": round(bb["height"]), "x": round(bb.get("x", 0)), "y": round(bb.get("y", 0)), "section": parent.get("id"), "sectionName": parent.get("name", "")[:40], "c": c})
             continue
-        for ch in n.get("children", []): stack.append((ch, n.get("type")))
+        for ch in n.get("children", []): stack.append((ch, n))
     return tally(doc, name_of)
 
 idx = json.load(open(IDX))
