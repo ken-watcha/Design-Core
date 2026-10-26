@@ -100,7 +100,11 @@ if (kind === 'project') {
 const compHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
 async function compNames(frame) {
   const out = new Set();
+  // 숨긴 하위 요소까지 봐야 Core 색인(REST)과 같은 이름 목록이 나온다 — 기본값(건너뜀)이면 SVOD 화면에서 1,073개 중 235개만 보임 (2026-10-26 실물 확인)
+  const skip = figma.skipInvisibleInstanceChildren;
+  figma.skipInvisibleInstanceChildren = false;
   const insts = frame.findAll(n => n.type === 'INSTANCE');
+  figma.skipInvisibleInstanceChildren = skip;
   for (let i = 0; i < insts.length; i += 200) {
     const mcs = await Promise.all(insts.slice(i, i + 200).map(n => n.getMainComponentAsync().catch(() => null)));
     for (const mc of mcs) {
