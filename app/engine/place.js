@@ -6,12 +6,15 @@ function parseLink(url) {
   return m ? { fileKey: m[1], branchKey: m[2] || null, workKey: m[2] || m[1] } : null;
 }
 
-function proposePlace(verdict, sourceUrl, sourceKey) {
+// 갱신할 Core가 여럿이면(2026-10-26 피쳐링셀: SVOD·TVOD) at번째 Core의 작업 위치
+function proposePlace(verdict, sourceUrl, sourceKey, at = 0) {
   if (verdict.suggestion === 'update') {
-    const core = verdict.candidates[0] || {};
+    const t = (verdict.targets || [])[at];
+    const core = t || verdict.candidates.find(c => c.name === verdict.target) || verdict.candidates[0] || {};
+    const name = t ? t.name : verdict.target;
     return {
-      kind: 'branch', coreName: verdict.target, coreKey: core.key, coreUrl: core.url,
-      steps: [`${verdict.target} 파일을 엽니다`, '파일 이름 옆 ⌄ → Create branch → 이름은 자유 (예: 이번 프로젝트 이름. 이미 만든 브랜치가 있으면 그걸 엽니다)', '브랜치 안의 내용은 지우지 않고 그대로 둡니다 (앱이 그 안의 화면만 고칩니다)', '브랜치 링크를 아래 칸에 붙여 넣습니다'],
+      kind: 'branch', coreName: name, coreKey: core.key, coreUrl: core.url,
+      steps: [`${name} 파일을 엽니다`, '파일 이름 옆 ⌄ → Create branch → 이름은 자유 (예: 이번 프로젝트 이름. 이미 만든 브랜치가 있으면 그걸 엽니다)', '브랜치 안의 내용은 지우지 않고 그대로 둡니다 (앱이 그 안의 화면만 고칩니다)', '브랜치 링크를 아래 칸에 붙여 넣습니다'],
       why: 'Core 본 파일은 그대로 두고 브랜치에서 고쳐요. 결과를 보고 괜찮으면 직접 합치면 돼요.'
     };
   }

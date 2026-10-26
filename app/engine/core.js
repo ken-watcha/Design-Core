@@ -41,8 +41,10 @@ async function analyzeProject(url, knowledge, runner = runFigma) {
   const code = buildAnalyzeCode(knowledge.rules, knowledge.memory);
   const { data, costUsd } = await runner(fileKey, code, 'Core 업데이트: 프로젝트 문서 분석 (읽기 전용)');
   const verdict = data.kind === 'project' ? judge(data, knowledge.index, knowledge.rules, knowledge.memory) : null;
-  const place = verdict ? proposePlace(verdict, url, fileKey) : null;
-  return { analysis: data, verdict, place, costUsd, fileKey, sourceUrl: url, pickRules: knowledge.rules.screenPick };
+  // 갱신할 Core가 여럿이면 Core마다 작업 위치를 만들어 두고 화면에서 하나씩 차례로 한다
+  const places = verdict ? (verdict.suggestion === 'update' && (verdict.targets || []).length > 1 ? verdict.targets.map((t, i) => proposePlace(verdict, url, fileKey, i)) : [proposePlace(verdict, url, fileKey)]) : [];
+  const place = places[0] || null;
+  return { analysis: data, verdict, place, places, placeAt: 0, costUsd, fileKey, sourceUrl: url, pickRules: knowledge.rules.screenPick };
 }
 
 const month = (d = new Date()) => `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
