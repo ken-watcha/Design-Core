@@ -159,15 +159,32 @@ if (!page) throw new Error('"' + M.name + '" 페이지가 없습니다 — Core 
 if (PLAN.coreKey && figma.fileKey && figma.fileKey === PLAN.coreKey) throw new Error('Core 본 파일입니다. 브랜치에서만 씁니다');
 const existing = new Set(PLAN.coreScreenIds);
 const want = PLAN.rows.filter(r => r.action === '교체' || r.action === '추가');
-// 붙여 넣은 화면 찾기: 마스터 페이지의 프레임 중 Core에 원래 있던 것이 아니고, 지문이 필요한 화면과 같은 것
-const pasted = page.findAll(n => n.type === 'FRAME' && !existing.has(n.id) && n.parent && (n.parent.type === 'PAGE' || n.parent.type === 'SECTION'))
-  .map(f => ({ f, s: sig(f) }));
+// 붙여 넣은 것 = 확인 때 읽은 페이지 맨 위 목록(PLAN.keepTop)에 없던 것. 프로젝트 페이지를 통째로 붙여도 되고(2026-10-26 윤우: 단계를 줄이자), 📦 섹션 하나여도 된다.
+// 그 안의 프레임 중 필요한 화면과 크기가 같은 것만 지문을 잰다 (페이지째 붙이면 프레임이 수만 개)
+const keepTop = PLAN.keepTop ? new Set(PLAN.keepTop) : null;
+const isCard = (n) => n.type === 'FRAME' && /링크 카드/.test(n.name);   // 지난 [반영]이 만든 링크 카드는 붙여넣기가 아니다
+const pastedTop = keepTop ? page.children.filter(n => !keepTop.has(n.id) && !isCard(n)) : [];
+const sizeKey = (w, h) => Math.round(w) + 'x' + Math.round(h);
+const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)));
+let pasted;
+if (keepTop) {
+  pasted = [];
+  for (const t of pastedTop) {
+    const fs = (t.type === 'FRAME' ? [t] : []).concat('findAllWithCriteria' in t ? t.findAllWithCriteria({ types: ['FRAME'] }) : []);
+    for (const f of fs) if (wantSizes.has(sizeKey(f.width, f.height))) pasted.push({ f, s: sig(f) });
+  }
+} else {
+  pasted = page.findAll(n => n.type === 'FRAME' && !existing.has(n.id) && n.parent && (n.parent.type === 'PAGE' || n.parent.type === 'SECTION')).map(f => ({ f, s: sig(f) }));
+}
 const taken = new Set(); const done = [], notFound = [];
+const sameSize = (p, r) => Math.abs(p.f.width - r.source.w) < 0.5 && Math.abs(p.f.height - r.source.h) < 0.5;
 const secOf = (pf) => page.findOne(n => n.type === 'SECTION' && n.name.trim() === pf);
 const LAYOUT_PROPS = ['layoutMode', 'primaryAxisSizingMode', 'counterAxisSizingMode', 'primaryAxisAlignItems', 'counterAxisAlignItems', 'paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom', 'itemSpacing', 'counterAxisSpacing', 'layoutWrap'];
 const LOOK_PROPS = ['fills', 'strokes', 'strokeWeight', 'strokeAlign', 'cornerRadius', 'clipsContent', 'effects', 'opacity', 'blendMode'];
 for (const r of want) {
-  const hit = pasted.find(p => !taken.has(p.f.id) && p.s === r.source.sig) || pasted.find(p => !taken.has(p.f.id) && Math.abs(p.f.width - r.source.w) < 0.5 && Math.abs(p.f.height - r.source.h) < 0.5);
+  // 지문이 같은 것 먼저. 크기만 같은 것은 하나뿐일 때만 (페이지째 붙이면 같은 크기 화면이 많아 엉뚱한 화면을 고를 수 있다)
+  const bySize = pasted.filter(p => !taken.has(p.f.id) && sameSize(p, r));
+  const hit = pasted.find(p => !taken.has(p.f.id) && p.s === r.source.sig) || (bySize.length === 1 ? bySize[0] : null);
   if (!hit) { notFound.push(r.platform + ' ' + r.cls + ' ' + r.width + 'px'); continue; }
   taken.add(hit.f.id);
   const nf = hit.f;
@@ -207,6 +224,9 @@ if (done.length && PLAN.month) {
   const t = card && card.findOne(n => n.type === 'TEXT' && /^기준:/.test(n.characters.trim()));
   if (t) { await loadTextFonts(t); t.characters = t.characters.replace(/기준:\s*\d{4}\.(\d{2}|__)/, '기준: ' + PLAN.month); cardUpdated = true; }
 }
+// 쓰고 남은 붙여넣기는 지운다 (반영한 화면이 하나라도 있을 때만 — 잘못 붙였으면 사람이 보도록 남긴다)
+let leftoverRemoved = 0;
+if (keepTop && done.length) for (const n of page.children.filter(n => !keepTop.has(n.id) && !isCard(n))) { if (n.removed) continue; n.remove(); leftoverRemoved++; }
 // 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
@@ -230,7 +250,7 @@ if (done.length && PLAN.sourceUrl) {
     linkAdded = { cardId: card.id, textId: t.id, newCard: made };
   }
 }
-return { step: 'update', done, notFound, pastedSeen: pasted.length, cardUpdated, linkAdded, log };
+return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, log };
 `;
 
 // ---------- 기존 Core 갱신: 붙여 넣을 화면을 한곳에 모으기 (프로젝트 문서의 브랜치·복제본에서) ----------

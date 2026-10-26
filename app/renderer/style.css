@@ -141,3 +141,4 @@ body.home main > .panel.onboard { background:var(--surface); border:1px solid va
 .flow .row-btn { display:flex; gap:8px; margin-top:4px; }
 .flow form .row { margin-top:4px; }
 button.step-btn { padding:8px 14px; }
+.flow .step-back { cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px; }

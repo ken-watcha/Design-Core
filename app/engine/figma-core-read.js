@@ -25,6 +25,7 @@ const out = { fileKey: figma.fileKey || null, pages: names, isCore: !!master, ma
 if (master) {
   const root = master.children.find(n => n.type === 'SECTION' && n.name.startsWith(RULES.masterPage.rootPrefix)) || master.children.find(n => n.type === 'SECTION');
   if (root) out.root = { id: root.id, name: root.name };
+  out.top = master.children.map(n => n.id);   // 반영 때 이것 말고 페이지 맨 위에 생긴 것 = 사람이 붙여 넣은 것
   const card = master.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name));
   if (card) {
     out.linkCard = { id: card.id, name: card.name };
