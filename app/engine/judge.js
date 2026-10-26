@@ -5,9 +5,9 @@
 // 여러 Core에 흔한 컴포넌트(상단 바·버튼)는 가볍게, 드문 것(피쳐링셀)·어느 Core에도 없는 새 컴포넌트는 무겁게 센다.
 // 시안은 Core 화면의 일부만 잘라 그린 경우가 많아서(전체 길이 4816 → 812) 닮은 정도가 아니라 "들어 있는 정도"를 본다.
 // 1단계: 가장 많이 든 Core 화면이 strong(70%) 이상이면 그 Core (비슷하게 든 Core는 near 안에서 함께) — 피쳐링셀 시안 large → SVOD·TVOD 0.81
-// 2단계(2026-10-26 윤우 "메인 화면 기준으로"): 시안의 핵심 컴포넌트(드문 컴포넌트 묶음 중 1단계 Core의 메인 화면에 있는 것)가
-//   다른 Core의 메인 화면(🌏 대표 화면)에도 모두 있으면 그 Core도 갱신 → 웹툰(웹툰 탭 홈 맨 위 피쳐링셀).
-//   메인이 아닌 곳에 그냥 나타난 것(소식함 뒤 배경, 왓챠파티·콘상페·플레이어 입구로 넣은 홈)은 해당 없음.
+// 2단계(2026-10-26 윤우 "메인 화면 기준으로"): 시안의 핵심 컴포넌트(프로젝트 이름이 가리키는 컴포넌트, 없으면 고른 화면 전부에 든 드문 컴포넌트)가
+//   메인 화면(🌏 대표 화면)에 있는 Core만 갱신 → 피쳐링셀은 SVOD·TVOD·웹툰. 1단계에 걸려도 메인이 아닌 곳에 그냥 나타난 것
+//   (소식함 뒤 배경, 나의 왓챠·왓챠파티·콘상페·플레이어에 넣은 홈 화면)은 빠짐. 메인 화면에 그 컴포넌트가 있는 Core가 없으면 1단계 그대로.
 // 새 Core: 스텝메이드 문서(스텝메이드 Core 빼고) → 가장 높은 곳 0.59라 1단계에서 걸리는 Core가 없음.
 // 분석(figma-analyze.js)이 컴포넌트 이름을 이 해시로 보낸다 — 같은 식이어야 한다
 const compHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
@@ -47,18 +47,23 @@ function contentMatch(analysis, index, cfg) {
     return { name: f.name, key: f.key, url: f.url, strong: per.filter(x => x.strong).length, avg: per.reduce((a, x) => a + x.v, 0) / per.length, top };
   }).sort((a, b) => b.strong - a.strong || b.top.v - a.top.v || b.avg - a.avg);
   const primary = cores.filter(c => c.strong > 0);
-  // 2단계: 메인 화면 기준으로 같은 핵심 컴포넌트를 쓰는 Core
+  // 2단계: 메인 화면 기준. 시안의 핵심 컴포넌트가 🌏 메인 화면에 있는 Core만 갱신한다
   const famDf = new Map();
   for (const x of screens) for (const fm of new Set([...x.set].map(i => family(names[i])))) famDf.set(fm, (famDf.get(fm) || 0) + 1);
   const mainFams = new Map(files.map(f => [f.name, new Set(f.screen_components.filter(isMain).flatMap(s => s.c.map(i => family(names[i]))))]));
-  const projFams = new Set(Object.values(comps.picks).flat().map(k => pos.get(comps.names[k])).filter(i => i != null).map(i => family(names[i])));
-  const rare = [...projFams].filter(fm => (famDf.get(fm) || 0) / N <= cfg.rareShare);
-  const feature = [...new Set(primary.flatMap(c => rare.filter(fm => mainFams.get(c.name).has(fm))))];
-  const viaMain = feature.length ? cores.filter(c => !primary.includes(c) && mainFams.get(c.name).size && feature.every(fm => mainFams.get(c.name).has(fm))) : [];
+  const pickFams = Object.values(comps.picks).map(list => new Set(list.map(k => pos.get(comps.names[k])).filter(i => i != null).map(i => family(names[i]))));
+  const rare = [...new Set(pickFams.flatMap(x => [...x]))].filter(fm => (famDf.get(fm) || 0) / N <= cfg.rareShare);
+  // 핵심 컴포넌트: 프로젝트 이름이 가리키는 묶음(피쳐링셀 컴포넌트 → Featuring Cell), 없으면 고른 화면 전부에 들고 1단계 Core의 메인 화면에도 있는 드문 묶음
+  const title = [analysis.cover && analysis.cover.nameEN, analysis.cover && analysis.cover.nameKR, analysis.fileName].join(' ').toLowerCase().replace(/\s+/g, '');
+  let feature = rare.filter(fm => fm.length >= 4 && title.includes(fm));
+  if (!feature.length) feature = rare.filter(fm => pickFams.every(x => x.has(fm)) && primary.some(c => mainFams.get(c.name).has(fm)));
+  const holders = feature.length ? cores.filter(c => mainFams.get(c.name).size && feature.every(fm => mainFams.get(c.name).has(fm))) : [];
+  // 메인 화면에 핵심 컴포넌트가 있는 Core가 있으면 그 Core들만 (소식함 뒤 배경·왓챠파티·콘상페·플레이어 입구로 넣은 홈 화면은 빠짐), 없으면 1단계 그대로
+  const targets = primary.length && holders.length ? holders.filter(c => primary.includes(c)).concat(holders.filter(c => !primary.includes(c))) : primary;
   // 사람이 읽을 이름: 그 묶음의 가장 짧은 원래 이름에서 플랫폼 표시를 뗀 것 (featuringcell → "Featuring Cell")
   const label = (fm) => names.filter(n => family(n) === fm).map(n => n.split('/')[0].replace(/\s*\([^)]*\)\s*/g, ' ').trim()).sort((a, b) => a.length - b.length)[0] || fm;
-  viaMain.forEach(c => { c.viaMain = { screens: files.find(f => f.name === c.name).screen_components.filter(isMain).map(s => s.name), feature: feature.map(label) }; });
-  return { picks: picks.length, cores, feature, targets: primary.concat(viaMain) };
+  targets.filter(c => !primary.includes(c)).forEach(c => { c.viaMain = { screens: files.find(f => f.name === c.name).screen_components.filter(isMain).map(s => s.name), feature: feature.map(label) }; });
+  return { picks: picks.length, cores, feature, targets };
 }
 
 const pct = (v) => Math.round(v * 100) + '%';

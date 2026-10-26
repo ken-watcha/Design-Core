@@ -49,9 +49,11 @@ const fixture = require('./fixture-stepmade.json');
       { name: '[Core] SVOD (홈)', key: 'S', url: 's', screen_components: [mainScr('SVOD_APP', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('s', 4)) },
       { name: '[Core] TVOD', key: 'T', url: 't', screen_components: [mainScr('TVOD_APP', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('t', 4)) },
       { name: '[Core] 웹툰', key: 'W', url: 'w', screen_components: [mainScr('웹툰_APP', ['TopBar', 'Featuring Cell', 'Webtoon Cell'])].concat(fill('w', 4)) },
-      { name: '[Core] 소식함', key: 'N', url: 'n', screen_components: [scr('n0', ['TopBar', 'Featuring Cell', 'Cell'])].concat(fill('n', 4)) }] };
+      { name: '[Core] 소식함', key: 'N', url: 'n', screen_components: [scr('n0', ['TopBar', 'Featuring Cell', 'Cell'])].concat(fill('n', 4)) },
+      // 홈 화면을 그대로 넣어 둔 Core (2026-10-26 피쳐링셀 문서: 나의 왓챠·왓챠파티·콘상페·플레이어가 82%로 걸림) — 메인 화면이 아니라 빠져야 함
+      { name: '[Core] 나의 왓챠', key: 'M', url: 'm', screen_components: [scr('m0', ['TopBar', 'Button', 'Featuring Cell', 'Featuring Cell/Title', 'Row'])].concat(fill('m', 4)) }] };
     const vm = judge(an({ a: [0, 1, 2, 3] }), ixM, rules, {});
-    assert.deepStrictEqual(vm.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD', '[Core] 웹툰'], '메인 화면에 피쳐링셀이 있는 웹툰은 함께, 소식함은 빠짐');
+    assert.deepStrictEqual(vm.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD', '[Core] 웹툰'], '메인 화면에 피쳐링셀이 있는 웹툰은 함께, 소식함과 홈 화면만 넣어 둔 나의 왓챠는 빠짐');
     assert(/메인 화면\(🌏 웹툰_APP\)/.test(vm.targets[2].why), '웹툰 근거는 메인 화면');
     const v3 = judge(Object.assign(an({}), { comps: undefined }), index, rules, {});
     assert(v3.targets && v3.content === null, '컴포넌트 자료가 없으면 이름으로만 판별');
