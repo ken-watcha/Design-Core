@@ -141,5 +141,47 @@ const fixture = require('./fixture-stepmade.json');
     const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
     assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
   }
+  // 반영: 프로젝트 페이지를 통째로 붙여도 필요한 화면만 쓰고 나머지는 브랜치에서 지운다 (2026-10-26 윤우: 단계 줄이기)
+  {
+    let seq = 0;
+    const node = (type, name, props = {}) => {
+      const n = Object.assign({ id: 'n' + (++seq), type, name, width: 0, height: 0, x: 0, y: 0, children: [], parent: null, removed: false }, props);
+      n.appendChild = (c) => { if (c.parent) c.parent.children.splice(c.parent.children.indexOf(c), 1); c.parent = n; n.children.push(c); };
+      n.remove = () => { if (n.parent) n.parent.children.splice(n.parent.children.indexOf(n), 1); n.parent = null; n.removed = true; };
+      n.resizeWithoutConstraints = (w, h) => { n.width = w; n.height = h; };
+      const all = (ok) => { const out = []; const w = (x) => { for (const c of x.children) { if (ok(c)) out.push(c); w(c); } }; w(n); return out; };
+      n.findAll = (ok) => all(ok); n.findOne = (ok) => all(ok)[0] || null;
+      n.findAllWithCriteria = ({ types }) => all(c => types.includes(c.type));
+      return n;
+    };
+    const kid = (parent, c) => { parent.appendChild(c); return c; };
+    const screen = (w, h, text) => { const f = node('FRAME', 's', { width: w, height: h }); kid(f, node('TEXT', 't', { characters: text })); return f; };
+    const page = node('PAGE', '🌏 마스터 파일');
+    const root = kid(page, node('SECTION', '🌏 SVOD')); const app = kid(root, node('SECTION', 'APP'));
+    const core1 = kid(app, screen(375, 4816, '옛 화면'));
+    // 사람이 붙여 넣은 프로젝트 페이지: 섹션 안 섹션 안에 화면, 같은 크기 다른 화면도 있음
+    const pastedSec = kid(page, node('SECTION', 'small')); const inner = kid(pastedSec, node('SECTION', '피쳐링셀'));
+    const want = kid(inner, screen(375, 812, '새 피쳐링셀')); kid(inner, screen(375, 812, '다른 화면')); kid(pastedSec, node('TEXT', '메모', { characters: '메모' }));
+    const loose = kid(page, screen(1440, 900, '상관없는 화면'));
+    const { SIG_FN } = require('../engine/signature');
+    const srcSig = new Function(SIG_FN + 'return sig;')()(want);
+    const keepTop = [root.id];
+    const plan = { coreKey: 'CORE', coreScreenIds: [core1.id], month: null, keepTop,
+      rows: [{ action: '교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: srcSig }, target: { id: core1.id } }] };
+    const fig = { fileKey: 'BRANCH', root: { children: [page] }, getNodeByIdAsync: async (id) => (id === core1.id ? core1 : null) };
+    page.loadAsync = async () => {};
+    const out = await new AsyncFn('figma', applyUpdateCode(rules, plan))(fig);
+    assert.strictEqual(out.done.length, 1, '붙여 넣은 페이지에서 화면을 찾음');
+    assert.strictEqual(core1.children[0].characters, '새 피쳐링셀', '지문이 같은 화면으로 교체 (같은 크기 다른 화면 아님)');
+    assert.strictEqual(core1.height, 812, '시안 길이 그대로');
+    assert.deepStrictEqual(page.children.map(n => n.id), [root.id], '남은 붙여넣기(섹션·화면)는 브랜치에서 지움');
+    assert(pastedSec.removed && loose.removed && out.leftoverRemoved === 2);
+    // 아무 화면도 못 찾으면 붙인 것을 지우지 않는다
+    const page2 = node('PAGE', '🌏 마스터 파일'); const r2 = kid(page2, node('SECTION', '🌏 X')); kid(r2, node('SECTION', 'APP')); const junk = kid(page2, screen(375, 812, '엉뚱'));
+    page2.loadAsync = async () => {};
+    const plan2 = Object.assign({}, plan, { keepTop: [r2.id], rows: [{ action: '교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 600, sig: 'x' }, target: { id: core1.id } }] });
+    const out2 = await new AsyncFn('figma', applyUpdateCode(rules, plan2))({ fileKey: 'BRANCH', root: { children: [page2] }, getNodeByIdAsync: async () => null });
+    assert(out2.done.length === 0 && !junk.removed, '못 찾았으면 붙인 것을 남겨 둠');
+  }
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });

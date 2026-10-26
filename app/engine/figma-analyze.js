@@ -63,6 +63,7 @@ if (kind === 'project') {
     const cfg = RULES.sizeClasses[platform];
     const page = figma.root.children.find(p => p.name.includes(cfg.pagePattern) && !p.name.includes('로컬'));
     if (!page) { result.missing.push(platform + ' 페이지 없음'); continue; }
+    (result.platformPages = result.platformPages || {})[platform] = { id: page.id, name: page.name };   // 사람이 페이지째 복사할 때 여는 곳
     const sections = page.children.filter(n => n.type === 'SECTION');
     const secClass = {};
     for (const s of sections) { const c = classifySection(platform, cfg, s.name); if (c) secClass[s.id] = c; result.sections.push({ platform, id: s.id, name: s.name, frames: s.findAll(n => n.type === 'FRAME' && n.parent === s).length, cls: c ? c.cls : null, basis: c ? c.basis : null }); }
