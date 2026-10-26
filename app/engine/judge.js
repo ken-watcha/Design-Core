@@ -4,7 +4,9 @@
 // 내용 대조: 프로젝트 화면의 컴포넌트가 Core 화면 한 장에 얼마나 들어 있나 (0~1).
 // 여러 Core에 흔한 컴포넌트(상단 바·버튼)는 가볍게, 드문 것(피쳐링셀)·어느 Core에도 없는 새 컴포넌트는 무겁게 센다.
 // 시안은 Core 화면의 일부만 잘라 그린 경우가 많아서(전체 길이 4816 → 812) 닮은 정도가 아니라 "들어 있는 정도"를 본다.
-// 기준값(2026-10-26 실제 Figma로 맞춤): 피쳐링셀 시안 large → SVOD·TVOD 0.81, 다음 웹툰 0.66 / 스텝메이드 문서(스텝메이드 Core 빼고) → 어느 Core도 0.6 미만.
+// 기준(2026-10-26 실제 Figma로 맞춤): 가장 많이 든 Core가 strong(70%) 이상이면 그 Core, 그리고 그 값의 follow(80%) 이상 든 Core도 함께 갱신.
+//  피쳐링셀 시안 large → SVOD·TVOD 0.81, 웹툰 0.66(=0.81의 81%, 윤우 결정 "웹툰도 넣기"), 소식함 0.48은 빠짐
+//  스텝메이드 문서(스텝메이드 Core 빼고) → 가장 높은 곳 0.59라 새 Core.
 // 분석(figma-analyze.js)이 컴포넌트 이름을 이 해시로 보낸다 — 같은 식이어야 한다
 const compHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
 
@@ -34,7 +36,7 @@ function contentMatch(analysis, index, cfg) {
   // 거의 하나도 안 겹치면 자료가 어긋난 것(이름 읽기 실패 등)으로 보고 이름 판별에 맡긴다 — 새 기능 화면도 상단 바·버튼 같은 공통 컴포넌트로 30% 이상은 겹친다
   if (!picks.length || Math.max(...picks.map(p => p.best)) < cfg.minAny) return null;
   const cores = files.map(f => {
-    const per = picks.map(p => ({ pick: p.id, ...(p.byCore[f.name] || { v: 0 }), strong: !!p.byCore[f.name] && p.byCore[f.name].v >= cfg.strong && p.byCore[f.name].v >= p.best - cfg.near }));
+    const per = picks.map(p => ({ pick: p.id, ...(p.byCore[f.name] || { v: 0 }), strong: !!p.byCore[f.name] && p.best >= cfg.strong && p.byCore[f.name].v >= p.best * cfg.follow }));
     const top = per.slice().sort((a, b) => b.v - a.v)[0];
     return { name: f.name, key: f.key, url: f.url, strong: per.filter(x => x.strong).length, avg: per.reduce((a, x) => a + x.v, 0) / per.length, top };
   }).sort((a, b) => b.strong - a.strong || b.top.v - a.top.v || b.avg - a.avg);
@@ -47,7 +49,7 @@ function judge(analysis, index, rules, mem) {
   const jr = (rules && rules.judge) || {};
   const stop = jr.stopWords || [];
   const minAuto = jr.minScoreForAuto || 2;
-  const cfg = Object.assign({ strong: 0.7, near: 0.05, nameBackup: 0.5, minAny: 0.15 }, jr.content || {});
+  const cfg = Object.assign({ strong: 0.7, follow: 0.8, nameBackup: 0.5, minAny: 0.15 }, jr.content || {});
   const learnedWords = (mem && mem.judgeWords) || {};
   const raw = [analysis.cover.nameEN, analysis.cover.nameKR, analysis.fileName].join(' ');
   const words = [...new Set(raw.split(/[\s\/·,()\-|]+/).filter(w => w.length >= 2 && !stop.includes(w.toLowerCase())))];
@@ -105,7 +107,7 @@ function judge(analysis, index, rules, mem) {
   return Object.assign(base, {
     suggestion: 'update', target: names[0], sure: true, targets, content,
     reason: source && targets.length === 1 ? nameReason
-      : targets.length > 1 ? `시안 화면이 Core ${targets.length}개에 모두 들어 있어요: ${names.join(', ')}. 하나씩 차례로 갱신해요.`
+      : targets.length > 1 ? `시안 화면이 Core ${targets.length}개에 들어 있어요: ${names.join(', ')}. 하나씩 차례로 갱신해요.`
       : `시안 화면이 ${names[0]}에 들어 있어요 (${evidence(targets[0].match)}). 이 Core를 갱신해요.`
   });
 }

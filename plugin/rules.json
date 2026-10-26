@@ -204,9 +204,9 @@
       "component"
     ],
     "content": {
-      "note": "2026-10-26 윤우: 이름만 보지 말고 Core 전체와 내용으로 비교. 고른 화면의 컴포넌트가 Core 화면 한 장에 strong 이상 들어 있으면 그 Core를 갱신(여럿이면 모두, 가장 높은 값과 near 이내). 없으면 새 Core. 색인은 scripts/figma-rest/build-component-index.py로 만든다.",
+      "note": "2026-10-26 윤우: 이름만 보지 말고 Core 전체와 내용으로 비교. 고른 화면의 컴포넌트가 가장 많이 든 Core 화면이 strong 이상이면 그 Core를 갱신하고, 그 값의 follow 이상 든 Core도 함께 갱신(피쳐링셀 → SVOD·TVOD 81%, 웹툰 66%: 윤우 결정 '웹툰도 넣기'). strong 이상인 곳이 없으면 새 Core. 색인은 scripts/figma-rest/build-component-index.py.",
       "strong": 0.7,
-      "near": 0.05,
+      "follow": 0.8,
       "nameBackup": 0.5,
       "minAny": 0.15
     }

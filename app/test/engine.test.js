@@ -32,7 +32,7 @@ const fixture = require('./fixture-stepmade.json');
     const an = (picks) => ({ cover: { nameEN: 'Featuring Cell', nameKR: '피쳐링셀 개선' }, fileName: '피쳐링셀', fileKey: 'X', comps: { names: ['TopBar', 'Featuring Cell', 'Featuring Cell/Title', 'Button', '새 컴포넌트', 'Player'].map(compHash), picks } });
     const v1 = judge(an({ a: [0, 1, 2, 3] }), ix, rules, {});
     assert.strictEqual(v1.suggestion, 'update');
-    assert.deepStrictEqual(v1.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD'], '피쳐링셀이 든 Core 둘 다 갱신 (이름은 SVOD만 가리켜도)');
+    assert.deepStrictEqual(v1.targets.map(t => t.name), ['[Core] SVOD (홈)', '[Core] TVOD'], '피쳐링셀이 든 Core 둘 다 갱신 (이름은 SVOD만 가리켜도), 피쳐링셀 없는 웹툰은 빠짐');
     assert(/화면 s1/.test(v1.targets[0].why), '근거로 Core 화면 이름을 댐');
     const v2 = judge(an({ a: [0, 4, 3, 5] }), ix, rules, {});
     assert.strictEqual(v2.suggestion, 'new', '어느 Core에도 없는 컴포넌트가 중심이면 새 Core (이름이 SVOD 주제와 같아도)');
