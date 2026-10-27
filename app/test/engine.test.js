@@ -185,6 +185,11 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(dd.rows.find(r => r.action === '교체').target.id, 'S1', '크기 칸 화면을 먼저 교체');
     const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
     assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
+    // 같은 폭에 시안과 길이가 같은 피쳐링셀 화면이 있으면 홈 전체(4816)가 아니라 그 화면을 바꾼다 (2026-10-27 SVOD 영상 컨텐츠_small)
+    const co2 = { platforms: { APP: { screens: co.platforms.APP.screens.concat([{ id: 'FC', name: '영상 컨텐츠_small', w: 375, h: 812, cls: 'small', bar: null, sig: 'c' }]) } } };
+    const d2 = computeDelta(an, co2, {});
+    assert.strictEqual(d2.rows.find(r => r.action === '교체').target.id, 'FC', '길이가 같은 화면을 교체');
+    assert.strictEqual(d2.rows.find(r => r.target && r.target.id === 'S1').action, '그대로', '홈 전체 화면은 그대로');
   }
   // 반영: 프로젝트 페이지를 통째로 붙여도 필요한 화면만 쓰고 나머지는 브랜치에서 지운다 (2026-10-26 윤우: 단계 줄이기)
   {

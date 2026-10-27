@@ -7,6 +7,13 @@
 //     · 내용(글자·이미지)이 같고 요소 수만 다르면 "거의 같음"으로 유지하고 차이를 적는다(확인 필요)
 //  3) 그래도 없을 때만 교체 — 차이 목록을 붙여야 표에 낼 수 있다(core.js가 채움)
 
+// 바꿀 칸 고르기: 같은 폭 중 길이가 시안과 가장 가까운 화면. 비슷하면(10% 안) 크기 칸 바(🔵)가 있는 화면, 그다음 섹션 순서.
+// 2026-10-27 SVOD 피쳐링셀: 폭만 보고 첫 칸을 골라 시안(375×812)이 홈 전체 "로그인/구독_small"(375×4816)을 덮을 뻔함 — 같은 크기의 "영상 컨텐츠_small"이 맞는 칸
+function closest(slot, src) {
+  const far = (s) => Math.round(Math.abs(Math.log((s.h || 1) / (src.h || 1))) * 10);
+  return slot.map((s, i) => ({ s, i })).sort((a, b) => far(a.s) - far(b.s) || (!!b.s.bar - !!a.s.bar) || a.i - b.i).map(x => x.s)[0] || null;
+}
+
 function chosenOf(p) { return p.candidates.find(c => c.id === p.chosen) || null; }
 
 // 후보 중 Core 화면과 완전히 같은 것을 대표로 (사람이 직접 고른 칸은 건드리지 않음)
@@ -56,7 +63,7 @@ function computeDelta(analysis, core, sources = {}) {
           src = chosenOf(p);
         }
         if (!src) continue;
-        if (!target) { target = slot.find(s => s.bar) || slot[0] || null; // 대표 화면(바 없음)보다 크기 칸 화면을 먼저 바꾼다
+        if (!target) { target = closest(slot, src); // 길이가 가장 가까운 화면, 비슷하면 대표 화면(바 없음)보다 크기 칸 화면
           action = target ? '교체' : '추가'; why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음` : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`; }
         if (target) usedCore.add(target.id);
         rows.push({
