@@ -1,4 +1,4 @@
-// 화면: 준비 상태 → 링크 → 분석 결과(판별 · 크기별 대표 화면 · 수록 대조표) → 📍 작업 위치 → (갱신) Δ 표·붙여넣기·반영 / (새 Core) 만들기 → 결과
+// 화면: 준비 상태 → 링크 → 분석 결과(판별 · 크기별 대표 화면 · 수록 대조표는 새 Core만) → 📍 작업 위치 → (갱신) Δ 표·붙여넣기·반영 / (새 Core) 만들기 → 결과
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nodeUrl = (fileKey, id) => `https://www.figma.com/design/${fileKey}/?node-id=${String(id).replace(':', '-')}`;
@@ -123,7 +123,8 @@ function render(r) {
     ${a.missing.length ? `<p class="muted">못 찾은 것: ${esc(a.missing.join(' · '))}</p>` : ''}</section>`;
   const cost = r.costUsd != null ? `<p class="hint">이번 분석에 쓴 Claude 사용량: 약 $${Number(r.costUsd).toFixed(3)}</p>` : '';
   const next = placeHtml(r) + cost.replace('<p class="hint">', '<p class="hint" style="text-align:right">');
-  $('#result').innerHTML = verdictHtml + picksHtml + covHtml + next + '<div id="work"></div>';
+  // 2026-10-27 윤우: 기존 Core 갱신에선 수록 대조표가 이해가 잘 안 된다 → 새 Core 만들 때만 (갱신은 "바뀔 내용" 표가 같은 일을 함)
+  $('#result').innerHTML = verdictHtml + picksHtml + (isUpdate ? '' : covHtml) + next + '<div id="work"></div>';
   $('#placeForm') && $('#placeForm').addEventListener('submit', onPlace);
   document.querySelectorAll('[data-core-at]').forEach(b => b.addEventListener('click', () => switchCore(Number(b.dataset.coreAt))));
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
