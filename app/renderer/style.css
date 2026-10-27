@@ -145,3 +145,10 @@ button.step-btn { padding:8px 14px; }
 /* 갱신할 Core 목록·Core 차례 (2026-10-26 여러 Core 갱신) */
 .targets { margin:10px 0 0; padding-left:18px; } .targets li { margin:4px 0; } .targets .muted { font-size:13px; }
 .core-tabs { display:flex; gap:6px; flex-wrap:wrap; margin:0 0 4px; } .core-tabs button { padding:6px 12px; font-size:13px; }
+
+/* 접어 두는 칸 (갱신의 '들어갈 화면 바꾸기') */
+details.fold > summary { cursor:pointer; list-style:none; }
+details.fold > summary::-webkit-details-marker { display:none; }
+details.fold > summary::before { content:'▸'; display:inline-block; width:14px; color:var(--muted, #888); }
+details.fold[open] > summary::before { content:'▾'; }
+details.fold[open] > summary { margin-bottom:10px; }
