@@ -159,13 +159,14 @@ if (!page) throw new Error('"' + M.name + '" 페이지가 없습니다 — Core 
 if (PLAN.coreKey && figma.fileKey && figma.fileKey === PLAN.coreKey) throw new Error('Core 본 파일입니다. 브랜치에서만 씁니다');
 const existing = new Set(PLAN.coreScreenIds);
 const want = PLAN.rows.filter(r => r.action === '교체' || r.action === '추가');
+const groupRows = PLAN.rows.filter(r => r.action === '묶음 교체');
 // 붙여 넣은 것 = 확인 때 읽은 페이지 맨 위 목록(PLAN.keepTop)에 없던 것. 프로젝트 페이지를 통째로 붙여도 되고(2026-10-26 윤우: 단계를 줄이자), 📦 섹션 하나여도 된다.
 // 그 안의 프레임 중 필요한 화면과 크기가 같은 것만 지문을 잰다 (페이지째 붙이면 프레임이 수만 개)
 const keepTop = PLAN.keepTop ? new Set(PLAN.keepTop) : null;
 const isCard = (n) => n.type === 'FRAME' && /링크 카드/.test(n.name);   // 지난 [반영]이 만든 링크 카드는 붙여넣기가 아니다
 const pastedTop = keepTop ? page.children.filter(n => !keepTop.has(n.id) && !isCard(n)) : [];
 const sizeKey = (w, h) => Math.round(w) + 'x' + Math.round(h);
-const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)));
+const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)).concat(groupRows.flatMap(r => r.sources.map(x => sizeKey(x.w, x.h)))));
 let pasted;
 if (keepTop) {
   pasted = [];
@@ -216,6 +217,53 @@ for (const r of want) {
     fitSection(sec, L.sectionPadding);
     done.push({ action: '추가', id: nf.id, platform: r.platform, cls: r.cls, width: r.width, same: sig(nf) === r.source.sig });
   }
+}
+// 묶음 통째로 (2026-10-27 윤우): 묶음 바(⚫·⚪) 아래 화면·하위 바를 모두 지우고, 시안 화면을 폭마다 한 줄씩 🔵 바와 함께 다시 놓는다.
+// 시안 화면을 하나라도 못 찾으면 그 묶음은 손대지 않는다 (지우기만 하고 못 채우는 일이 없게)
+for (const gid of [...new Set(groupRows.map(r => r.group.id))]) {
+  const rows = groupRows.filter(r => r.group.id === gid).sort((a, b) => a.width - b.width);
+  const gb = await figma.getNodeByIdAsync(gid);
+  const sec = gb && gb.parent;
+  if (!gb || !sec || sec.type !== 'SECTION') { notFound.push('묶음 바 ' + gid + ' 없음'); continue; }
+  const tt = gb.findOne && gb.findOne(n => n.type === 'TEXT' && n.name === RULES.components.barTitleTextName);
+  const gname = tt ? tt.characters.trim() : gb.name;
+  const pick = [], miss = [];
+  for (const r of rows) for (const src of r.sources) {
+    const hit = pasted.find(p => !taken.has(p.f.id) && !pick.some(x => x.p === p) && p.s === src.sig);
+    if (hit) pick.push({ p: hit, r, src }); else miss.push(r.platform + ' ' + r.width + 'px ' + src.id);
+  }
+  if (miss.length) { notFound.push('묶음 "' + gname + '"은 시안 화면 ' + miss.length + '장을 못 찾아 그대로 둠'); continue; }
+  const x0 = gb.x, oldW = gb.width, top = gb.y + gb.height;
+  // 지울 것: 묶음의 옛 화면 + 묶음 안(바 폭 안, 바 아래)의 하위 바
+  const oldIds = new Set(rows.flatMap(r => r.olds.map(o => o.id)));
+  const inside = (n) => n.x >= x0 - 1 && n.x + n.width <= x0 + oldW + 1 && n.y >= top - 1;
+  let removed = 0;
+  for (const n of [...sec.children]) if (n !== gb && (oldIds.has(n.id) || (n.type === 'INSTANCE' && inside(n)))) { n.remove(); removed++; }
+  // 다시 놓기: 폭마다 한 줄 (🔵 바 + 화면들)
+  let y = top + 40, right = x0;
+  const placed = new Set();
+  for (const r of rows) {
+    const mine = pick.filter(x => x.r === r);
+    if (!mine.length) continue;
+    let x = x0, rowH = 0, barH = 0;
+    for (const { p, src } of mine) {
+      const nf = p.f;
+      taken.add(nf.id);
+      const b = await bar('barBlue', sec, x, y, nf.width, r.barTitle || r.cls || String(r.width), null);
+      placed.add(b.id); placed.add(nf.id);
+      barH = Math.max(barH, b.height);
+      sec.appendChild(nf); nf.x = x; nf.y = y + b.height + 16;
+      rowH = Math.max(rowH, nf.height); right = Math.max(right, x + nf.width); x += nf.width + L.gap;
+      done.push({ action: '묶음 교체', id: nf.id, platform: r.platform, cls: r.cls, width: r.width, same: sig(nf) === src.sig });
+    }
+    y += barH + 16 + rowH + 80;
+  }
+  // 묶음 바를 새 폭으로, 오른쪽에 있던 것은 늘어난(줄어든) 만큼 민다
+  const newW = right - x0, shift = newW - oldW;
+  try { gb.resize(newW, gb.height); } catch (e) {}
+  if (Math.abs(shift) > 0.5) for (const n of sec.children) if (n !== gb && !placed.has(n.id) && n.x >= x0 + oldW - 1) n.x += shift;
+  fitSection(sec, L.sectionPadding);
+  say('묶음 "' + gname + '": 지움 ' + removed + ' · 넣음 ' + pick.length);
 }
 // 링크 카드 기준 날짜
 let cardUpdated = false;
