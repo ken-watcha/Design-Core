@@ -1,4 +1,4 @@
-// 화면: 준비 상태 → 링크 → 분석 결과(판별 · 크기별 대표 화면 · 수록 대조표) → 📍 작업 위치 → (갱신) Δ 표·붙여넣기·반영 / (새 Core) 만들기 → 결과
+// 화면: 준비 상태 → 링크 → 분석 결과(판별 · 크기별 대표 화면(갱신은 접어 둠) · 수록 대조표는 새 Core만) → 📍 작업 위치 → (갱신) Δ 표·붙여넣기·반영 / (새 Core) 만들기 → 결과
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const nodeUrl = (fileKey, id) => `https://www.figma.com/design/${fileKey}/?node-id=${String(id).replace(':', '-')}`;
@@ -79,17 +79,15 @@ function render(r) {
     $('#result').innerHTML = `<section class="panel"><h2>프로젝트 문서가 아닙니다</h2><p class="muted">파일 종류: ${esc(a.kind)} · 페이지: ${esc(a.pages.join(' / '))}</p></section>`;
     return;
   }
-  const cover = a.cover;
   // 판별: 점수표 대신 앱의 결론과 이유 한 줄 (2026-10-12 윤우: "점수랑 맞은 낱말은 뭐야?")
   const weak = (v.weak || []).map(c => `${esc(c.name)}("${esc(c.hits.join('", "'))}")`).join(', ');
   const verdictHtml = `<section class="panel"><h2>어디에 넣을까</h2>
-    <div class="verdict"><span class="big">${v.suggestion === 'update' ? '기존 Core 갱신' : '새 Core 만들기'} → ${esc(v.target)}</span>
+    <div class="verdict"><span class="big">${v.suggestion === 'update' ? '기존 Core 갱신' : '새 Core 만들기'} → ${(v.targets || []).length > 1 ? `Core ${v.targets.length}개` : esc(v.target)}</span>
     ${v.sure ? '' : '<span class="pill warn">확인 필요</span>'}</div>
     <p class="muted">${esc(v.reason)}</p>
     ${targetsHtml(v)}
     ${weak && !v.content ? `<p class="hint">참고로 이름이 조금 겹친 Core: ${weak}. 겹친 낱말이 하나뿐이라 갱신 대상으로 보지 않았어요.</p>` : ''}
     ${!v.sure ? `<p class="hint">비슷하게 맞은 Core: ${v.candidates.slice(0, 3).map(c => esc(c.name)).join(', ')}</p>` : ''}
-    <p class="hint">프로젝트: ${esc(cover.nameKR || cover.nameEN)} · 커버 ${esc(cover.badge || '상태 없음')}</p>
   </section>`;
   let rows = '';
   // 대표 화면 표의 상태 태그 — 무엇을 해야 하는지 바로 읽히게 (2026-10-12 윤우: "바꿔서 뭘 할 수 있는지 인지가 안 돼")
@@ -116,14 +114,19 @@ function render(r) {
   // 2026-10-12 윤우: "대표 화면"이 무슨 뜻인지 모르겠다 → 이름을 "Core에 들어갈 화면"으로, 후보를 그림으로 나란히 보고 고르게
   const pickWhy = `Core 파일에는 크기마다 화면이 <b>딱 한 장씩</b> 들어가요. 앱이 이 문서에서 크기마다 한 장을 골랐어요. 따로 할 일은 없어요. 앱이 잘못 골랐을 때만 "보기"에서 바꾸면 돼요.`
     + (isUpdate ? ` 바꾸면 아래 "바뀔 내용"에서 그 칸이 <b>교체</b>로 잡혀요.` : '');
-  const picksHtml = `<section class="panel"><h2>Core에 들어갈 화면 <span class="muted h2-sub">크기마다 1장</span></h2><p class="hint lead">${pickWhy}</p>
-    <table class="picks"><tr><th>크기</th><th>폭</th><th>들어갈 화면</th><th class="tag"></th><th class="go"></th></tr>${rows}</table></section>`;
+  const picksTable = `<p class="hint lead">${pickWhy}</p>
+    <table class="picks"><tr><th>크기</th><th>폭</th><th>들어갈 화면</th><th class="tag"></th><th class="go"></th></tr>${rows}</table>`;
+  // 2026-10-27 윤우: 갱신에선 앱이 이미 골랐고 "바뀔 내용" 표가 같은 짝을 보여 준다 → 접어 두고 바꿀 때만 펼친다
+  const picksHtml = isUpdate
+    ? `<section class="panel"><details class="fold"><summary><b>들어갈 화면 바꾸기</b> <span class="muted h2-sub">앱이 크기마다 1장씩 골랐어요. 잘못 골랐을 때만 펼쳐요</span></summary>${picksTable}</details></section>`
+    : `<section class="panel"><h2>Core에 들어갈 화면 <span class="muted h2-sub">크기마다 1장</span></h2>${picksTable}</section>`;
   const cov = (a.coverage || []).map(c => `<tr><td>${esc(c.section)}</td><td>${c.to ? esc(c.to) : '<span class="pill warn">미수록</span>'}</td><td class="muted">${esc(c.note)}</td></tr>`).join('');
   const covHtml = `<section class="panel"><h2>수록 대조표</h2><p class="hint" style="margin-top:0">문서의 섹션이 하나도 빠지지 않았는지 확인합니다.</p><table><tr><th>문서 섹션</th><th>Core에서 들어갈 자리</th><th></th></tr>${cov}</table>
     ${a.missing.length ? `<p class="muted">못 찾은 것: ${esc(a.missing.join(' · '))}</p>` : ''}</section>`;
-  const cost = r.costUsd != null ? `<p class="hint">이번 분석에 쓴 Claude 사용량: 약 $${Number(r.costUsd).toFixed(3)}</p>` : '';
-  const next = placeHtml(r) + cost.replace('<p class="hint">', '<p class="hint" style="text-align:right">');
-  $('#result').innerHTML = verdictHtml + picksHtml + covHtml + next + '<div id="work"></div>';
+  // 2026-10-27 윤우: Claude 사용량($)은 디자이너가 할 일과 상관없어 보이지 않는다
+  const next = placeHtml(r);
+  // 2026-10-27 윤우: 기존 Core 갱신에선 수록 대조표가 이해가 잘 안 된다 → 새 Core 만들 때만 (갱신은 "바뀔 내용" 표가 같은 일을 함)
+  $('#result').innerHTML = verdictHtml + picksHtml + (isUpdate ? '' : covHtml) + next + '<div id="work"></div>';
   $('#placeForm') && $('#placeForm').addEventListener('submit', onPlace);
   document.querySelectorAll('[data-core-at]').forEach(b => b.addEventListener('click', () => switchCore(Number(b.dataset.coreAt))));
   document.querySelectorAll('select[data-pf]').forEach(s => s.addEventListener('change', () => {
@@ -271,7 +274,6 @@ function stopProgress(ok) {
 window.core.onProgress && window.core.onProgress((ev) => { if (!prog) return; prog.stage = ev.stage; prog.label = String(ev.label || '').replace(/^Core 업데이트:\s*/, '').replace(/\s*\(읽기 전용\)$/, ''); tick(); });
 const busy = (msg) => { $('#work').innerHTML = `<section class="panel spinner">${esc(msg)}</section>`; };
 const fail = (title, e) => { $('#work').innerHTML = `<section class="panel"><h2>${esc(title)}</h2><p class="muted">${esc(e && e.message ? e.message : e)}</p></section>`; };
-const money = (v) => v != null ? `<p class="hint">이번 단계 Claude 사용량: 약 $${Number(v).toFixed(3)}</p>` : '';
 
 // 다음(또는 고른) Core로 넘어간다. 대표 화면은 Core마다 다시 맞추므로 분석 결과는 처음 받은 것으로 되돌린다
 function switchCore(i) {
@@ -328,7 +330,6 @@ function showDelta() {
   const d = work.delta, s = d.summary;
   const rows = d.rows.map((r, i) => `<tr class="pick" data-row="${i}" title="눌러서 두 화면 나란히 보기"><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
     <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go"><span class="go-in">비교${CHEV}</span></td></tr>`).join('');
-  const miss = d.missing.map((m, i) => `<tr class="pick" data-miss="${i}" title="눌러서 화면 보기"><td class="act"><span class="pill bad">미수록</span></td><td colspan="3">${esc(m.section)}</td><td class="muted">${esc(m.why)}</td><td class="go"><span class="go-in">보기${CHEV}</span></td></tr>`).join('');
   const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가');
   // 파일 사이로는 앱이 화면을 못 옮긴다 → 사람이 프로젝트 페이지를 통째로 ⌘C/⌘V 한 번, 필요한 화면 고르기·정리는 앱이 한다
   // (2026-10-26 윤우: 단계가 복잡하고 맥락을 모르면 따라 하기 어렵다 → 프로젝트 브랜치·모으기 없앰, 지금 할 단계 하나만 펼쳐 보임)
@@ -357,17 +358,17 @@ function showDelta() {
     <details><summary class="hint">페이지가 너무 커서 붙여넣기가 멈추면 — 한 장씩 복사하기</summary><p class="hint">아래 화면을 하나씩 열어 ⌘C → Core 브랜치에 ⌘V, 다 붙인 뒤 [반영]</p>${oneByOne}</details>${SAFE_NOTE('branch')}` : '';
   // 결론을 맨 위에 (2026-10-12 윤우: 결과 표만 보고는 "그래서 뭘 하라는 건지" 몰랐음)
   const checks = d.rows.filter(r => r.check && r.action === '유지').length;
-  const next = [checks ? `"확인 필요" ${checks}칸은 거의 같은 화면이에요. 한 번 눈으로 보고 괜찮으면 넘어가세요.` : '', s.missing ? `미수록 ${s.missing}개는 문서에만 있는 섹션이에요. 넣지 않아도 돼요.` : ''].filter(Boolean);
+  const next = [checks ? `"확인 필요" ${checks}칸은 거의 같은 화면이에요. 한 번 눈으로 보고 괜찮으면 넘어가세요.` : ''].filter(Boolean);
   const verdict = todo.length
     ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸</b> — 아래 "화면 옮기기" 순서대로 따라 해 주세요.</div>`
     : `<div class="conclusion ok"><b>바꿀 화면이 없어요.</b> Core가 프로젝트 문서와 같아요. 브랜치는 머지할 필요 없이 버리면 돼요.${next.length ? '<ul>' + next.map(t => `<li>${t}</li>`).join('') + '</ul>' : ''}</div>`;
   $('#work').innerHTML = `<section class="panel"><h2>Δ 바뀔 내용 — ${esc(current.place.coreName)}</h2>
     ${verdict}
-    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.untouched ? ' · 그대로 ' + s.untouched : ''} · 미수록 ${s.missing}${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
+    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.untouched ? ' · 그대로 ' + s.untouched : ''} ${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
     <p class="hint" style="margin:0 0 6px">줄을 누르면 프로젝트 화면과 Core 화면을 나란히 볼 수 있어요.</p>
-    <table class="delta"><tr><th class="act"></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th><th></th></tr>${rows}${miss}</table>
+    <table class="delta"><tr><th class="act"></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th><th></th></tr>${rows}</table>
     ${work.unverifiedBranch ? '<p class="hint">이 링크가 브랜치인지 복제본인지는 앱이 가릴 수 없습니다. 복제본이면 나중에 Core에 합칠(머지) 수 없으니, Figma에서 브랜치인지 한 번 확인해 주세요.</p>' : ''}
-    ${paste}${money(work.costUsd)}</section>`;
+    ${paste}</section>`;
   bindOpen($('#work'));
   $('#work').querySelectorAll('tr.pick').forEach(tr => tr.addEventListener('click', (ev) => { if (ev.target.closest('button')) return; openCompare(tr.dataset.row != null ? d.rows[tr.dataset.row] : null, tr.dataset.miss != null ? d.missing[tr.dataset.miss] : null); }));
   $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
@@ -417,7 +418,6 @@ const prefetchPicks = () => requestShots(Object.values(current.analysis.platform
   (p.sure ? pickCands(p).slice(0, 1) : pickCands(p)).map(c => ({ fileKey: current.fileKey, nodeId: c.id, w: c.w, h: c.h })))));
 const prefetchDelta = () => requestShots([
   ...work.delta.rows.flatMap(r => [r.source && { fileKey: current.fileKey, nodeId: r.source.id, w: r.source.w, h: r.source.h }, r.target && { fileKey: work.workKey, nodeId: r.target.id, w: r.target.w, h: r.target.h }]),
-  ...work.delta.missing.map(m => ({ fileKey: current.fileKey, nodeId: m.id }))
 ].filter(Boolean));
 function closeCompare() { const el = $('#cmp'); if (el) el.remove(); document.removeEventListener('keydown', escClose); }
 function escClose(ev) { if (ev.key === 'Escape') closeCompare(); }
@@ -495,8 +495,8 @@ async function onApply() {
       </ol>` : '';
     $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>${head}${next}
       <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
-      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add} · 미수록 ${s.missing}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}</p></details>
-      ${money(r.costUsd)}</section>`;
+      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}</p></details>
+      </section>`;
     $('#work').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     bindOpen($('#work'));
     $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
@@ -509,7 +509,7 @@ function showBuild() {
   const n = Object.values(current.analysis.platforms).flat().reduce((a, e) => a + e.picks.filter(p => p.chosen).length, 0);
   $('#work').innerHTML = `<section class="panel"><h2>새 Core 만들기 — ${esc(current.place.coreName)}</h2>
     <p class="muted">${work.resume ? '이 복사본은 마스터 페이지까지 만들어졌고, 작업 페이지 정리에서 멈췄어요. 누르면 나머지 작업 페이지를 지워 Cover · --- · 🌏 마스터 파일만 남겨요.' : `복사본을 확인했어요. 누르면 위 대표 화면 ${n}장을 🌏 마스터 파일 페이지로 모으고, 나머지 작업 페이지는 지워서 Cover · --- · 🌏 마스터 파일만 남겨요.`}</p>
-    <button id="buildGo">${work.resume ? '이어서 정리하기' : '새 Core 만들기'}</button>${SAFE_NOTE('copy')}${money(work.costUsd)}</section>`;
+    <button id="buildGo">${work.resume ? '이어서 정리하기' : '새 Core 만들기'}</button>${SAFE_NOTE('copy')}</section>`;
   $('#buildGo').addEventListener('click', onBuild);
 }
 
@@ -527,7 +527,7 @@ async function onBuild() {
       <ul>${screens}</ul>
       <p class="muted">지운 페이지: ${esc(r.trim.removed.join(', ') || '없음')} · 로컬 컴포넌트 분리 ${r.trim.detached}개 · 남은 페이지: ${esc(r.trim.pages.join(' / '))}</p>
       ${(b.log || []).filter(l => /⚠|대신/.test(l)).map(l => `<p class="muted">${esc(l)}</p>`).join('')}
-      <p class="hint">이 Core를 앱의 Core 목록에 추가했습니다 — 다음 판별부터 "기존 Core"로 잡힙니다. 남은 사람 손: 파일 이름·Core 폴더 이동, 원본 커버 Final/아카이브.</p>${money(r.costUsd)}</section>`;
+      <p class="hint">이 Core를 앱의 Core 목록에 추가했습니다 — 다음 판별부터 "기존 Core"로 잡힙니다. 남은 사람 손: 파일 이름·Core 폴더 이동, 원본 커버 Final/아카이브.</p></section>`;
     bindOpen($('#work'));
   } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">${/SyntaxError/.test(e.message) ? 'Figma가 코드를 실행하기 전에 멈춰서 복사본은 그대로예요. 다시 눌러 보세요.' : '복사본에 반쯤 만든 페이지가 남았을 수 있어요. 복사본을 지우고 다시 복제해 주세요.'}</p></section>`; $('#buildGo').disabled = false; }
 }
