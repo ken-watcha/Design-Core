@@ -20,6 +20,9 @@ function fromRepo(repo) {
   const git = (...args) => execFileSync('git', ['-C', repo, ...args], { env, encoding: 'utf8', timeout: 20000 }).trim();
   // 최신 받기: main 브랜치이고 고친 파일이 없을 때만 앞으로 감기. 인터넷이 없거나 실패하면 있는 그대로 켠다.
   try {
+    // npm이 버전에 따라 고쳐 쓰는 잠금 파일만 바뀐 거면 되돌리고 받는다 (2026-10-27 윤우 맥: package-lock.json 하나 때문에 11커밋 뒤처짐)
+    const changed = git('diff', '--name-only', 'HEAD').split('\n').filter(Boolean);
+    if (changed.length && changed.every(f => /(^|\/)package-lock\.json$/.test(f))) git('checkout', '--', ...changed);
     if (git('rev-parse', '--abbrev-ref', 'HEAD') === 'main' && !git('status', '--porcelain', '--untracked-files=no')) {
       git('pull', '--ff-only', '--quiet', 'origin', 'main');
     }
