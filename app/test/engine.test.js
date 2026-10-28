@@ -276,8 +276,29 @@ const fixture = require('./fixture-stepmade.json');
     assert(popB.parent === appB && popB.x === 407 && popB.y === 400, '기준 화면 바로 오른쪽, 같은 높이에 놓임');
     assert.strictEqual(homeB.x, 0, '기준 화면은 그대로');
     assert(rightB.x === 814 && bb2.x === 814 && bb1.x === 0, '오른쪽 화면·🔵 바는 밀리고 왼쪽은 그대로');
-    assert(topB.width >= 1189 - rules.layout.sectionPadding, '묶음 바는 새 폭까지 늘림');
+    assert(topB.width >= 1189 - rules.layout.sectionPadding, '맨 위 ⚫ 바는 새 폭까지 늘림');
+    assert(bb1.width === 375 && bb2.width === 375, '🔵 크기 칸 바는 늘리지 않음 (2026-10-28 결제/구독: 전부 8,000px로 늘어났던 버그)');
     assert(pasteB.removed, '남은 붙여넣기는 지움');
+    // 루트 섹션이 커지면 옆·아래 섹션을 민다 (2026-10-28 결제/구독 테스트: 🌏 결제가 넓어지며 🌏 구독을 덮음)
+    const pageC = node('PAGE', '🌏 마스터 파일');
+    const rootC = kid(pageC, Object.assign(node('SECTION', '🌏 결제'), { x: 0, y: 0, width: 1000, height: 1000 }));
+    const otherC = kid(pageC, Object.assign(node('SECTION', '🌏 구독'), { x: 1240, y: 0, width: 500, height: 500 }));
+    const belowC = kid(pageC, Object.assign(node('SECTION', '🌏 아래'), { x: 0, y: 1240, width: 500, height: 500 }));
+    const appC = kid(rootC, Object.assign(node('SECTION', 'APP'), { x: 100, y: 100, width: 800, height: 800 }));
+    kid(appC, inst('스크린 설명 컴포넌트', 0, 282, 375, 40, 'small'));
+    const homeC = kid(appC, Object.assign(screen(375, 400, '결제페이지'), { x: 0, y: 400 }));
+    const pasteC = kid(pageC, node('SECTION', '붙임')); const newC = kid(pasteC, screen(1280, 4000, '단건 결제페이지'));
+    const figC = { fileKey: 'BRANCH', root: { children: [pageC] }, getNodeByIdAsync: async () => null,
+      importComponentByKeyAsync: async () => ({ createInstance: () => inst('🔵', 0, 0, 100, 40) }) };
+    pageC.loadAsync = async () => {};
+    const planC = { coreKey: 'CORE', coreScreenIds: [homeC.id], month: null, keepTop: [rootC.id, otherC.id, belowC.id],
+      rows: [{ action: '추가', platform: 'APP', cls: 'large', width: 1280, source: { id: 'P1', w: 1280, h: 4000, sig: sigOf(newC) }, beside: null }] };
+    const outC = await new AsyncFn('figma', applyUpdateCode(rules, planC))(figC);
+    assert.strictEqual(outC.done.length, 1);
+    assert(rootC.width > 1000 && rootC.height > 1000, '루트 섹션이 커짐');
+    assert.strictEqual(otherC.x, 1240 + (rootC.width - 1000), '오른쪽 섹션은 커진 만큼 밀림');
+    assert.strictEqual(belowC.y, 1240 + (rootC.height - 1000), '아래 섹션은 커진 만큼 밀림');
+    assert(otherC.y === 0 && belowC.x === 0, '다른 방향은 그대로');
     // 시안 화면을 하나라도 못 찾으면 묶음은 그대로
     const page4 = node('PAGE', '🌏 마스터 파일'); const root4 = kid(page4, node('SECTION', '🌏 SVOD')); const app4 = kid(root4, node('SECTION', 'APP'));
     const gb4 = kid(app4, inst('바', 0, 0, 800, 60, '피쳐링셀')); const o4 = kid(app4, Object.assign(screen(375, 812, '옛'), { x: 0, y: 140 }));

@@ -53,9 +53,19 @@ function diffFix(a, b, acc) {
   if ('children' in a && 'children' in b) { const n = Math.min(a.children.length, b.children.length); for (let i = 0; i < n; i++) diffFix(a.children[i], b.children[i], acc); }
 }
 function diffCount(a, b) { let n = 0; const w = (x, y) => { if (Math.abs(x.width - y.width) > 0.5 || Math.abs(x.height - y.height) > 0.5) n++; if ('children' in x && 'children' in y) { const m = Math.min(x.children.length, y.children.length); for (let i = 0; i < m; i++) w(x.children[i], y.children[i]); } }; w(a, b); return n; }
+// 섹션을 속 내용에 맞게 키우고, 커진 만큼 오른쪽·아래에 있던 형제(다른 섹션·화면)를 민다.
+// 2026-10-28 결제/구독 테스트: 🌏 결제 루트 섹션이 WEB 줄 때문에 넓어지며 옆의 🌏 구독 섹션을 덮음 → 형제도 같이 밀기
 function fitSection(s, pad) {
   let r = 0, b = 0; for (const c of s.children) { r = Math.max(r, c.x + c.width); b = Math.max(b, c.y + c.height); }
+  const w0 = s.width, h0 = s.height;
   s.resizeWithoutConstraints(Math.max(s.width, r + pad), Math.max(s.height, b + pad));
+  const dw = s.width - w0, dh = s.height - h0;
+  if ((dw <= 0 && dh <= 0) || !s.parent || !('children' in s.parent)) return;
+  for (const n of s.parent.children) {
+    if (n === s || n.removed) continue;
+    if (dw > 0 && n.x >= s.x + w0 - 1 && n.y < s.y + h0 && n.y + n.height > s.y) n.x += dw;   // 오른쪽에 나란히 있던 것
+    if (dh > 0 && n.y >= s.y + h0 - 1 && n.x < s.x + s.width && n.x + n.width > s.x) n.y += dh; // 아래에 있던 것
+  }
 }
 `;
 
@@ -224,9 +234,12 @@ for (const r of want) {
     }
     sec.appendChild(nf); nf.x = right; nf.y = screenY; // 이름은 붙여 넣은 원본 이름 그대로
     await bar('barBlue', sec, right, L.barSizeY, nf.width, r.cls, r.desc);
-    // ⚫·⚪ 바를 새 폭까지 늘린다
+    // 맨 위 ⚫ 섹션 제목 바만 새 폭까지 늘린다. 2026-10-28 결제/구독 테스트: 🔵 크기 칸 바가 규칙(y 282)보다 위(y 254)에 있는 Core라
+    // y 기준으로 고르니 🔵 바 전부가 8,000px로 늘어나 섹션이 옆 섹션을 덮었다 → 가장 위 줄의 바만 늘린다
     const inner = Math.max(...sec.children.filter(n => n.type === 'FRAME').map(f => f.x + f.width)) - L.sectionPadding;
-    for (const b of sec.children.filter(n => n.type === 'INSTANCE' && n.y < L.barSizeY - 1)) { try { b.resize(inner, b.height); } catch (e) {} }
+    const barsAll = sec.children.filter(n => n.type === 'INSTANCE' && n !== nf);
+    const topY = barsAll.length ? Math.min(...barsAll.map(b => b.y)) : 0;
+    for (const b of barsAll.filter(b => Math.abs(b.y - topY) < 2)) { try { b.resize(Math.max(b.width, inner), b.height); } catch (e) {} }
     fitSection(sec, L.sectionPadding);
     done.push({ action: '추가', id: nf.id, platform: r.platform, cls: r.cls, width: r.width, same: sig(nf) === r.source.sig });
   }
