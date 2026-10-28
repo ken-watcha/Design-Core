@@ -5,6 +5,7 @@ const rules = require('../../plugin/rules.json');
 const { buildCoreReadCode } = require('../engine/figma-core-read');
 const { readItemCounts, readItemLabels, findSources } = require('../engine/figma-find');
 const { buildAnalyzeCode } = require('../engine/figma-analyze');
+const { buildCaseReadCode } = require('../engine/figma-group');
 const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
 const LIMIT = 20480;
 const bytes = (o) => Buffer.byteLength(JSON.stringify(o));
@@ -50,6 +51,10 @@ const runner = async (key, code, desc) => {
 
 (async () => {
   const read = (await runner('CORE', buildCoreReadCode(rules), '작업 위치 확인')).data;
+  // 묶음 통째로: 시안에서 폭마다 Case 섹션 화면 읽기 (2026-10-27)
+  const cw = docPages.flatMap(p => widths.map(w => ({ platform: 'APP', width: w, pageId: p.id })));
+  const cr = (await runner('DOC', buildCaseReadCode(rules, { want: cw }), '묶음 시안 화면')).data;
+  assert.strictEqual(cr.sections.length, cw.length, '폭마다 섹션을 골라 받음');
   assert.strictEqual(read.platforms.APP.screens.length, N, 'Core 화면을 모두 읽음');
   const targets = read.platforms.APP.screens.map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
   const f = await findSources(runner, 'DOC', targets, '원본 찾기');

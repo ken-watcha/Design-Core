@@ -46,9 +46,11 @@ if (master) {
       const byTitle = blue && cfg.classes.find(c => c.name === blue.title);
       const byWidth = cfg.classes.find(c => [c.width].concat(c.extraWidths || []).some(w => Math.abs(w - f.width) < 0.5));
       const cls = (byTitle || byWidth || {}).name || null;
-      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), cls, bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', ...sigs(f) };
+      // wb: 이 화면을 덮는 묶음 바(🔵 아닌 것) — 바깥(위)부터. 프로젝트가 다루는 묶음이면 통째로 바꾼다 (delta.js findGroups)
+      const wb = over.filter(b => b.kind !== 'blue').sort((p, q) => p.y - q.y).map(b => b.id);
+      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), cls, bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', wb, ...sigs(f) };
     });
-    out.platforms[platform] = { sectionId: sec.id, screens };
+    out.platforms[platform] = { sectionId: sec.id, screens, bars: Object.fromEntries(bars.map(b => [b.id, b.title.slice(0, 40)])) };
   }
 }
 // 20KB 한도: 화면이 아주 많은 Core면 이름을 줄이고, 그래도 넘으면 묶음 이름·화면 이름 순으로 뺀다 (지문·크기·id는 그대로 — Δ 계산에 필요)
@@ -56,6 +58,7 @@ const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i
 const all = () => Object.values(out.platforms).flatMap(p => p.screens);
 if (bytes(out) > 18000) { for (const s of all()) { s.name = s.name.slice(0, 24); s.group = s.group.slice(0, 16); } out.trimmed = 'names'; }
 if (bytes(out) > 18000) { for (const s of all()) delete s.group; out.trimmed = 'group'; }
+if (bytes(out) > 18000) { for (const s of all()) delete s.wb; for (const p of Object.values(out.platforms)) delete p.bars; out.trimmed = 'wb'; }
 if (bytes(out) > 18000) { for (const s of all()) s.name = ''; out.trimmed = 'nameless'; }
 if (bytes(out) > 19500) return { error: 'Core 화면이 너무 많아 한 번에 읽지 못했어요 (' + all().length + '장)' };
 return out;

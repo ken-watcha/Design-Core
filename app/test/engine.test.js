@@ -185,6 +185,11 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(dd.rows.find(r => r.action === '교체').target.id, 'S1', '크기 칸 화면을 먼저 교체');
     const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
     assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
+    // 같은 폭에 시안과 길이가 같은 피쳐링셀 화면이 있으면 홈 전체(4816)가 아니라 그 화면을 바꾼다 (2026-10-27 SVOD 영상 컨텐츠_small)
+    const co2 = { platforms: { APP: { screens: co.platforms.APP.screens.concat([{ id: 'FC', name: '영상 컨텐츠_small', w: 375, h: 812, cls: 'small', bar: null, sig: 'c' }]) } } };
+    const d2 = computeDelta(an, co2, {});
+    assert.strictEqual(d2.rows.find(r => r.action === '교체').target.id, 'FC', '길이가 같은 화면을 교체');
+    assert.strictEqual(d2.rows.find(r => r.target && r.target.id === 'S1').action, '그대로', '홈 전체 화면은 그대로');
   }
   // 반영: 프로젝트 페이지를 통째로 붙여도 필요한 화면만 쓰고 나머지는 브랜치에서 지운다 (2026-10-26 윤우: 단계 줄이기)
   {
@@ -227,6 +232,65 @@ const fixture = require('./fixture-stepmade.json');
     const plan2 = Object.assign({}, plan, { keepTop: [r2.id], rows: [{ action: '교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 600, sig: 'x' }, target: { id: core1.id } }] });
     const out2 = await new AsyncFn('figma', applyUpdateCode(rules, plan2))({ fileKey: 'BRANCH', root: { children: [page2] }, getNodeByIdAsync: async () => null });
     assert(out2.done.length === 0 && !junk.removed, '못 찾았으면 붙인 것을 남겨 둠');
+    // 묶음 통째로 (2026-10-27 윤우): 묶음 바 아래 옛 화면·하위 바를 지우고 시안 화면을 🔵 바와 함께 다시 놓는다
+    const page3 = node('PAGE', '🌏 마스터 파일'); const root3 = kid(page3, node('SECTION', '🌏 SVOD')); const app3 = kid(root3, node('SECTION', 'APP'));
+    const inst = (name, x, y, w, h, title) => { const i = node('INSTANCE', name, { x, y, width: w, height: h }); i.resize = (W, H) => { i.width = W; i.height = H; }; if (title) kid(i, node('TEXT', '제목', { characters: title })); return i; };
+    const gb = kid(app3, inst('스크린 설명 컴포넌트', 0, 0, 800, 60, '피쳐링셀'));
+    const sub = kid(app3, inst('스크린 설명 컴포넌트', 0, 80, 375, 40, '이미지'));
+    const o1 = kid(app3, Object.assign(screen(375, 812, '옛 이미지'), { x: 0, y: 140 })), o2 = kid(app3, Object.assign(screen(375, 812, '옛 영상'), { x: 400, y: 140 }));
+    const right3 = kid(app3, Object.assign(screen(375, 812, '오른쪽 묶음'), { x: 900, y: 140 }));
+    const paste3 = kid(page3, node('SECTION', '[Small] Case'));
+    const n3 = ['새 이미지', '새 컬렉션', '새 추천'].map(t => kid(paste3, screen(375, 812, t)));
+    const sigOf = new Function(SIG_FN + 'return sig;')();
+    const byId = new Map([gb, o1, o2].map(n => [n.id, n]));
+    const fig3 = { fileKey: 'BRANCH', root: { children: [page3] }, getNodeByIdAsync: async (id) => byId.get(id) || null,
+      importComponentByKeyAsync: async () => ({ createInstance: () => inst('🔵', 0, 0, 100, 40) }) };
+    page3.loadAsync = async () => {};
+    const plan3 = { coreKey: 'CORE', coreScreenIds: [o1.id, o2.id, right3.id], month: null, keepTop: [root3.id],
+      rows: [{ action: '묶음 교체', platform: 'APP', cls: 'small', width: 375, group: { id: gb.id }, sources: n3.map(f => ({ id: 'P' + f.id, w: 375, h: 812, sig: sigOf(f) })), olds: [{ id: o1.id }, { id: o2.id }] }] };
+    const out3 = await new AsyncFn('figma', applyUpdateCode(rules, plan3))(fig3);
+    assert.strictEqual(out3.done.length, 3, '시안 3장을 묶음에 넣음');
+    assert(o1.removed && o2.removed && sub.removed && !gb.removed, '옛 화면·하위 바는 지우고 묶음 바는 남김');
+    assert.deepStrictEqual(n3.map(f => f.parent), [app3, app3, app3], '시안 화면은 APP 섹션으로');
+    assert.deepStrictEqual(n3.map(f => f.x), [0, 407, 814], '한 줄로 나란히');
+    assert.strictEqual(gb.width, 1189, '묶음 바를 새 폭으로');
+    assert.strictEqual(right3.x, 900 + 389, '오른쪽 묶음은 늘어난 만큼 밀림');
+    assert(paste3.removed, '남은 붙여넣기는 지움');
+    // 시안 화면을 하나라도 못 찾으면 묶음은 그대로
+    const page4 = node('PAGE', '🌏 마스터 파일'); const root4 = kid(page4, node('SECTION', '🌏 SVOD')); const app4 = kid(root4, node('SECTION', 'APP'));
+    const gb4 = kid(app4, inst('바', 0, 0, 800, 60, '피쳐링셀')); const o4 = kid(app4, Object.assign(screen(375, 812, '옛'), { x: 0, y: 140 }));
+    page4.loadAsync = async () => {};
+    const out4 = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan3, { keepTop: [root4.id], rows: [Object.assign({}, plan3.rows[0], { group: { id: gb4.id }, olds: [{ id: o4.id }] })] })))(
+      Object.assign({}, fig3, { root: { children: [page4] }, getNodeByIdAsync: async (id) => (id === gb4.id ? gb4 : null) }));
+    assert(!o4.removed && out4.done.length === 0 && /못 찾아/.test(out4.notFound.join()), '못 찾으면 지우지 않음');
+  }
+  // 묶음 찾기: 교체 칸이 프로젝트 이름과 같은 묶음 안이면 묶음 교체 줄로 (2026-10-27 SVOD 피쳐링셀)
+  {
+    const { computeDelta, findGroups, applyGroups } = require('../engine/delta');
+    const an = { cover: { nameKR: '피쳐링셀 I 윤우' }, fileName: '피쳐링셀', platforms: { APP: [{ cls: 'small', desc: '', picks: [{ width: 375, chosen: 'P1', candidates: [{ id: 'P1', name: 'small_375px', w: 375, h: 812, sig: 'n1' }] }] }] } };
+    const co = { platforms: { APP: { bars: { K: '로그인/구독 케이스', G: '피쳐링셀', W: '컨텐츠' }, screens: [
+      { id: 'HOME', name: '로그인/구독_small', w: 375, h: 4816, cls: 'small', bar: 'B', sig: 'h', wb: ['K'] },
+      { id: 'IMG', name: '이미지 컨텐츠_small', w: 375, h: 812, cls: 'small', bar: 'B', sig: 'a', wb: ['G', 'W'] },
+      { id: 'VID', name: '영상 컨텐츠_small', w: 375, h: 812, cls: 'small', bar: 'B', sig: 'b', wb: ['G', 'W'] },
+      { id: 'AGE', name: '연령등급 케이스', w: 497, h: 272, cls: null, bar: null, sig: 'c', wb: ['G'] }] } } };
+    const d = computeDelta(an, co, {});
+    const gs = findGroups(d, co, an);
+    assert.strictEqual(gs.length, 1); assert.strictEqual(gs[0].bar.title, '피쳐링셀', '바깥 묶음 중 프로젝트 이름과 같은 것');
+    const cases = [{ platform: 'APP', width: 375, id: 'S', name: '[Small] Case', frames: ['n1', 'n2', 'n3'].map(x => ({ id: x, name: 'small', w: 375, h: 812, sig: x })) }];
+    const g = applyGroups(d, gs, cases);
+    const r375 = g.rows.find(r => r.action === '묶음 교체' && r.width === 375), r497 = g.rows.find(r => r.width === 497);
+    assert(r375 && r375.sources.length === 3 && r375.olds.length === 2, '375 줄: Core 2장 → 시안 3장');
+    assert(r497 && r497.action === '묶음 교체' && !r497.sources.length && /지워짐/.test(r497.why), '시안에 없는 폭은 지워진다고 알림');
+    assert(g.rows.find(r => r.target && r.target.id === 'HOME').action === '그대로', '홈 전체는 그대로');
+    assert.strictEqual(g.summary.group, 2);
+    // 반영 뒤 같아지면 유지
+    const co2 = { platforms: { APP: { bars: co.platforms.APP.bars, screens: [co.platforms.APP.screens[0]].concat(['n1', 'n2', 'n3'].map(x => ({ id: 'C' + x, name: 'small', w: 375, h: 812, cls: 'small', bar: 'B', sig: x, wb: ['G'] }))) } } };
+    const an2 = JSON.parse(JSON.stringify(an)); an2.platforms.APP[0].picks[0].candidates[0].sig = 'other';
+    const d2 = computeDelta(an2, co2, {});
+    const g2 = applyGroups(d2, findGroups(d2, co2, an2), cases);
+    assert(g2.rows.some(r => r.action === '유지' && r.group) && !g2.summary.group, '반영 뒤에는 묶음 유지');
+    // 묶음 이름이 프로젝트와 다르면 한 장만 교체
+    assert.strictEqual(findGroups(d, co, { cover: { nameKR: '스텝메이드' }, fileName: 'x' }).length, 0);
   }
   console.log('엔진 시험 통과');
 })().catch((e) => { console.error(e); process.exit(1); });

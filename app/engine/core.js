@@ -8,7 +8,8 @@ const { mergeIndex, readLocal, removeLocal, entryFromCoreRead, addLocal } = requ
 const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode, gatherPasteCode, GATHER_SECTION } = require('./figma-write');
 const { proposePlace, checkLink, parseLink } = require('./place');
-const { computeDelta, preferCoreScreens } = require('./delta');
+const { computeDelta, preferCoreScreens, findGroups, applyGroups } = require('./delta');
+const { buildCaseReadCode } = require('./figma-group');
 const { findSources, diffCounts, readItemCounts, readItemLabels } = require('./figma-find');
 
 const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/';
@@ -74,9 +75,19 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     const targets = Object.values(read.platforms).flatMap(p => p.screens).filter(s => !chosenSigs.has(s.sig)).map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
     let sources = {};
     if (targets.length) { const f = await findSources(runner, state.fileKey, targets, 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.sources; cost += f.cost; }
-    const delta = computeDelta(state.analysis, read, sources);
+    let delta = computeDelta(state.analysis, read, sources);
+    // 프로젝트가 다루는 묶음(피쳐링셀 등)에 걸린 교체는 묶음 통째로 — 시안에서 폭마다 Case 섹션 화면을 읽어 온다
+    let cases = [];
+    const groups = findGroups(delta, read, state.analysis);
+    if (groups.length) {
+      const pages = state.analysis.platformPages || {};
+      const want = groups.flatMap(g => g.widths.map(w => ({ platform: g.platform, width: w, pageId: (pages[g.platform] || {}).id }))).filter(x => x.pageId);
+      const c = await runner(state.fileKey, buildCaseReadCode(knowledge.rules, { want }), 'Core 업데이트: 묶음에 넣을 시안 화면 찾기 (읽기 전용)');
+      cost += c.costUsd || 0; cases = (c.data && c.data.sections) || [];
+      delta = applyGroups(delta, groups, cases);
+    }
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
-    const checks = delta.rows.filter(r => r.check && r.target && r.source);
+    const checks = delta.rows.filter(r => r.check && r.target && r.source && r.action !== '묶음 교체');
     if (checks.length) {
       const [a, b] = await Promise.all([readItemCounts(runner, state.fileKey, checks.map(r => r.source.id), 'Core 업데이트: 차이 비교 — 프로젝트 (읽기 전용)'), readItemCounts(runner, link.workKey, checks.map(r => r.target.id), 'Core 업데이트: 차이 비교 — Core (읽기 전용)')]);
       cost += a.cost + b.cost;
@@ -87,7 +98,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
       cost += la.cost + lb.cost;
       checks.forEach((r, i) => { const d = diffs[i], na = la.labels[r.source.id] || {}, nb = lb.labels[r.target.id] || {}; r.diff = Object.assign({}, d, { onlyA: d.onlyA.map(h => na[h] || '(이름 못 읽음)'), onlyB: d.onlyB.map(h => nb[h] || '(이름 못 읽음)') }); });
     }
-    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, delta, preferred, analysis: state.analysis, costUsd: cost };
+    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, cases, delta, preferred, analysis: state.analysis, costUsd: cost };
   }
   const projectPages = knowledge.rules.fileKind.projectPagePatterns;
   const hasProject = projectPages.some(pat => read.pages.some(n => n.includes(pat)));
@@ -117,11 +128,14 @@ async function buildNewCore(state, work, knowledge, runner = runFigma) {
 // 링크 카드에 적을 프로젝트 이름: 표지의 한글 이름("피쳐링셀 I 담당자")에서 앞부분
 const updateProjectName = (analysis) => { const c = (analysis && analysis.cover) || {}; return ((c.nameKR || '').split(/\s+I\s+/)[0] || c.nameEN || '').trim() || null; };
 async function applyUpdate(state, work, knowledge, runner = runFigma) {
-  const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가');
+  // 묶음 교체 줄은 Figma에서 쓰는 값만 (보내는 코드가 길수록 옮겨 적다 틀리기 쉽다)
+  const slim = (r) => r.action !== '묶음 교체' ? r : { action: r.action, platform: r.platform, cls: r.cls, barTitle: r.barTitle, width: r.width, group: { id: r.group.id }, sources: r.sources.map(x => ({ id: x.id, w: x.w, h: x.h, sig: x.sig })), olds: r.olds.map(x => ({ id: x.id })) };
+  const rows = work.delta.rows.filter(r => r.action === '교체' || r.action === '추가' || r.action === '묶음 교체').map(slim);
   const plan = { coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), keepTop: work.core.top || null, sourceUrl: state.sourceUrl, projectName: updateProjectName(state.analysis) };
   const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 업데이트: 기존 Core 갱신 (브랜치)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules), 'Core 업데이트: 갱신 결과 확인 (읽기 전용)');
-  const after = computeDelta(state.analysis, r.data, work.sources || {});
+  let after = computeDelta(state.analysis, r.data, work.sources || {});
+  if ((work.cases || []).length) after = applyGroups(after, findGroups(after, r.data, state.analysis), work.cases);
   return { apply: a.data, after, core: r.data, costUsd: (a.costUsd || 0) + (r.costUsd || 0) };
 }
 
