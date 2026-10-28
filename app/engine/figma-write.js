@@ -210,12 +210,22 @@ for (const r of want) {
     const sec = secOf(r.platform);
     if (!sec) { notFound.push(r.platform + ' 섹션 없음'); continue; }
     const frames = sec.children.filter(n => n.type === 'FRAME' && n !== nf);
-    const right = frames.length ? Math.max(...frames.map(f => f.x + f.width)) + L.gap : L.sectionPadding;
-    const screenY = frames.length ? frames[0].y : L.barSizeY + 154;
+    let right = frames.length ? Math.max(...frames.map(f => f.x + f.width)) + L.gap : L.sectionPadding;
+    let screenY = frames.length ? frames[0].y : L.barSizeY + 154;
+    // 옆에 추가(2026-10-28): 짧은 시안은 기준 화면 바로 오른쪽에 끼우고, 그 오른쪽에 있던 것은 그만큼 민다
+    const bs = r.beside ? await figma.getNodeByIdAsync(r.beside.id) : null;
+    if (bs && bs.parent === sec) {
+      const at = bs.x + bs.width + L.gap, shift = nf.width + L.gap;
+      for (const n of sec.children) {
+        if (n === nf) continue;
+        if (n.x >= at - 1) n.x += shift; // 오른쪽에 있던 화면·🔵 바는 민다
+      }
+      right = at; screenY = bs.y;
+    }
     sec.appendChild(nf); nf.x = right; nf.y = screenY; // 이름은 붙여 넣은 원본 이름 그대로
     await bar('barBlue', sec, right, L.barSizeY, nf.width, r.cls, r.desc);
     // ⚫·⚪ 바를 새 폭까지 늘린다
-    const inner = right + nf.width - L.sectionPadding;
+    const inner = Math.max(...sec.children.filter(n => n.type === 'FRAME').map(f => f.x + f.width)) - L.sectionPadding;
     for (const b of sec.children.filter(n => n.type === 'INSTANCE' && n.y < L.barSizeY - 1)) { try { b.resize(inner, b.height); } catch (e) {} }
     fitSection(sec, L.sectionPadding);
     done.push({ action: '추가', id: nf.id, platform: r.platform, cls: r.cls, width: r.width, same: sig(nf) === r.source.sig });
