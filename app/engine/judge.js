@@ -140,4 +140,6 @@ function judge(analysis, index, rules, mem) {
       : `시안 화면이 ${names[0]}에 들어 있어요 (${evidence(targets[0].match)}). 이 Core를 갱신해요.`
   });
 }
-module.exports = { judge, contentMatch, compHash };
+// 묶음 이름을 사람이 읽을 이름으로 (featuringcell → "Featuring Cell") — 부분 갱신 표에 쓴다
+const featureLabel = (index, fams) => (fams || []).map(fm => ((index && index.component_names) || []).filter(n => family(n) === fm).map(n => n.split('/')[0].replace(/\s*\([^)]*\)\s*/g, ' ').trim()).sort((a, b) => a.length - b.length)[0] || fm);
+module.exports = { judge, contentMatch, compHash, family, featureLabel };

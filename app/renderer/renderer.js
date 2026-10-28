@@ -324,13 +324,15 @@ const diffHtml = (d) => {
 };
 // 오른쪽 화살표 아이콘 (글자 › 는 작고 굵기가 안 맞아 2026-10-12 윤우 지적으로 바꿈)
 const CHEV = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '묶음 교체': 'warn', '그대로': '', '미수록': 'bad' };
-const screenCell = (x) => x ? `${esc(x.name || '')}<div class="muted size">${x.w}×${x.h}</div>` : '<span class="muted">—</span>';
+const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '묶음 교체': 'warn', '부분 교체': 'warn', '묶음 삭제': 'warn', '그대로': '', '미수록': 'bad' };
+const screenCell = (x) => x ? `${esc(x.name || '')}${x.w ? `<div class="muted size">${x.w}×${x.h}</div>` : ''}` : '<span class="muted">—</span>';
 function showDelta() {
   const d = work.delta, s = d.summary;
   const rows = d.rows.map((r, i) => `<tr class="pick" data-row="${i}" title="눌러서 두 화면 나란히 보기"><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
     <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go"><span class="go-in">비교${CHEV}</span></td></tr>`).join('');
-  const todo = d.rows.filter(r => r.action === '교체' || r.action === '추가' || r.action === '묶음 교체');
+  // todo = 시안 화면을 붙여 넣어야 하는 칸. drops = 붙여넣기 없이 반영만 누르면 되는 칸(묶음 삭제)
+  const todo = d.rows.filter(r => ['교체', '추가', '묶음 교체', '부분 교체'].includes(r.action));
+  const drops = d.rows.filter(r => r.action === '묶음 삭제');
   // 파일 사이로는 앱이 화면을 못 옮긴다 → 사람이 프로젝트 페이지를 통째로 ⌘C/⌘V 한 번, 필요한 화면 고르기·정리는 앱이 한다
   // (2026-10-26 윤우: 단계가 복잡하고 맥락을 모르면 따라 하기 어렵다 → 프로젝트 브랜치·모으기 없앰, 지금 할 단계 하나만 펼쳐 보임)
   const oneByOne = `<ul>${todo.flatMap(r => (r.sources || [r.source]).filter(Boolean).map(x => `<li>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px — ${esc(x.name)} ${openBtn(linkTo(current.sourceUrl, x.id), '원본 열기')}</li>`)).join('')}</ul>`;
@@ -346,7 +348,7 @@ function showDelta() {
     steps.push({ title: `프로젝트 파일에서 ${name} 페이지 복사`, body: `버튼으로 페이지를 열고 캔버스 빈 곳을 한 번 누른 뒤 <b>⌘A → ⌘C</b>. 바꿀 화면 ${n}장이 이 페이지에 있어요.<div class="hint">복사(⌘C)만 해 주세요. 원본 파일은 그대로예요. ⌘X(잘라내기)·Delete는 누르지 마세요.</div><div class="row-btn">${go(at ? linkTo(current.sourceUrl, at) : current.sourceUrl, name + ' 페이지 열기')}</div>` });
     steps.push({ title: 'Core 브랜치에 붙여 넣기', body: `버튼으로 Core 브랜치를 열고 빈 곳을 누른 뒤 <b>⌘V</b>. 어디에 붙여도 괜찮아요. 붙는 데 조금 걸릴 수 있어요.<div class="row-btn">${go(coreUrl, 'Core 브랜치 열기')}</div>` });
   }
-  steps.push({ title: '[반영] 누르기', body: '앱이 붙여 넣은 것 중 바꿀 화면만 골라 Core 화면을 바꾸고(이름·위치 유지), 남은 것은 브랜치에서 지워요.<div class="row-btn"><button id="applyGo">반영</button></div>', last: true });
+  steps.push({ title: '[반영] 누르기', body: `${d.part ? '앱이 붙여 넣은 시안에서 영역 속만 꺼내 Core 메인 화면에 넣고(화면·길이 유지), 따로 정리한 묶음은 지우고, 남은 것은 브랜치에서 지워요.' : '앱이 붙여 넣은 것 중 바꿀 화면만 골라 Core 화면을 바꾸고(이름·위치 유지), 남은 것은 브랜치에서 지워요.'}<div class="row-btn"><button id="applyGo">반영</button></div>`, last: true });
   const at = Math.min(work.pasteAt || 0, steps.length - 1);
   const stepHtml = steps.map((st, k) => {
     const state = k < at ? 'done' : k === at ? 'now' : '';
@@ -355,16 +357,18 @@ function showDelta() {
   }).join('');
   const paste = todo.length ? `<h2 style="margin-top:18px">화면 옮기기</h2>
     <ol class="flow">${stepHtml}</ol>
-    <details><summary class="hint">페이지가 너무 커서 붙여넣기가 멈추면 — 한 장씩 복사하기</summary><p class="hint">아래 화면을 하나씩 열어 ⌘C → Core 브랜치에 ⌘V, 다 붙인 뒤 [반영]</p>${oneByOne}</details>${SAFE_NOTE('branch')}` : '';
+    <details><summary class="hint">페이지가 너무 커서 붙여넣기가 멈추면 — 한 장씩 복사하기</summary><p class="hint">아래 화면을 하나씩 열어 ⌘C → Core 브랜치에 ⌘V, 다 붙인 뒤 [반영]</p>${oneByOne}</details>${SAFE_NOTE('branch')}`
+    : drops.length ? `<h2 style="margin-top:18px">반영</h2><p class="muted">붙여 넣을 화면은 없어요. [반영]을 누르면 묶음 ${drops.length}개를 브랜치에서 지워요.</p><div class="row-btn"><button id="applyGo">반영</button></div>${SAFE_NOTE('branch')}` : '';
   // 결론을 맨 위에 (2026-10-12 윤우: 결과 표만 보고는 "그래서 뭘 하라는 건지" 몰랐음)
   const checks = d.rows.filter(r => r.check && r.action === '유지').length;
   const next = [checks ? `"확인 필요" ${checks}칸은 거의 같은 화면이에요. 한 번 눈으로 보고 괜찮으면 넘어가세요.` : ''].filter(Boolean);
   const verdict = todo.length
-    ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸</b> — 아래 "화면 옮기기" 순서대로 따라 해 주세요.</div>`
+    ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸${drops.length ? ` · 지울 묶음 ${drops.length}개` : ''}</b> — 아래 "화면 옮기기" 순서대로 따라 해 주세요.${d.part ? ` 메인 화면은 그대로 두고 ${esc(work.label || '핵심 컴포넌트')} 영역 속만 바꿔요.` : ''}</div>`
+    : drops.length ? `<div class="conclusion warn"><b>지울 묶음 ${drops.length}개</b> — 메인 화면 속 ${esc(work.label || '핵심 컴포넌트')}은 이미 시안과 같아요. 아래 [반영]을 눌러 주세요.</div>`
     : `<div class="conclusion ok"><b>바꿀 화면이 없어요.</b> Core가 프로젝트 문서와 같아요. 브랜치는 머지할 필요 없이 버리면 돼요.${next.length ? '<ul>' + next.map(t => `<li>${t}</li>`).join('') + '</ul>' : ''}</div>`;
   $('#work').innerHTML = `<section class="panel"><h2>Δ 바뀔 내용 — ${esc(current.place.coreName)}</h2>
     ${verdict}
-    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.group ? ' · 묶음 교체 ' + s.group : ''}${s.untouched ? ' · 그대로 ' + s.untouched : ''} ${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
+    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.group ? ' · 묶음 교체 ' + s.group : ''}${s.part ? ' · 부분 교체 ' + s.part : ''}${s.drop ? ' · 묶음 삭제 ' + s.drop : ''}${s.untouched ? ' · 그대로 ' + s.untouched : ''} ${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
     <p class="hint" style="margin:0 0 6px">줄을 누르면 프로젝트 화면과 Core 화면을 나란히 볼 수 있어요.</p>
     <table class="delta"><tr><th class="act"></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th><th></th></tr>${rows}</table>
     ${work.unverifiedBranch ? '<p class="hint">이 링크가 브랜치인지 복제본인지는 앱이 가릴 수 없습니다. 복제본이면 나중에 Core에 합칠(머지) 수 없으니, Figma에서 브랜치인지 한 번 확인해 주세요.</p>' : ''}
@@ -475,19 +479,19 @@ async function onApply() {
     const r = await window.core.applyUpdate(current, work);
     stopProgress(true);
     const a = r.apply, s = r.after.summary;
-    const done = a.done.map(x => `<li>${x.action} · ${esc(x.platform)} ${esc(x.cls)} ${x.width}px · ${x.same ? '<span class="pill ok">원본과 같음</span>' : '<span class="pill warn">원본과 다름 — 확인 필요</span>'} ${openBtn(linkTo(work.workUrl, x.id))}</li>`).join('');
+    const done = a.done.map(x => `<li>${x.action} · ${esc(x.platform)}${x.width ? ` ${esc(x.cls || '')} ${x.width}px` : x.removed ? ` ${x.removed}개 지움` : ''} · ${x.same ? '<span class="pill ok">원본과 같음</span>' : '<span class="pill warn">원본과 다름 — 확인 필요</span>'} ${openBtn(linkTo(work.workUrl, x.id))}</li>`).join('');
     // 결론과 다음 할 일을 맨 위에 (2026-10-21 윤우: 결과만 보고는 "그래서 어떻게 된 거지?")
     const go = (url, label) => `<button class="ghost step-btn" data-open="${esc(url)}">${label} ↗</button>`;
     const step = (n, title, body) => `<li class="now"><span class="num">${n}</span><div class="step-body"><b>${title}</b><div>${body}</div></div></li>`;
     const allSame = a.done.length && a.done.every(x => x.same);
-    const clean = allSame && !a.notFound.length && !s.replace && !s.add && !s.group;
+    const clean = allSame && !a.notFound.length && !s.replace && !s.add && !s.group && !s.part && !s.drop;
     const coreName = esc(current.place.coreName);
     const nextCore = (current.places || [])[(current.placeAt || 0) + 1] || null;
     const head = !a.done.length
       ? `<div class="conclusion warn"><b>아직 반영한 화면이 없어요.</b> 붙여 넣은 화면을 찾지 못했어요. 위 순서대로 Core 브랜치에 붙여 넣었는지 확인하고 [반영]을 다시 눌러 주세요.</div>`
       : clean
         ? `<div class="conclusion ok"><b>${coreName} 브랜치에 ${a.done.length}장을 반영했어요.</b> 다시 읽어 보니 모든 칸이 프로젝트 시안과 같아요${a.cardUpdated ? ' (링크 카드 기준 날짜도 고침)' : ''}. ${a.linkAdded ? (a.linkAdded.newCard ? '프로젝트 문서 링크는 마스터 페이지 맨 위에 링크 카드를 새로 만들어 걸었어요. ' : '링크 카드에 프로젝트 문서 링크를 더했어요. ') : ''}${a.leftoverRemoved ? '붙여 넣고 남은 것은 브랜치에서 지웠어요. ' : ''}아직 Core 본 파일은 그대로예요. 아래 순서로 마무리해 주세요.</div>`
-        : `<div class="conclusion warn"><b>${a.done.length}장을 반영했지만 확인할 게 남았어요.</b> ${a.notFound.length ? `못 찾은 칸: ${esc(a.notFound.join(' · '))}. ` : ''}${!allSame ? '"원본과 다름" 표시가 있는 화면을 Figma에서 봐 주세요. ' : ''}${s.replace || s.add || s.group ? `다시 읽어 보니 아직 바뀌지 않은 칸이 ${s.replace + s.add + (s.group || 0)}개 있어요. ` : ''}확인 후 [반영]을 다시 누르거나 아래처럼 마무리해 주세요.</div>`;
+        : `<div class="conclusion warn"><b>${a.done.length}장을 반영했지만 확인할 게 남았어요.</b> ${a.notFound.length ? `못 찾은 칸: ${esc(a.notFound.join(' · '))}. ` : ''}${!allSame ? '"원본과 다름" 표시가 있는 화면을 Figma에서 봐 주세요. ' : ''}${s.replace || s.add || s.group || s.part || s.drop ? `다시 읽어 보니 아직 바뀌지 않은 칸이 ${s.replace + s.add + (s.group || 0) + (s.part || 0) + (s.drop || 0)}개 있어요. ` : ''}확인 후 [반영]을 다시 누르거나 아래처럼 마무리해 주세요.</div>`;
     const next = a.done.length ? `<h2 style="margin-top:18px">마무리</h2><ol class="flow">
       ${step(1, 'Core 브랜치에서 결과 보기', `바뀐 화면을 눈으로 한 번 확인해 주세요.<div class="row-btn">${go(linkTo(work.workUrl, work.core.masterPageId), 'Core 브랜치 열기')}</div>`)}
       ${step(2, 'Core에 합치기(Merge)', `괜찮으면 Core 브랜치에서 파일 이름 옆 ⌄ → Review and merge changes → Merge. 그때 ${coreName} 본 파일이 바뀌어요. 이상하면 합치지 말고 브랜치를 버리면 원래대로예요.`)}

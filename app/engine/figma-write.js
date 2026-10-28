@@ -2,6 +2,7 @@
 //  - 새 Core: plugin/code.js buildNewCore() 이식. 1회차 = 마스터 만들기(뼈대·링크 카드·화면 복제+원본 대조·설명 바), 2회차 = 깎기(로컬 인스턴스 분리·작업 페이지 삭제)
 //  - 기존 Core 갱신: 사람이 브랜치 마스터에 붙여 넣은 화면을 알아보고 교체(껍데기 유지)·추가(🔵 바와 함께)·링크 카드 기준 날짜 갱신
 const { SIG_FN } = require('./signature');
+const { REGION_FN } = require('./figma-part');
 
 const HELPERS = String.raw`
 const rgb = (a) => ({ r: a[0] / 255, g: a[1] / 255, b: a[2] / 255 });
@@ -160,13 +161,15 @@ if (PLAN.coreKey && figma.fileKey && figma.fileKey === PLAN.coreKey) throw new E
 const existing = new Set(PLAN.coreScreenIds);
 const want = PLAN.rows.filter(r => r.action === '교체' || r.action === '추가');
 const groupRows = PLAN.rows.filter(r => r.action === '묶음 교체');
+const partRows = PLAN.rows.filter(r => r.action === '부분 교체');
+const dropRows = PLAN.rows.filter(r => r.action === '묶음 삭제');
 // 붙여 넣은 것 = 확인 때 읽은 페이지 맨 위 목록(PLAN.keepTop)에 없던 것. 프로젝트 페이지를 통째로 붙여도 되고(2026-10-26 윤우: 단계를 줄이자), 📦 섹션 하나여도 된다.
 // 그 안의 프레임 중 필요한 화면과 크기가 같은 것만 지문을 잰다 (페이지째 붙이면 프레임이 수만 개)
 const keepTop = PLAN.keepTop ? new Set(PLAN.keepTop) : null;
 const isCard = (n) => n.type === 'FRAME' && /링크 카드/.test(n.name);   // 지난 [반영]이 만든 링크 카드는 붙여넣기가 아니다
 const pastedTop = keepTop ? page.children.filter(n => !keepTop.has(n.id) && !isCard(n)) : [];
 const sizeKey = (w, h) => Math.round(w) + 'x' + Math.round(h);
-const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)).concat(groupRows.flatMap(r => r.sources.map(x => sizeKey(x.w, x.h)))));
+const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)).concat(groupRows.flatMap(r => r.sources.map(x => sizeKey(x.w, x.h))), partRows.map(r => sizeKey(r.source.w, r.source.h))));
 let pasted;
 if (keepTop) {
   pasted = [];
@@ -265,6 +268,50 @@ for (const gid of [...new Set(groupRows.map(r => r.group.id))]) {
   fitSection(sec, L.sectionPadding);
   say('묶음 "' + gname + '": 지움 ' + removed + ' · 넣음 ' + pick.length);
 }
+// 부분 갱신 (2026-10-28 윤우, 공통 규칙): Core 메인 화면은 그대로 두고 핵심 컴포넌트 영역 속만 시안의 같은 영역으로 바꾼다. 높이가 같을 때만, 영역이 인스턴스가 아닐 때만
+for (const r of partRows) {
+  const bySize = pasted.filter(p => !taken.has(p.f.id) && sameSize(p, r));
+  const hit = pasted.find(p => !taken.has(p.f.id) && p.s === r.source.sig) || (bySize.length === 1 ? bySize[0] : null);
+  const tag = r.platform + ' ' + (r.cls || '') + ' ' + r.width + 'px';
+  if (!hit) { notFound.push(tag + ' (시안 화면 못 찾음)'); continue; }
+  const newRegs = regionsOf(hit.f);
+  if (newRegs.length !== r.regions.length) { notFound.push(tag + ' (붙여 넣은 시안의 영역 수가 다름)'); continue; }
+  const olds = [];
+  for (const id of r.regions) olds.push(await figma.getNodeByIdAsync(id));
+  const bad = olds.findIndex((o, i) => !o || o.type === 'INSTANCE' || newRegs[i].type === 'INSTANCE' || Math.abs(o.height - newRegs[i].height) > 0.5 || !('children' in o) || !('children' in newRegs[i]));
+  if (bad >= 0) { notFound.push(tag + ' (영역이 없거나 인스턴스이거나 높이가 달라 손대지 않음)'); continue; }
+  taken.add(hit.f.id);
+  let allSame = true;
+  olds.forEach((old, i) => {
+    const nr = newRegs[i], w = old.width, h = old.height;
+    try { old.layoutMode = 'NONE'; } catch (e) {}
+    for (const c of [...old.children]) c.remove();
+    for (const c of [...nr.children]) old.appendChild(c);
+    for (const k of LOOK_PROPS) { try { old[k] = nr[k]; } catch (e) {} }
+    for (const k of LAYOUT_PROPS) { try { old[k] = nr[k]; } catch (e) {} }
+    // 영역 크기는 Core 것 그대로 — 아래 내용이 밀리지 않게
+    try { old.primaryAxisSizingMode = 'FIXED'; old.counterAxisSizingMode = 'FIXED'; } catch (e) {}
+    old.resizeWithoutConstraints(w, h);
+    if (sigs(old).csig !== r.newCsigs[i]) allSame = false;
+  });
+  done.push({ action: '부분 교체', id: r.target.id, platform: r.platform, cls: r.cls, width: r.width, same: allSame });
+}
+// 묶음 지우기: 그 부분만 따로 정리한 묶음(바·화면·하위 바)을 지우고 오른쪽 것은 왼쪽으로 당긴다
+for (const r of dropRows) {
+  const gb = await figma.getNodeByIdAsync(r.group.id);
+  const sec = gb && gb.parent;
+  if (!gb || !sec || sec.type !== 'SECTION') { notFound.push('묶음 바 ' + r.group.id + ' 없음'); continue; }
+  const x0 = gb.x, w0 = gb.width, top = gb.y + gb.height;
+  const oldIds = new Set(r.olds);
+  const inside = (n) => n.x >= x0 - 1 && n.x + n.width <= x0 + w0 + 1 && n.y >= top - 1;
+  let removed = 0;
+  for (const n of [...sec.children]) if (n !== gb && (oldIds.has(n.id) || (n.type === 'INSTANCE' && inside(n)))) { n.remove(); removed++; }
+  gb.remove();
+  for (const n of sec.children) if (n.x >= x0 + w0 - 1) n.x -= w0 + L.gap;
+  let right = 0, bottom = 0; for (const c of sec.children) { right = Math.max(right, c.x + c.width); bottom = Math.max(bottom, c.y + c.height); }
+  if (right && bottom) sec.resizeWithoutConstraints(right + L.sectionPadding, bottom + L.sectionPadding);
+  done.push({ action: '묶음 삭제', id: sec.id, platform: r.platform, cls: null, width: null, same: true, removed: removed + 1 });
+}
 // 링크 카드 기준 날짜
 let cardUpdated = false;
 if (done.length && PLAN.month) {
@@ -274,7 +321,8 @@ if (done.length && PLAN.month) {
 }
 // 쓰고 남은 붙여넣기는 지운다 (반영한 화면이 하나라도 있을 때만 — 잘못 붙였으면 사람이 보도록 남긴다)
 let leftoverRemoved = 0;
-if (keepTop && done.length) for (const n of page.children.filter(n => !keepTop.has(n.id) && !isCard(n))) { if (n.removed) continue; n.remove(); leftoverRemoved++; }
+const pastedUsed = done.some(d => d.action !== '묶음 삭제') || !(want.length + groupRows.length + partRows.length);   // 붙여 넣은 것을 하나도 못 썼으면 남겨 둔다
+if (keepTop && done.length && pastedUsed) for (const n of page.children.filter(n => !keepTop.has(n.id) && !isCard(n))) { if (n.removed) continue; n.remove(); leftoverRemoved++; }
 // 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
@@ -320,7 +368,7 @@ return { pageId: page.id, sectionId: sec.id, count: found.length, missing };
 
 function head(rules, plan) {
   const r = { fileKind: rules.fileKind, masterPage: rules.masterPage, layout: rules.layout, components: rules.components, linkCard: rules.linkCard, trim: rules.trim, screenPick: rules.screenPick };
-  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(plan)};\n` + SIG_FN + HELPERS;
+  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(plan)};\n` + SIG_FN + REGION_FN + HELPERS;
 }
 
 const buildNewCoreCode = (rules, plan) => head(rules, plan) + NEW_BUILD;
