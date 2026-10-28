@@ -96,6 +96,11 @@ for f in idx["files"]:
     page = (f.get("master") or {}).get("page")
     if not page: print("건너뜀(마스터 페이지 없음):", f["name"]); continue
     base = f"https://api.figma.com/v1/files/{f['key']}/nodes?ids="
+    # 파일 이름은 Figma 지금 것으로 (2026-10-28: 색인은 "SVOD (홈)"인데 실제는 "SVOD ⚜️"라 앱 표시가 어긋남)
+    try:
+        now = get(f"https://api.figma.com/v1/files/{f['key']}?depth=1").get("name")
+        if now and now != f["name"]: print("이름 갱신:", f["name"], "→", now); f["name"] = now
+    except Exception as e: print("이름 못 읽음:", f["name"], str(e)[:60])
     cnt = collections.Counter(); screens = []
     try:
         node = get(base + page)["nodes"][page]
