@@ -2,6 +2,7 @@
 // 마스터 페이지의 플랫폼 섹션(APP/WEB) 안 화면 프레임마다: 위에 걸린 설명 바(⚫/⚪/🔵) 제목, 크기 칸, 내용 지문(sig)을 돌려준다.
 // 지문은 분석 코드(figma-analyze.js)와 같은 함수(SIG_FN)로 만들어, 프로젝트 화면과 Core 화면을 "같은지" 비교하는 데 쓴다.
 const { SIG_FN } = require('./signature');
+const { REGION_FN } = require('./figma-part');
 
 const FIGMA_SIDE = String.raw`
 async function loadPages() { for (const p of figma.root.children) { try { await p.loadAsync(); } catch (e) {} } }
@@ -48,7 +49,8 @@ if (master) {
       const cls = (byTitle || byWidth || {}).name || null;
       // wb: 이 화면을 덮는 묶음 바(🔵 아닌 것) — 바깥(위)부터. 프로젝트가 다루는 묶음이면 통째로 바꾼다 (delta.js findGroups)
       const wb = over.filter(b => b.kind !== 'blue').sort((p, q) => p.y - q.y).map(b => b.id);
-      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), cls, bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', wb, ...sigs(f) };
+      // reg: 시안의 핵심 컴포넌트가 든 영역(부분 갱신, figma-part.js). 핵심 컴포넌트가 없으면 빈 목록
+      return { id: f.id, name: f.name, w: Math.round(f.width), h: Math.round(f.height), cls, bar: blue ? blue.id : null, group: (over.find(b => b.kind === 'white') || {}).title || '', wb, reg: regionsOf(f).slice(0, 4).map(regionInfo), ...sigs(f) };
     });
     out.platforms[platform] = { sectionId: sec.id, screens, bars: Object.fromEntries(bars.map(b => [b.id, b.title.slice(0, 40)])) };
   }
@@ -58,15 +60,16 @@ const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i
 const all = () => Object.values(out.platforms).flatMap(p => p.screens);
 if (bytes(out) > 18000) { for (const s of all()) { s.name = s.name.slice(0, 24); s.group = s.group.slice(0, 16); } out.trimmed = 'names'; }
 if (bytes(out) > 18000) { for (const s of all()) delete s.group; out.trimmed = 'group'; }
-if (bytes(out) > 18000) { for (const s of all()) delete s.wb; for (const p of Object.values(out.platforms)) delete p.bars; out.trimmed = 'wb'; }
+if (bytes(out) > 18000) { for (const s of all()) { delete s.wb; delete s.reg; } for (const p of Object.values(out.platforms)) delete p.bars; out.trimmed = 'wb'; }
 if (bytes(out) > 18000) { for (const s of all()) s.name = ''; out.trimmed = 'nameless'; }
 if (bytes(out) > 19500) return { error: 'Core 화면이 너무 많아 한 번에 읽지 못했어요 (' + all().length + '장)' };
 return out;
 `;
 
-function buildCoreReadCode(rules) {
+// plan.feature = 시안의 핵심 컴포넌트 묶음 이름(판별 결과). 없으면 영역은 읽지 않는다
+function buildCoreReadCode(rules, plan = {}) {
   const r = { fileKind: rules.fileKind, sizeClasses: rules.sizeClasses, components: rules.components, masterPage: rules.masterPage };
-  return `const RULES = ${JSON.stringify(r)};\n` + SIG_FN + FIGMA_SIDE;
+  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify({ feature: plan.feature || [] })};\n` + SIG_FN + REGION_FN + FIGMA_SIDE;
 }
 
 module.exports = { buildCoreReadCode };

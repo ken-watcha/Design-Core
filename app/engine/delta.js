@@ -94,20 +94,64 @@ const norm = (t) => String(t || '').toLowerCase().replace(/[\s_\-()[\]·]/g, '')
 const mode = (xs) => { const c = new Map(); for (const x of xs.filter(Boolean)) c.set(x, (c.get(x) || 0) + 1); return [...c].sort((a, b) => b[1] - a[1]).map(x => x[0])[0] || null; };
 const projectTitle = (analysis) => norm([analysis.cover && analysis.cover.nameKR, analysis.cover && analysis.cover.nameEN, analysis.fileName].join(' '));
 
-// 통째로 바꿀 묶음 찾기 → [{ platform, bar: {id, title}, olds: [Core 화면], widths: [폭] }]
-function findGroups(delta, core, analysis) {
+// 프로젝트 이름이 든 묶음(⚫·⚪ 바) 모두 → [{ platform, bar: {id, title}, olds: [Core 화면], widths: [폭] }]
+function findGroupsAll(core, analysis) {
   const title = projectTitle(analysis);
   const out = [];
-  for (const r of delta.rows.filter(x => x.action === '교체' && x.target)) {
-    const pf = (core.platforms || {})[r.platform] || {};
-    const scr = (pf.screens || []).find(s => s.id === r.target.id);
-    if (!scr || !scr.wb || !pf.bars) continue;
-    const id = scr.wb.find(b => { const t = norm(pf.bars[b]); return t.length >= 2 && title.includes(t); });
-    if (!id || out.some(g => g.bar.id === id)) continue;
-    const olds = pf.screens.filter(s => (s.wb || []).includes(id));
-    out.push({ platform: r.platform, bar: { id, title: pf.bars[id] }, olds: olds.map(s => Object.assign({ barTitle: s.bar ? pf.bars[s.bar] : null }, s)), widths: [...new Set(olds.map(s => s.w))] });
+  for (const [platform, pf] of Object.entries(core.platforms || {})) {
+    if (!pf.bars) continue;
+    for (const scr of pf.screens || []) {
+      const id = (scr.wb || []).find(b => { const t = norm(pf.bars[b]); return t.length >= 2 && title.includes(t); });
+      if (!id || out.some(g => g.bar.id === id)) continue;
+      const olds = pf.screens.filter(s => (s.wb || []).includes(id));
+      out.push({ platform, bar: { id, title: pf.bars[id] }, olds: olds.map(s => Object.assign({ barTitle: s.bar ? pf.bars[s.bar] : null }, s)), widths: [...new Set(olds.map(s => s.w))] });
+    }
   }
   return out;
+}
+// 그중 교체 칸이 걸린 묶음만 (묶음 통째로 바꾸기용)
+function findGroups(delta, core, analysis) {
+  const hit = new Set(delta.rows.filter(x => x.action === '교체' && x.target).map(x => x.platform + '|' + x.target.id));
+  return findGroupsAll(core, analysis).filter(g => g.olds.some(s => hit.has(g.platform + '|' + s.id)));
+}
+
+// ---------- 부분 갱신 (2026-10-28 윤우: "길이는 유지하되 피쳐링셀 영역 중 다른 부분만 업데이트", 모든 프로젝트 공통) ----------
+// 시안의 핵심 컴포넌트가 Core 메인 화면 안에 영역(reg)으로 있으면: 화면은 그대로 두고 영역 속만 바꾼다(높이 같을 때만), 그 부분만 따로 정리한 묶음은 지운다.
+// 시안 화면은 Core에 넣지 않는다 — 소식함·플레이어처럼 Core에는 메인 기능 화면만 남긴다.
+// designRegions = figma-part.js 결과 { 시안 화면 id: [영역…] }, groups = findGroupsAll, label = 핵심 컴포넌트 이름(사람이 읽는)
+function partRows(delta, core, analysis, designRegions, groups, label) {
+  const groupIds = new Set(groups.flatMap(g => g.olds.map(s => g.platform + '|' + s.id)));
+  const isMain = (pf, s) => (s.reg || []).length && !groupIds.has(pf + '|' + s.id);
+  const platforms = Object.entries(core.platforms || {});
+  if (!platforms.some(([pf, p]) => (p.screens || []).some(s => isMain(pf, s)))) return null;
+  const chosenBy = (pf, w) => { for (const e of (analysis.platforms || {})[pf] || []) for (const p of e.picks) if (Math.abs(p.width - w) < 0.5) { const c = chosenOf(p); if (c) return Object.assign({ cls: e.cls }, c); } return null; };
+  const rows = [];
+  for (const [platform, pf] of platforms) {
+    for (const s of pf.screens || []) {
+      if (groupIds.has(platform + '|' + s.id)) continue;
+      const base = { platform, cls: s.cls, width: s.w, source: null, target: { id: s.id, name: s.name, w: s.w, h: s.h, sig: s.sig, bar: s.bar } };
+      if (!isMain(platform, s)) { rows.push(Object.assign(base, { action: '그대로', check: false, why: `${label} 영역이 없는 화면 — 손대지 않음` })); continue; }
+      const src = chosenBy(platform, s.w);
+      const dreg = src && (designRegions || {})[src.id];
+      if (!src) { rows.push(Object.assign(base, { action: '그대로', check: true, why: `같은 폭(${s.w}px) 시안이 없어 ${label} 영역을 못 바꿈 — 시안의 변화가 이 화면에도 해당하면 직접 고쳐 주세요` })); continue; }
+      base.source = { id: src.id, name: src.name, w: src.w, h: src.h, sig: src.sig };
+      if (!dreg || dreg.length !== s.reg.length) { rows.push(Object.assign(base, { action: '그대로', check: true, why: `시안 "${src.name}"에서 같은 ${label} 영역을 못 찾음 (Core ${s.reg.length}곳, 시안 ${dreg ? dreg.length : 0}곳) — 직접 확인해 주세요` })); continue; }
+      const pairs = s.reg.map((a, i) => [a, dreg[i]]);
+      const same = pairs.every(([a, b]) => a.csig === b.csig);
+      const tall = pairs.find(([a, b]) => a.h !== b.h);
+      const where = s.reg.map(a => `y${a.y}·높이 ${a.h}`).join(', ');
+      if (same) rows.push(Object.assign(base, { action: '유지', check: false, why: `${label} 영역(${where}) 속이 시안 "${src.name}"과 같음` }));
+      else if (tall) rows.push(Object.assign(base, { action: '그대로', check: true, why: `${label} 영역 높이가 다름 (Core ${tall[0].h} → 시안 ${tall[1].h}) — 아래 내용을 밀어야 해서 앱이 바꾸지 않음. 직접 고쳐 주세요` }));
+      else rows.push(Object.assign(base, { action: '부분 교체', check: false, why: `화면은 그대로 두고 ${label} 영역(${where}) 속만 시안 "${src.name}"의 것으로 바꿈`, regions: s.reg.map(a => a.id), newRegions: dreg }));
+    }
+  }
+  for (const g of groups) rows.push({
+    platform: g.platform, cls: null, width: null, action: '묶음 삭제', check: true, group: { id: g.bar.id, title: g.bar.title }, olds: g.olds.map(s => ({ id: s.id, name: s.name, w: s.w, h: s.h })),
+    source: null, target: { id: g.bar.id, name: `${g.bar.title} 묶음 ${g.olds.length}장`, w: null, h: null },
+    why: `"${g.bar.title}" 묶음 ${g.olds.length}장(${g.olds.map(s => `"${s.name}"`).slice(0, 6).join(', ')}${g.olds.length > 6 ? ' 외' : ''})을 바와 함께 지움 — ${label}은 메인 화면 안에서 다루므로 따로 두지 않음`
+  });
+  const count = (a) => rows.filter(r => r.action === a).length;
+  return { rows, missing: delta.missing, part: true, summary: { keep: count('유지'), near: 0, replace: 0, add: 0, untouched: count('그대로'), part: count('부분 교체'), drop: count('묶음 삭제'), missing: (delta.missing || []).length } };
 }
 
 // cases = figma-group.js 결과 sections ([{platform, width, id, name, frames}]) → 묶음에 걸린 줄을 "묶음 교체" 줄로 바꾼다
@@ -143,4 +187,4 @@ function applyGroups(delta, groups, cases) {
   return Object.assign({}, delta, { rows, summary: Object.assign({}, delta.summary, { keep: count('유지'), replace: count('교체'), add: count('추가'), untouched: count('그대로'), group: count('묶음 교체') }) });
 }
 
-module.exports = { computeDelta, preferCoreScreens, findGroups, applyGroups };
+module.exports = { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows };
