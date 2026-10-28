@@ -328,7 +328,7 @@ const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '묶�
 const screenCell = (x) => x ? `${esc(x.name || '')}${x.w ? `<div class="muted size">${x.w}×${x.h}</div>` : ''}` : '<span class="muted">—</span>';
 function showDelta() {
   const d = work.delta, s = d.summary;
-  const rows = d.rows.map((r, i) => `<tr class="pick" data-row="${i}" title="눌러서 두 화면 나란히 보기"><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width}px</td>
+  const rows = d.rows.map((r, i) => `<tr class="pick" data-row="${i}" title="눌러서 두 화면 나란히 보기"><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width ? r.width + 'px' : ''}</td>
     <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go"><span class="go-in">비교${CHEV}</span></td></tr>`).join('');
   // todo = 시안 화면을 붙여 넣어야 하는 칸. drops = 붙여넣기 없이 반영만 누르면 되는 칸(묶음 삭제)
   const todo = d.rows.filter(r => ['교체', '추가', '묶음 교체', '부분 교체'].includes(r.action));
