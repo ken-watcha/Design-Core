@@ -9,6 +9,8 @@
 
 // 바꿀 칸 고르기: 같은 폭 중 길이가 시안과 가장 가까운 화면. 비슷하면(10% 안) 크기 칸 바(🔵)가 있는 화면, 그다음 섹션 순서.
 // 2026-10-27 SVOD 피쳐링셀: 폭만 보고 첫 칸을 골라 시안(375×812)이 홈 전체 "로그인/구독_small"(375×4816)을 덮을 뻔함 — 같은 크기의 "영상 컨텐츠_small"이 맞는 칸
+// 시안이 Core 화면 길이의 이 비율보다 짧으면 "교체"가 아니라 "옆에 추가" (812/2097 = 0.39 → 추가, 721/812 = 0.89 → 교체)
+const SHORT = 0.6;
 function closest(slot, src) {
   const far = (s) => Math.round(Math.abs(Math.log((s.h || 1) / (src.h || 1))) * 10);
   return slot.map((s, i) => ({ s, i })).sort((a, b) => far(a.s) - far(b.s) || (!!b.s.bar - !!a.s.bar) || a.i - b.i).map(x => x.s)[0] || null;
@@ -63,14 +65,21 @@ function computeDelta(analysis, core, sources = {}) {
           src = chosenOf(p);
         }
         if (!src) continue;
+        let beside = null;
         if (!target) { target = closest(slot, src); // 길이가 가장 가까운 화면, 비슷하면 대표 화면(바 없음)보다 크기 칸 화면
-          action = target ? '교체' : '추가'; why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음` : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`; }
+          // 시안이 그 화면보다 훨씬 짧으면(팝업·일부 화면) 덮지 않고 옆에 새로 넣는다 (2026-10-28 윤우 "옆에 추가": 패키지 팝업 812가 결제페이지 2097을 덮을 뻔함)
+          if (target && src.h < target.h * SHORT) { beside = target; target = null; }
+          action = target ? '교체' : '추가';
+          why = target ? `내용이 다름 (${target.w}×${target.h} → ${src.w}×${src.h}) · 문서 전체에서도 같은 원본을 못 찾음`
+            : beside ? `Core의 "${beside.name}"(${beside.w}×${beside.h})보다 훨씬 짧은 화면(${src.w}×${src.h})이라 덮지 않고 그 옆에 새 화면으로 넣음`
+            : `Core에 ${platform} ${e.cls} ${p.width}px 칸이 없음`; }
         if (target) usedCore.add(target.id);
         rows.push({
           platform, cls: e.cls, width: p.width, desc: e.desc, action, why,
           check: !!near || action === '교체',
           source: { id: src.id, name: src.name, w: src.w, h: src.h, sig: src.sig },
-          target: target ? { id: target.id, name: target.name, w: target.w, h: target.h, sig: target.sig, bar: target.bar } : null
+          target: target ? { id: target.id, name: target.name, w: target.w, h: target.h, sig: target.sig, bar: target.bar } : null,
+          beside: beside ? { id: beside.id, name: beside.name, w: beside.w, h: beside.h } : null
         });
       }
     }

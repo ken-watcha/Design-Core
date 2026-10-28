@@ -182,13 +182,17 @@ const fixture = require('./fixture-stepmade.json');
     const an = { platforms: { APP: [{ cls: 'small', desc: '', picks: [{ width: 375, chosen: 'P1', candidates: [{ id: 'P1', name: 'p', w: 375, h: 812, sig: 'new' }] }] }] } };
     const co = { platforms: { APP: { screens: [{ id: 'REP', name: '🌏 SVOD_APP', w: 375, h: 4816, cls: 'small', bar: null, sig: 'a' }, { id: 'S1', name: '로그인/구독_small', w: 375, h: 4816, cls: 'small', bar: 'B1', sig: 'b' }] } } };
     const dd = computeDelta(an, co, {});
-    assert.strictEqual(dd.rows.find(r => r.action === '교체').target.id, 'S1', '크기 칸 화면을 먼저 교체');
+    // 짧은 시안(812)은 홈 전체(4816)를 덮지 않고 그 옆에 새 화면으로 넣는다 (2026-10-28 윤우 "옆에 추가", 패키지 팝업 → 결제/구독)
+    const add = dd.rows.find(r => r.action === '추가');
+    assert(add && add.beside && add.beside.id === 'S1' && /짧은 화면/.test(add.why), '훨씬 짧은 시안은 크기 칸 화면 옆에 추가');
+    assert(!dd.rows.some(r => r.action === '교체'), '짧은 시안이 긴 화면을 덮지 않음');
     const rep = dd.rows.find(r => r.target && r.target.id === 'REP');
     assert(rep.action === '그대로' && /대표 화면/.test(rep.why) && rep.check, '대표 화면은 그대로 + 확인 필요');
     // 같은 폭에 시안과 길이가 같은 피쳐링셀 화면이 있으면 홈 전체(4816)가 아니라 그 화면을 바꾼다 (2026-10-27 SVOD 영상 컨텐츠_small)
     const co2 = { platforms: { APP: { screens: co.platforms.APP.screens.concat([{ id: 'FC', name: '영상 컨텐츠_small', w: 375, h: 812, cls: 'small', bar: null, sig: 'c' }]) } } };
     const d2 = computeDelta(an, co2, {});
     assert.strictEqual(d2.rows.find(r => r.action === '교체').target.id, 'FC', '길이가 같은 화면을 교체');
+    assert(!d2.rows.some(r => r.action === '추가'), '길이가 맞는 칸이 있으면 옆에 추가하지 않음');
     assert.strictEqual(d2.rows.find(r => r.target && r.target.id === 'S1').action, '그대로', '홈 전체 화면은 그대로');
   }
   // 반영: 프로젝트 페이지를 통째로 붙여도 필요한 화면만 쓰고 나머지는 브랜치에서 지운다 (2026-10-26 윤우: 단계 줄이기)
@@ -256,6 +260,24 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(gb.width, 1189, '묶음 바를 새 폭으로');
     assert.strictEqual(right3.x, 900 + 389, '오른쪽 묶음은 늘어난 만큼 밀림');
     assert(paste3.removed, '남은 붙여넣기는 지움');
+    // 옆에 추가 (2026-10-28 윤우): 짧은 시안은 기준 화면 바로 오른쪽에 끼우고, 그 오른쪽 화면·🔵 바는 그만큼 민다
+    const pageB = node('PAGE', '🌏 마스터 파일'); const rootB = kid(pageB, node('SECTION', '🌏 결제/구독')); const appB = kid(rootB, node('SECTION', 'APP'));
+    const topB = kid(appB, inst('스크린 설명 컴포넌트', 0, 0, 814, 60, '결제'));
+    const bb1 = kid(appB, inst('스크린 설명 컴포넌트', 0, 282, 375, 40, 'small')), bb2 = kid(appB, inst('스크린 설명 컴포넌트', 407, 282, 375, 40, 'small'));
+    const homeB = kid(appB, Object.assign(screen(375, 4816, '결제페이지'), { x: 0, y: 400 })), rightB = kid(appB, Object.assign(screen(375, 4816, '구독 관리'), { x: 407, y: 400 }));
+    const pasteB = kid(pageB, node('SECTION', '팝업')); const popB = kid(pasteB, screen(375, 812, '패키지 팝업'));
+    const figB = { fileKey: 'BRANCH', root: { children: [pageB] }, getNodeByIdAsync: async (id) => (id === homeB.id ? homeB : null),
+      importComponentByKeyAsync: async () => ({ createInstance: () => inst('🔵', 0, 0, 100, 40) }) };
+    pageB.loadAsync = async () => {};
+    const planB = { coreKey: 'CORE', coreScreenIds: [homeB.id, rightB.id], month: null, keepTop: [rootB.id],
+      rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(popB) }, beside: { id: homeB.id } }] };
+    const outB = await new AsyncFn('figma', applyUpdateCode(rules, planB))(figB);
+    assert.strictEqual(outB.done.length, 1, '시안을 Core에 넣음');
+    assert(popB.parent === appB && popB.x === 407 && popB.y === 400, '기준 화면 바로 오른쪽, 같은 높이에 놓임');
+    assert.strictEqual(homeB.x, 0, '기준 화면은 그대로');
+    assert(rightB.x === 814 && bb2.x === 814 && bb1.x === 0, '오른쪽 화면·🔵 바는 밀리고 왼쪽은 그대로');
+    assert(topB.width >= 1189 - rules.layout.sectionPadding, '묶음 바는 새 폭까지 늘림');
+    assert(pasteB.removed, '남은 붙여넣기는 지움');
     // 시안 화면을 하나라도 못 찾으면 묶음은 그대로
     const page4 = node('PAGE', '🌏 마스터 파일'); const root4 = kid(page4, node('SECTION', '🌏 SVOD')); const app4 = kid(root4, node('SECTION', 'APP'));
     const gb4 = kid(app4, inst('바', 0, 0, 800, 60, '피쳐링셀')); const o4 = kid(app4, Object.assign(screen(375, 812, '옛'), { x: 0, y: 140 }));

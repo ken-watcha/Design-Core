@@ -148,6 +148,7 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
   const slim = (r) => r.action === '묶음 교체' ? { action: r.action, platform: r.platform, cls: r.cls, barTitle: r.barTitle, width: r.width, group: { id: r.group.id }, sources: r.sources.map(x => ({ id: x.id, w: x.w, h: x.h, sig: x.sig })), olds: r.olds.map(x => ({ id: x.id })) }
     : r.action === '부분 교체' ? { action: r.action, platform: r.platform, cls: r.cls, width: r.width, source: { id: r.source.id, w: r.source.w, h: r.source.h, sig: r.source.sig }, target: { id: r.target.id }, regions: r.regions, newCsigs: r.newRegions.map(x => x.csig) }
     : r.action === '묶음 삭제' ? { action: r.action, platform: r.platform, group: { id: r.group.id }, olds: r.olds.map(x => x.id) }
+    : r.action === '추가' ? { action: r.action, platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, source: { id: r.source.id, w: r.source.w, h: r.source.h, sig: r.source.sig }, beside: r.beside ? { id: r.beside.id } : null }
     : r;
   const rows = work.delta.rows.filter(r => ['교체', '추가', '묶음 교체', '부분 교체', '묶음 삭제'].includes(r.action)).map(slim);
   const plan = { feature: work.feature || [], coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), keepTop: work.core.top || null, sourceUrl: state.sourceUrl, projectName: updateProjectName(state.analysis) };
