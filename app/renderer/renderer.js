@@ -495,7 +495,6 @@ async function openViewer({ pill, title, why, sides }) {
 async function onApply() {
   if (!(await needToken())) return;
   $('#applyGo').disabled = true;
-  const keep = $('#work').innerHTML;
   $('#work').insertAdjacentHTML('beforeend', progressHtml('apply', '브랜치에 반영하고 있어요', 'applyBusy')); startProgress('apply');
   try {
     const r = await window.core.applyUpdate(current, work);
@@ -520,16 +519,19 @@ async function onApply() {
       ${nextCore ? step(3, `다음 Core: ${esc(nextCore.coreName)}`, `이 시안은 ${esc(nextCore.coreName)}에도 들어가요. 같은 순서로 한 번 더 해요.<div class="row-btn"><button id="nextCore" type="button">${esc(nextCore.coreName)} 갱신하기</button></div>`)
         : step(3, '끝', `Merge까지 했으면 눌러 주세요. 이 프로젝트는 여기서 끝이에요.<div class="row-btn"><button id="finishGo" type="button">머지했어요</button></div>`)}
       </ol>` : '';
-    $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>${head}${next}
+    // 결과 패널은 표 뒤에 덧붙인다. 예전처럼 #work 전체를 innerHTML로 다시 쓰면 위 "바뀔 내용" 표의 줄 클릭(비교)·접기·단계 버튼이 모두 죽었다 (2026-10-30 윤우 "비교가 왜 클릭이 안대지")
+    const busy = $('#applyBusy'); if (busy) busy.remove();
+    $('#work').querySelectorAll('.apply-result').forEach(el => el.remove());
+    $('#work').insertAdjacentHTML('beforeend', `<section class="panel apply-result"><h2>반영 결과</h2>${head}${next}
       <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
       <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}</p></details>
-      </section>`;
+      </section>`);
     $('#work').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     bindOpen($('#work'));
-    $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
+    $('#applyGo') && ($('#applyGo').disabled = false);
     $('#nextCore') && $('#nextCore').addEventListener('click', () => switchCore((current.placeAt || 0) + 1));
     $('#finishGo') && $('#finishGo').addEventListener('click', () => finishProject(a.done.length));
-  } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; setupMaybeLost(e); }
+  } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel apply-result"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; setupMaybeLost(e); }
 }
 
 // ---------- 끝 ----------
