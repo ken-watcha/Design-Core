@@ -270,14 +270,16 @@ const fixture = require('./fixture-stepmade.json');
       importComponentByKeyAsync: async () => ({ createInstance: () => inst('🔵', 0, 0, 100, 40) }) };
     pageB.loadAsync = async () => {};
     const planB = { coreKey: 'CORE', coreScreenIds: [homeB.id, rightB.id], month: null, keepTop: [rootB.id],
-      rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(popB) }, beside: { id: homeB.id } }] };
+      rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(popB) }, beside: { id: homeB.id, bar: bb1.id } }] };
+    figB.getNodeByIdAsync = async (id) => (id === homeB.id ? homeB : id === bb1.id ? bb1 : null);
     const outB = await new AsyncFn('figma', applyUpdateCode(rules, planB))(figB);
     assert.strictEqual(outB.done.length, 1, '시안을 Core에 넣음');
     assert(popB.parent === appB && popB.x === 407 && popB.y === 400, '기준 화면 바로 오른쪽, 같은 높이에 놓임');
     assert.strictEqual(homeB.x, 0, '기준 화면은 그대로');
     assert(rightB.x === 814 && bb2.x === 814 && bb1.x === 0, '오른쪽 화면·🔵 바는 밀리고 왼쪽은 그대로');
     assert(topB.width >= 1189 - rules.layout.sectionPadding, '맨 위 ⚫ 바는 새 폭까지 늘림');
-    assert(bb1.width === 375 && bb2.width === 375, '🔵 크기 칸 바는 늘리지 않음 (2026-10-28 결제/구독: 전부 8,000px로 늘어났던 버그)');
+    assert(bb1.width === 375 + 407 && bb2.width === 375, '기준 화면 위 🔵 바만 새 화면까지 늘리고(새 바 안 만듦), 다른 🔵 바는 그대로 (2026-10-28 전부 8,000px 버그 · 2026-10-30 기존 바 활용)');
+    assert(!appB.children.some(n => n.name === '🔵'), '앱 기본 모양 🔵 바를 새로 만들지 않음');
     assert(pasteB.removed, '남은 붙여넣기는 지움');
     // 루트 섹션이 커지면 옆·아래 섹션을 민다 (2026-10-28 결제/구독 테스트: 🌏 결제가 넓어지며 🌏 구독을 덮음)
     const pageC = node('PAGE', '🌏 마스터 파일');
@@ -438,30 +440,37 @@ const fixture = require('./fixture-stepmade.json');
     const page = node('PAGE', '🌏 마스터 파일'); const root = kid(page, node('SECTION', '🌏 결제')); const app = kid(root, node('SECTION', 'APP'));
     const inst = (name, x, y, w, h, title) => { const i = node('INSTANCE', name, { x, y, width: w, height: h }); i.resize = (W, H) => { i.width = W; i.height = H; }; if (title) kid(i, node('TEXT', '제목', { characters: title })); return i; };
     const topBar = kid(app, inst('스크린 설명 컴포넌트', 60, 126, 800, 96, '결제'));
+    const whiteT = kid(app, inst('스크린 설명 컴포넌트', 60, 254, 375, 62, '결제')), blueT = kid(app, inst('스크린 설명 컴포넌트', 60, 348, 1189, 62, 'small'));
+    const clone = (n) => { const c = node(n.type, n.name, { x: n.x, y: n.y, width: n.width, height: n.height }); c.resize = (W, H) => { c.width = W; c.height = H; }; for (const k of n.children) kid(c, node(k.type, k.name, { characters: k.characters, getStyledTextSegments: () => [] })); return c; };
+    whiteT.clone = () => clone(whiteT); blueT.clone = () => clone(blueT);
     const old1 = kid(app, Object.assign(screen(375, 2097, '결제페이지'), { x: 60, y: 440 })), old2 = kid(app, Object.assign(screen(768, 2097, '결제페이지'), { x: 467, y: 440 }));
     const paste = kid(page, node('SECTION', '✅ Mobile'));
     const news = ['콘상페', '단건 결제 페이지', '패키지 팝업'].map(t => kid(paste, screen(375, 812, t)));
     const nm = kid(paste, screen(768, 812, '패키지 팝업 medium'));
     const sigOf = new Function(SIG_FN + 'return sig;')();
     const made = [];
-    const fig = { fileKey: 'BRANCH', root: { children: [page] }, getNodeByIdAsync: async () => null,
+    const fig = { fileKey: 'BRANCH', root: { children: [page] }, getNodeByIdAsync: async (id) => (id === whiteT.id ? whiteT : id === blueT.id ? blueT : null),
       importComponentByKeyAsync: async (key) => ({ createInstance: () => { const i = inst(key === rules.components.barWhite ? '⚪' : '🔵', 0, 0, 100, key === rules.components.barWhite ? 60 : 40); kid(i, node('TEXT', '제목', { characters: '', getStyledTextSegments: () => [] })); made.push(i); return i; } }) };
     page.loadAsync = async () => {};
     const src = (f) => ({ id: 'P' + f.id, name: f.children[0].characters, w: f.width, h: f.height, sig: sigOf(f) });
     const plan = { coreKey: 'CORE', coreScreenIds: [old1.id, old2.id], month: null, keepTop: [root.id], rows: [
-      { action: '묶음 추가', platform: 'APP', cls: 'small', width: 375, desc: '~767', group: { title: '패키지 인지 시키기' }, sources: news.map(src) },
-      { action: '묶음 추가', platform: 'APP', cls: 'medium', width: 768, desc: '768~', group: { title: '패키지 인지 시키기' }, sources: [src(nm)] }] };
+      { action: '묶음 추가', platform: 'APP', cls: 'small', width: 375, desc: '~767', group: { title: '패키지 인지 시키기' }, sources: news.map(src), sizeBar: blueT.id, groupBar: whiteT.id },
+      { action: '묶음 추가', platform: 'APP', cls: 'medium', width: 768, desc: '768~', group: { title: '패키지 인지 시키기' }, sources: [src(nm)], sizeBar: null, groupBar: whiteT.id }] };
     const out = await new AsyncFn('figma', applyUpdateCode(rules, plan))(fig);
     assert.strictEqual(out.done.filter(x => x.action === '묶음 추가').length, 4, '시안 4장을 새 묶음에 넣음');
     assert(old1.x === 60 && old1.y === 440 && old2.x === 467 && old1.children[0].characters === '결제페이지', '기존 줄은 그대로');
-    const white = made.find(i => i.name === '⚪');
-    assert(white && white.parent === app && white.y >= 440 + 2097 && white.x === 60, '⚪ 묶음 바는 섹션 맨 아래, 왼쪽 맞춤');
+    assert.strictEqual(made.length, 1, '본보기가 있는 바는 복제하고(⚪·small 🔵), 없는 medium 🔵만 앱 기본 모양으로 만듦');
+    const white = app.children.find(i => i.type === 'INSTANCE' && i !== whiteT && i !== blueT && i !== topBar && i.height === 62 && i.children[0] && i.children[0].characters === '패키지 인지 시키기');
+    assert(white && white.parent === app && white.y >= 440 + 2097 && white.x === 60, '⚪ 묶음 바는 기존 ⚪ 바를 복제해 섹션 맨 아래, 왼쪽 맞춤');
+    const blues = app.children.filter(i => i.type === 'INSTANCE' && i !== whiteT && i !== blueT && i !== topBar && i !== white);
+    assert(blues.length === 2 && blues[0].children[0].characters === 'small' && blues[0].width === 874 + 375 - 60, '375 줄 🔵 바는 기존 바 복제, 제목 그대로, 줄 전체 폭');
+    assert(whiteT.width === 375 && blueT.width === 1189, '본보기 바는 그대로');
     assert.strictEqual(white.children[0].characters, '패키지 인지 시키기', '⚪ 바 제목 = 프로젝트 이름');
     assert.deepStrictEqual(news.map(f => f.x), [60, 467, 874], '375 줄은 한 줄로');
     assert(news.every(f => f.parent === app && f.y > white.y), '새 화면은 APP 섹션, 바 아래');
     assert(nm.y > news[0].y + 812, '768 줄은 그 아래 줄');
     assert.strictEqual(white.width, 874 + 375 - 60, '⚪ 바 폭 = 가장 넓은 줄');
-    assert(made.filter(i => i.name === '🔵').length === 4, '화면마다 🔵 크기 칸 바');
+    assert(made[0].name === '🔵' && made[0].width === 768, 'medium 줄 🔵 바는 줄 폭');
     assert(paste.removed, '남은 붙여넣기는 지움');
     assert(app.height >= nm.y + 812, '섹션이 새 묶음까지 커짐');
   }

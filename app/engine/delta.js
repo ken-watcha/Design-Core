@@ -79,7 +79,7 @@ function computeDelta(analysis, core, sources = {}) {
           check: !!near || action === '교체',
           source: { id: src.id, name: src.name, w: src.w, h: src.h, sig: src.sig },
           target: target ? { id: target.id, name: target.name, w: target.w, h: target.h, sig: target.sig, bar: target.bar } : null,
-          beside: beside ? { id: beside.id, name: beside.name, w: beside.w, h: beside.h } : null
+          beside: beside ? { id: beside.id, name: beside.name, w: beside.w, h: beside.h, bar: beside.bar || null } : null
         });
       }
     }

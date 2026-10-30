@@ -157,11 +157,13 @@ async function buildNewCore(state, work, knowledge, runner = runFigma) {
 const updateProjectName = (analysis) => { const c = (analysis && analysis.cover) || {}; return ((c.nameKR || '').split(/\s+I\s+/)[0] || c.nameEN || '').trim() || null; };
 async function applyUpdate(state, work, knowledge, runner = runFigma) {
   // 묶음 교체 줄은 Figma에서 쓰는 값만 (보내는 코드가 길수록 옮겨 적다 틀리기 쉽다)
+  // 새 바는 앱 기본 모양이 아니라 그 섹션에 이미 있는 바를 복제해 쓴다 (2026-10-30 윤우: "기존에 적용되어 있던 걸 활용") — 본보기 바 id
+  const tmpl = (pf, cls) => { const scr = ((work.core.platforms || {})[pf] || {}).screens || []; return { sizeBar: (scr.find(s => s.cls === cls && s.bar) || {}).bar || null, groupBar: (scr.find(s => s.gbar) || {}).gbar || null }; };
   const slim = (r) => r.action === '묶음 교체' ? { action: r.action, platform: r.platform, cls: r.cls, barTitle: r.barTitle, width: r.width, group: { id: r.group.id }, sources: r.sources.map(x => ({ id: x.id, w: x.w, h: x.h, sig: x.sig })), olds: r.olds.map(x => ({ id: x.id })) }
     : r.action === '부분 교체' ? { action: r.action, platform: r.platform, cls: r.cls, width: r.width, source: { id: r.source.id, w: r.source.w, h: r.source.h, sig: r.source.sig }, target: { id: r.target.id }, regions: r.regions, newCsigs: r.newRegions.map(x => x.csig) }
     : r.action === '묶음 삭제' ? { action: r.action, platform: r.platform, group: { id: r.group.id }, olds: r.olds.map(x => x.id) }
-    : r.action === '추가' ? { action: r.action, platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, source: { id: r.source.id, w: r.source.w, h: r.source.h, sig: r.source.sig }, beside: r.beside ? { id: r.beside.id } : null }
-    : r.action === '묶음 추가' ? { action: r.action, platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, group: { title: r.group.title }, sources: r.sources.map(x => ({ id: x.id, name: x.name, w: x.w, h: x.h, sig: x.sig })) }
+    : r.action === '추가' ? Object.assign({ action: r.action, platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, source: { id: r.source.id, w: r.source.w, h: r.source.h, sig: r.source.sig }, beside: r.beside ? { id: r.beside.id, bar: r.beside.bar || null } : null }, tmpl(r.platform, r.cls))
+    : r.action === '묶음 추가' ? Object.assign({ action: r.action, platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, group: { title: r.group.title }, sources: r.sources.map(x => ({ id: x.id, name: x.name, w: x.w, h: x.h, sig: x.sig })) }, tmpl(r.platform, r.cls))
     : r;
   const rows = work.delta.rows.filter(r => ['교체', '추가', '묶음 교체', '부분 교체', '묶음 삭제', '묶음 추가'].includes(r.action)).map(slim);
   const plan = { feature: work.feature || [], coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), keepTop: work.core.top || null, sourceUrl: state.sourceUrl, projectName: updateProjectName(state.analysis) };

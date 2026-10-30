@@ -30,6 +30,20 @@ async function bar(kind, parent, x, y, w, title, desc) {
   i.layoutSizingHorizontal = 'FIXED'; i.resize(w, i.height); i.x = x; i.y = y;
   return i;
 }
+// 본보기 바(tplId)가 있으면 복제해 쓴다 — Core마다 바 모양(제목 숨김, 높이, 색)이 달라서 앱 기본 모양으로 새로 만들면 어긋난다 (2026-10-30 윤우)
+// y가 null이면 본보기의 y를 그대로 둔다(그 Core의 줄 높이). title이 null이면 본보기 제목을 그대로 둔다. 본보기가 없으면 bar()로 만든다
+async function barLike(kind, parent, tplId, x, y, w, title, desc) {
+  const tpl = tplId ? await figma.getNodeByIdAsync(tplId) : null;
+  if (tpl && tpl.type === 'INSTANCE' && !tpl.removed) {
+    const i = tpl.clone(); parent.appendChild(i);
+    try { i.layoutSizingHorizontal = 'FIXED'; } catch (e) {}
+    try { i.resize(w, i.height); } catch (e) {}
+    i.x = x; i.y = y == null ? tpl.y : y;
+    if (title != null) { const t = i.findOne(n => n.type === 'TEXT' && n.name === RULES.components.barTitleTextName); if (t) { try { await loadTextFonts(t); t.characters = title; } catch (e) {} } }
+    return i;
+  }
+  return bar(kind, parent, x, y == null ? RULES.layout.barSizeY : y, w, title == null ? '' : title, desc);
+}
 async function text(parent, chars, style, size, color, url) {
   const t = figma.createText(); parent.appendChild(t);
   t.fontName = await loadFont(style); t.characters = chars; t.fontSize = size;
@@ -244,7 +258,10 @@ for (const r of want) {
       right = at; screenY = bs.y;
     }
     sec.appendChild(nf); nf.x = right; nf.y = screenY; // 이름은 붙여 넣은 원본 이름 그대로
-    await bar('barBlue', sec, right, L.barSizeY, nf.width, r.cls, r.desc);
+    // 🔵 크기 칸 바: 기준 화면 위 바가 있으면 새 화면까지 늘리고, 없으면 그 크기 칸의 기존 바를 복제한다 (앱 기본 모양 새로 만들기는 마지막 수단)
+    const bb = bs && r.beside.bar ? await figma.getNodeByIdAsync(r.beside.bar) : null;
+    if (bb && bb.parent === sec && bb.x <= bs.x + 1 && bb.x + bb.width >= bs.x + bs.width - 1) { try { bb.resize(bb.width + nf.width + L.gap, bb.height); } catch (e) {} }
+    else await barLike('barBlue', sec, r.sizeBar, right, r.sizeBar ? null : L.barSizeY, nf.width, r.sizeBar ? null : r.cls, r.sizeBar ? null : r.desc);
     // 맨 위 ⚫ 섹션 제목 바만 새 폭까지 늘린다. 2026-10-28 결제/구독 테스트: 🔵 크기 칸 바가 규칙(y 282)보다 위(y 254)에 있는 Core라
     // y 기준으로 고르니 🔵 바 전부가 8,000px로 늘어나 섹션이 옆 섹션을 덮었다 → 가장 위 줄의 바만 늘린다
     stretchTopBars(sec, L.sectionPadding, nf);
@@ -314,21 +331,23 @@ for (const pf of [...new Set(addRows.map(r => r.platform))]) {
   const frames = sec.children.filter(n => n.type === 'FRAME');
   const x0 = frames.length ? Math.min(...frames.map(f => f.x)) : L.sectionPadding;
   let bottom = 0; for (const c of sec.children) bottom = Math.max(bottom, c.y + c.height);
-  const gb = await bar('barWhite', sec, x0, bottom + L.sectionGap / 2, 100, title, null);
+  // 바는 이 섹션에 있는 것을 복제한다(⚪ 묶음 바·🔵 크기 칸 바 본보기). 없을 때만 앱 기본 모양
+  const gb = await barLike('barWhite', sec, rows[0].groupBar, x0, bottom + L.sectionGap / 2, 100, title, null);
   let y = gb.y + gb.height + 40, right = x0;
   for (const r of rows) {
     const mine = pick.filter(x => x.r === r);
     if (!mine.length) continue;
-    let x = x0, rowH = 0, barH = 0;
+    // 폭마다 한 줄: 🔵 바 하나가 줄 전체를 덮는다(기존 Core와 같은 꼴), 화면은 그 아래
+    const b = await barLike('barBlue', sec, r.sizeBar, x0, y, 100, r.sizeBar ? null : (r.cls || String(r.width)), r.sizeBar ? null : (r.desc || null));
+    let x = x0, rowH = 0;
     for (const { p, src } of mine) {
       const nf = p.f; taken.add(nf.id);
-      const b = await bar('barBlue', sec, x, y, nf.width, r.cls || String(r.width), r.desc || null);
-      barH = Math.max(barH, b.height);
       sec.appendChild(nf); nf.x = x; nf.y = y + b.height + 16;
       rowH = Math.max(rowH, nf.height); right = Math.max(right, x + nf.width); x += nf.width + L.gap;
       done.push({ action: '묶음 추가', id: nf.id, platform: pf, cls: r.cls, width: r.width, same: sig(nf) === src.sig });
     }
-    y += barH + 16 + rowH + 80;
+    try { b.resize(x - L.gap - x0, b.height); } catch (e) {}
+    y += b.height + 16 + rowH + 80;
   }
   try { gb.resize(right - x0, gb.height); } catch (e) {}
   stretchTopBars(sec, L.sectionPadding, null);
