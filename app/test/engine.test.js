@@ -301,6 +301,21 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(otherC.x, 1240 + (rootC.width - 1000), '오른쪽 섹션은 커진 만큼 밀림');
     assert.strictEqual(belowC.y, 1240 + (rootC.height - 1000), '아래 섹션은 커진 만큼 밀림');
     assert(otherC.y === 0 && belowC.x === 0, '다른 방향은 그대로');
+    // 내용보다 훨씬 큰 섹션은 줄인다 (2026-10-30 윤우: 🌏 SVOD가 16,314px, 내용은 7,206px) — 오른쪽 여백 = 왼쪽 여백(375), 옆 섹션은 당겨짐
+    const pageD = node('PAGE', '🌏 마스터 파일');
+    const rootD = kid(pageD, Object.assign(node('SECTION', '🌏 SVOD'), { x: 0, y: 0, width: 16314, height: 14977 }));
+    const otherD = kid(pageD, Object.assign(node('SECTION', '🌏 구독'), { x: 16314 + 240, y: 0, width: 500, height: 500 }));
+    const appD = kid(rootD, Object.assign(node('SECTION', 'APP'), { x: 375, y: 356, width: 6831, height: 5534 }));
+    kid(appD, node('INSTANCE', '스크린 설명 컴포넌트', { x: 0, y: 282, width: 375, height: 40 }));
+    const homeD = kid(appD, Object.assign(screen(375, 400, '홈'), { x: 0, y: 400 }));
+    const pasteD = kid(pageD, node('SECTION', '붙임')); const newD = kid(pasteD, screen(375, 812, '시안'));
+    pageD.loadAsync = async () => {};
+    const outD = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, planC, { keepTop: [rootD.id, otherD.id], coreScreenIds: [homeD.id], rows: [{ action: '교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(newD) }, target: { id: homeD.id } }] })))(
+      { fileKey: 'BRANCH', root: { children: [pageD] }, getNodeByIdAsync: async (id) => (id === homeD.id ? homeD : null), importComponentByKeyAsync: async () => ({ createInstance: () => inst('🔵', 0, 0, 100, 40) }) });
+    assert.strictEqual(outD.done.length, 1);
+    assert.strictEqual(rootD.width, 375 + appD.width + 375, '루트 섹션 폭 = 내용 + 양쪽 같은 여백');
+    assert.strictEqual(rootD.height, 356 + appD.height + 356, '높이도 내용에 맞춤');
+    assert.strictEqual(otherD.x, rootD.width + 240, '옆 섹션은 줄어든 만큼 당겨짐 (간격 240 유지)');
     // 시안 화면을 하나라도 못 찾으면 묶음은 그대로
     const page4 = node('PAGE', '🌏 마스터 파일'); const root4 = kid(page4, node('SECTION', '🌏 SVOD')); const app4 = kid(root4, node('SECTION', 'APP'));
     const gb4 = kid(app4, inst('바', 0, 0, 800, 60, '피쳐링셀')); const o4 = kid(app4, Object.assign(screen(375, 812, '옛'), { x: 0, y: 140 }));
