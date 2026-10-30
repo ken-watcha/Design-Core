@@ -340,6 +340,29 @@ const fixture = require('./fixture-stepmade.json');
     const out6 = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan5, { keepTop: [root6.id], coreScreenIds: [home6.id], rows: [{ action: '부분 교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(p6) }, target: { id: home6.id }, regions: [reg6.id], newCsigs: ['x'] }] })))(
       { fileKey: 'BRANCH', root: { children: [page6] }, getNodeByIdAsync: async (id) => (id === reg6.id ? reg6 : null) });
     assert(out6.done.length === 0 && /높이/.test(out6.notFound.join()) && reg6.children[0].children[0].characters === '옛' && !p6.removed, '높이 다르면 그대로 두고 붙인 것도 남김');
+    // 링크 카드 형태 통일 (2026-10-30 윤우): 디자이너가 만든 카드(이름 '결제')의 "🔗 관련 스펙 링크" 뱃지를 복제해 프로젝트 이름·링크를 넣는다. 파란 글자는 안 만든다
+    const page7 = node('PAGE', '🌏 마스터 파일'); const root7 = kid(page7, node('SECTION', '🌏 결제')); const app7 = kid(root7, node('SECTION', 'APP'));
+    const card7 = kid(root7, node('FRAME', '결제', { width: 367, height: 170 })); kid(card7, node('TEXT', 'btn', { characters: '결제' }));
+    const badge7 = kid(card7, node('INSTANCE', 'ㄴ 상태 뱃지')); const inner7 = kid(badge7, node('INSTANCE', 'ㄴ 🪐 상단 Badge'));
+    kid(inner7, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(inner7, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] }));
+    const deep = (n) => { const c = node(n.type, n.name, { characters: n.characters, getStyledTextSegments: n.getStyledTextSegments }); for (const k of n.children) kid(c, deep(k)); return c; };
+    badge7.clone = () => deep(badge7);
+    const home7 = kid(app7, screen(375, 4816, '결제페이지'));
+    const p7 = kid(page7, screen(375, 812, '패키지 팝업'));
+    page7.loadAsync = async () => {};
+    const fig7 = { fileKey: 'BRANCH', root: { children: [page7] }, getNodeByIdAsync: async (id) => (id === home7.id ? home7 : null), loadFontAsync: async () => {}, createText: () => { throw new Error('글자를 새로 만들면 안 됨'); },
+      importComponentByKeyAsync: async (key) => { if (key === rules.components.badge) throw new Error('뱃지 컴포넌트 불러오기 안 됨'); return { createInstance: () => inst('🔵', 0, 0, 100, 40) }; } };
+    const plan7 = { coreKey: 'CORE', coreScreenIds: [home7.id], month: '2026.10', projectName: '패키지 인지', sourceUrl: 'https://www.figma.com/design/DOC', keepTop: [root7.id],
+      rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(p7) }, beside: { id: home7.id, bar: null } }] };
+    const out7 = await new AsyncFn('figma', applyUpdateCode(rules, plan7))(fig7);
+    assert(out7.done.length === 1 && out7.linkAdded && out7.linkAdded.badge && !out7.linkAdded.newCard, '기존 카드를 찾아 뱃지로 링크를 넣음: ' + JSON.stringify(out7.linkAdded));
+    const badges = card7.children.filter(n => n.type === 'INSTANCE');
+    assert.strictEqual(badges.length, 2, '뱃지가 하나 더 생김');
+    const nt = badges[1].findAll(n => n.type === 'TEXT');
+    assert.deepStrictEqual(nt.map(n => n.characters), ['🔗', '패키지 인지 (2026.10)'], '새 뱃지 글자 = 프로젝트 이름 (월)');
+    assert.deepStrictEqual(nt[1].hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '그 글자에 문서 링크');
+    assert(!card7.removed && card7.parent === root7 && !page7.children.some(n => /링크 카드/.test(n.name)), '카드를 새로 만들지 않음');
+    assert(p7.parent === app7, '시안은 APP 섹션으로');
   }
   // 부분 갱신 (2026-10-28 윤우): 메인 화면은 그대로, 핵심 컴포넌트 영역 속만 바꾸고 따로 정리한 묶음은 지운다
   {

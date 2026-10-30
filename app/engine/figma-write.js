@@ -202,7 +202,10 @@ const dropRows = PLAN.rows.filter(r => r.action === '묶음 삭제');
 // 붙여 넣은 것 = 확인 때 읽은 페이지 맨 위 목록(PLAN.keepTop)에 없던 것. 프로젝트 페이지를 통째로 붙여도 되고(2026-10-26 윤우: 단계를 줄이자), 📦 섹션 하나여도 된다.
 // 그 안의 프레임 중 필요한 화면과 크기가 같은 것만 지문을 잰다 (페이지째 붙이면 프레임이 수만 개)
 const keepTop = PLAN.keepTop ? new Set(PLAN.keepTop) : null;
-const isCard = (n) => n.type === 'FRAME' && /링크 카드/.test(n.name);   // 지난 [반영]이 만든 링크 카드는 붙여넣기가 아니다
+// 링크 카드 = 지난 [반영]이 만든 '📎 스펙 링크 카드' 또는 디자이너가 만든 카드(이름은 자유, 결제/구독은 '결제') — "관련 스펙 링크" 뱃지가 든 프레임. 붙여넣기가 아니다
+const hasLinkText = (n) => !!n.findOne(c => c.type === 'TEXT' && /스펙 링크/.test(c.characters || ''));
+const isCard = (n) => n.type === 'FRAME' && (/링크 카드/.test(n.name) || hasLinkText(n));
+const findCard = () => { let c = page.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name)) || page.findOne(n => n.type === 'TEXT' && /스펙 링크/.test(n.characters || '')); while (c && !(c.type === 'FRAME' && c.parent && (c.parent.type === 'SECTION' || c.parent.type === 'PAGE'))) c = c.parent; return c || null; };
 const pastedTop = keepTop ? page.children.filter(n => !keepTop.has(n.id) && !isCard(n)) : [];
 const sizeKey = (w, h) => Math.round(w) + 'x' + Math.round(h);
 const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)).concat(groupRows.concat(addRows).flatMap(r => r.sources.map(x => sizeKey(x.w, x.h))), partRows.map(r => sizeKey(r.source.w, r.source.h))));
@@ -419,22 +422,33 @@ for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('�
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
 if (root) fitSection(root, L.rootPadding);
 // 이번 프로젝트 문서 링크를 링크 카드에 건다. 카드가 없는 Core(SVOD 등)는 루트 섹션 위에 카드를 새로 둔다 (2026-10-21 윤우)
+// 링크는 기존 카드와 같은 형태로: 카드 속 "🔗 관련 스펙 링크" 뱃지를 복제해 글자를 프로젝트 이름으로 바꾸고 링크를 건다 (2026-10-30 윤우: 형태 통일). 뱃지가 없으면 뱃지 컴포넌트를 불러오고, 그것도 안 되면 파란 글자
 let linkAdded = null;
 if (done.length && PLAN.sourceUrl) {
-  let card = page.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name)), made = false;
+  let card = findCard(), made = false;
   const already = card && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
   if (!already) {
     if (!card) {
       card = figma.createFrame(); card.name = '📎 스펙 링크 카드'; page.appendChild(card); made = true;
-      card.layoutMode = 'VERTICAL'; card.itemSpacing = 12; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
+      card.layoutMode = 'VERTICAL'; card.itemSpacing = 16; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
       card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'FIXED'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
       card.resize(L.cardSize[0], L.cardSize[1]);
       await text(card, RULES.linkCard.badgeText, 'Bold', 18, { r: 1, g: 1, b: 1 });
     }
     const label = (PLAN.projectName || '프로젝트 문서') + (PLAN.month ? ' (' + PLAN.month + ')' : '');
-    const t = await text(card, '🔗 ' + label, 'Bold', 14, { r: .47, g: .67, b: 1 }, PLAN.sourceUrl);
+    const badge = card.findOne(n => n.type === 'INSTANCE' && hasLinkText(n));
+    let nb = null, t = null;
+    if (badge) { try { nb = badge.clone(); card.appendChild(nb); } catch (e) { nb = null; } }
+    if (!nb) { try { nb = (await figma.importComponentByKeyAsync(RULES.components.badge)).createInstance(); card.appendChild(nb); try { nb.setProperties({ '상태': '링크' }); } catch (e) {} } catch (e) { nb = null; } }
+    if (nb) {
+      const texts = nb.findAll(n => n.type === 'TEXT');
+      t = texts.find(x => /스펙 링크/.test(x.characters || '')) || texts[texts.length - 1] || null;
+      if (t) { try { await loadTextFonts(t); t.characters = label; t.hyperlink = { type: 'URL', value: PLAN.sourceUrl }; } catch (e) { t = null; } }
+      if (!t) { try { nb.remove(); } catch (e) {} nb = null; }
+    }
+    if (!nb) { say('뱃지를 못 만들어 링크 글자로 대신함'); t = await text(card, '🔗 ' + label, 'Bold', 14, { r: .47, g: .67, b: 1 }, PLAN.sourceUrl); }
     if (made && root) { card.x = root.x; card.y = root.y - card.height - 80; }
-    linkAdded = { cardId: card.id, textId: t.id, newCard: made };
+    linkAdded = { cardId: card.id, textId: t.id, badge: !!nb, newCard: made };
   }
 }
 return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, log };

@@ -27,7 +27,9 @@ if (master) {
   const root = master.children.find(n => n.type === 'SECTION' && n.name.startsWith(RULES.masterPage.rootPrefix)) || master.children.find(n => n.type === 'SECTION');
   if (root) out.root = { id: root.id, name: root.name };
   out.top = master.children.map(n => n.id);   // 반영 때 이것 말고 페이지 맨 위에 생긴 것 = 사람이 붙여 넣은 것
-  const card = master.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name));
+  // 링크 카드: 앱이 만든 '📎 스펙 링크 카드' 또는 디자이너가 만든 카드("관련 스펙 링크" 뱃지가 든 프레임, 이름은 자유)
+  let card = master.findOne(n => n.type === 'FRAME' && /링크 카드/.test(n.name)) || master.findOne(n => n.type === 'TEXT' && /스펙 링크/.test(n.characters || ''));
+  while (card && !(card.type === 'FRAME' && card.parent && (card.parent.type === 'SECTION' || card.parent.type === 'PAGE'))) card = card.parent;
   if (card) {
     out.linkCard = { id: card.id, name: card.name };
   }
