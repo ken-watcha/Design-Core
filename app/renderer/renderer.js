@@ -511,7 +511,7 @@ async function onApply() {
     const head = !a.done.length
       ? `<div class="conclusion warn"><b>아직 반영한 화면이 없어요.</b> 붙여 넣은 화면을 찾지 못했어요. 위 순서대로 Core 브랜치에 붙여 넣었는지 확인하고 [반영]을 다시 눌러 주세요.</div>`
       : clean
-        ? `<div class="conclusion ok"><b>${coreName} 브랜치에 ${a.done.length}장을 반영했어요.</b> 다시 읽어 보니 모든 칸이 프로젝트 시안과 같아요${a.cardUpdated ? ' (링크 카드 기준 날짜도 고침)' : ''}. ${a.linkAdded ? (a.linkAdded.newCard ? '프로젝트 문서 링크는 마스터 페이지 맨 위에 링크 카드를 새로 만들어 걸었어요. ' : '링크 카드에 프로젝트 문서 링크를 더했어요. ') : ''}${a.leftoverRemoved ? '붙여 넣고 남은 것은 브랜치에서 지웠어요. ' : ''}아직 Core 본 파일은 그대로예요. 아래 순서로 마무리해 주세요.</div>`
+        ? `<div class="conclusion ok"><b>${coreName} 브랜치에 ${a.done.length}장을 반영했어요.</b> 다시 읽어 보니 모든 칸이 프로젝트 시안과 같아요${a.cardUpdated ? ' (링크 카드 기준 날짜도 고침)' : ''}. ${a.linkAdded ? (a.linkAdded.newCard ? '프로젝트 문서 링크는 마스터 페이지 맨 위에 링크 카드를 새로 만들어 걸었어요. ' : '링크 카드에 프로젝트 문서 링크를 더했어요. ') : ''}${a.badgeLinks ? `섹션 속 카드의 빈 🔗 링크 뱃지 ${a.badgeLinks}개에도 걸었어요. ` : ''}${a.leftoverRemoved ? '붙여 넣고 남은 것은 브랜치에서 지웠어요. ' : ''}아직 Core 본 파일은 그대로예요. 아래 순서로 마무리해 주세요.</div>`
         : `<div class="conclusion warn"><b>${a.done.length}장을 반영했지만 확인할 게 남았어요.</b> ${a.notFound.length ? `못 찾은 칸: ${esc(a.notFound.join(' · '))}. ` : ''}${!allSame ? '"원본과 다름" 표시가 있는 화면을 Figma에서 봐 주세요. ' : ''}${s.replace || s.add || s.group || s.part || s.drop ? `다시 읽어 보니 아직 바뀌지 않은 칸이 ${s.replace + s.add + (s.group || 0) + (s.part || 0) + (s.drop || 0)}개 있어요. ` : ''}확인 후 [반영]을 다시 누르거나 아래처럼 마무리해 주세요.</div>`;
     const next = a.done.length ? `<h2 style="margin-top:18px">마무리</h2><ol class="flow">
       ${step(1, 'Core 브랜치에서 결과 보기', `바뀐 화면을 눈으로 한 번 확인해 주세요.<div class="row-btn">${go(linkTo(work.workUrl, work.core.masterPageId), 'Core 브랜치 열기')}</div>`)}
@@ -524,7 +524,7 @@ async function onApply() {
     $('#work').querySelectorAll('.apply-result').forEach(el => el.remove());
     $('#work').insertAdjacentHTML('beforeend', `<section class="panel apply-result"><h2>반영 결과</h2>${head}${next}
       <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
-      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}</p></details>
+      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}${a.badgeLinks ? ` · 카드 링크 뱃지 ${a.badgeLinks}개` : ''}</p></details>
       </section>`);
     $('#work').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     bindOpen($('#work'));

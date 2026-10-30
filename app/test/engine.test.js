@@ -335,9 +335,18 @@ const fixture = require('./fixture-stepmade.json');
     const newS = kid(paste5, screen(375, 812, '시안')); const nreg = kid(newS, node('FRAME', 'Frame 2609218', { x: 0, y: 158, width: 1025, height: 442 })); kid(nreg, cell('새 셀'));
     const csigOf = new Function(SIG_FN + 'return (n) => sigs(n).csig;')();
     const newCsig = csigOf(nreg);
-    const fig5 = { fileKey: 'BRANCH', root: { children: [page5] }, getNodeByIdAsync: async (id) => ({ [region.id]: region, [gb5.id]: gb5 }[id] || null) };
+    // 섹션 속 설명 카드: 빈 "🔗 링크" 뱃지는 문서 링크를 받고, 이미 링크 있는 뱃지·화면 속 글자는 그대로 (2026-10-30 윤우 "채우기")
+    const card5 = kid(app5, node('FRAME', '피쳐링셀 케이스', { x: 0, y: 0, width: 400, height: 120 })); kid(card5, node('TEXT', 'btn', { characters: '피쳐링셀 케이스' }));
+    const bdg5 = kid(kid(card5, node('INSTANCE', 'ㄴ 상태 뱃지')), node('INSTANCE', 'ㄴ 🪐 상단 Badge'));
+    kid(bdg5, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); const lk5 = kid(bdg5, node('TEXT', 'Text', { characters: '링크', hyperlink: null, getStyledTextSegments: () => [{ fontName: { family: 'Pretendard JP', style: 'Bold' } }] }));
+    const bdgB = kid(card5, node('INSTANCE', '뱃지')); kid(bdgB, node('TEXT', 'Text', { characters: '🔗' })); const lkB = kid(bdgB, node('TEXT', 'Text', { characters: '링크', hyperlink: { type: 'URL', value: 'https://old' } }));
+    const inHome = kid(home, node('TEXT', 't', { characters: '링크', hyperlink: null }));
+    const fig5 = { fileKey: 'BRANCH', root: { children: [page5] }, loadFontAsync: async () => {},
+      createFrame: () => { const f = node('FRAME', 'f'); f.resize = (w, h) => { f.width = w; f.height = h; }; return f; }, createText: () => node('TEXT', 't'),
+      importComponentByKeyAsync: async () => ({ createInstance: () => { const b = node('INSTANCE', '뱃지'); b.setProperties = () => {}; kid(b, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(b, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] })); return b; } }),
+      getNodeByIdAsync: async (id) => ({ [region.id]: region, [gb5.id]: gb5, [home.id]: home }[id] || null) };
     page5.loadAsync = async () => {};
-    const plan5 = { feature: ['featuringcell'], coreKey: 'CORE', coreScreenIds: [home.id, old5.id, far5.id], month: null, keepTop: [root5.id],
+    const plan5 = { feature: ['featuringcell'], coreKey: 'CORE', coreScreenIds: [home.id, old5.id, far5.id], month: null, keepTop: [root5.id], sourceUrl: 'https://www.figma.com/design/DOC',
       rows: [{ action: '부분 교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(newS) }, target: { id: home.id }, regions: [region.id], newCsigs: [newCsig] },
              { action: '묶음 삭제', platform: 'APP', group: { id: gb5.id }, olds: [old5.id] }] };
     const out5 = await new AsyncFn('figma', applyUpdateCode(rules, plan5))(fig5);
@@ -347,6 +356,9 @@ const fixture = require('./fixture-stepmade.json');
     assert(old5.removed && sub5.removed && gb5.removed && !home.removed, '묶음은 바·화면째 지우고 메인 화면은 남김');
     assert.strictEqual(far5.x, 1400 - 800 - rules.layout.gap, '오른쪽 것은 왼쪽으로 당김');
     assert(paste5.removed, '남은 붙여넣기는 지움');
+    assert.strictEqual(out5.badgeLinks, 1, '빈 링크 뱃지 1개에 링크: ' + JSON.stringify(out5.log));
+    assert.deepStrictEqual(lk5.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '카드의 빈 🔗 링크 뱃지에 문서 링크');
+    assert(lkB.hyperlink.value === 'https://old' && inHome.hyperlink === null, '이미 걸린 링크·화면 속 글자는 그대로');
     // 높이가 다르면 손대지 않는다
     const page6 = node('PAGE', '🌏 마스터 파일'); const root6 = kid(page6, node('SECTION', '🌏 SVOD')); const app6 = kid(root6, node('SECTION', 'APP'));
     const home6 = kid(app6, screen(375, 4816, '홈')); const reg6 = kid(home6, node('FRAME', 'R', { y: 158, width: 375, height: 442 })); kid(reg6, cell('옛'));

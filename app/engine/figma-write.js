@@ -462,7 +462,23 @@ if (done.length && PLAN.sourceUrl) {
     linkAdded = { cardId: card.id, textId: t.id, badge: !!nb, newCard: made };
   }
 }
-return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, log };
+// 바뀐 플랫폼 섹션 속 설명 카드의 빈 "🔗 링크" 뱃지에도 프로젝트 문서 링크를 건다 (2026-10-30 윤우: SVOD WEB "피쳐링셀 케이스" 카드의 링크 뱃지가 비어 있었음 → "채우기"). 이미 링크가 있으면 그대로, 화면 속 글자는 건드리지 않는다
+let badgeLinks = 0;
+if (done.length && PLAN.sourceUrl) {
+  const platSec = (n) => { while (n && !(n.type === 'SECTION' && n.parent && n.parent.type === 'SECTION')) n = n.parent; return n; };
+  const secs = new Set();
+  for (const d of done) { const n = await figma.getNodeByIdAsync(d.id); const sec = n && !n.removed ? platSec(n) : null; if (sec) secs.add(sec); }
+  const screenIds = new Set(PLAN.coreScreenIds || []);
+  const inScreen = (n) => { for (let p = n; p; p = p.parent) if (screenIds.has(p.id)) return true; return false; };
+  for (const sec of secs) for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || '') && !n.hyperlink)) {
+    if (t.removed || inScreen(t)) continue;
+    const badge = t.parent;
+    if (!badge || badge.type !== 'INSTANCE' || !badge.children.some(c => c !== t && c.type === 'TEXT' && /🔗/.test(c.characters || ''))) continue;
+    try { await loadTextFonts(t); t.hyperlink = { type: 'URL', value: PLAN.sourceUrl }; badgeLinks++; } catch (e) { say('링크 뱃지에 링크를 못 걸음: ' + e.message); }
+  }
+  if (badgeLinks) say('섹션 속 카드의 빈 링크 뱃지 ' + badgeLinks + '개에 문서 링크');
+}
+return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, badgeLinks, log };
 `;
 
 // ---------- 기존 Core 갱신: 붙여 넣을 화면을 한곳에 모으기 (프로젝트 문서의 브랜치·복제본에서) ----------
