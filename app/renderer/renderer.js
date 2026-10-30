@@ -517,7 +517,8 @@ async function onApply() {
     const next = a.done.length ? `<h2 style="margin-top:18px">마무리</h2><ol class="flow">
       ${step(1, 'Core 브랜치에서 결과 보기', `바뀐 화면을 눈으로 한 번 확인해 주세요.<div class="row-btn">${go(linkTo(work.workUrl, work.core.masterPageId), 'Core 브랜치 열기')}</div>`)}
       ${step(2, 'Core에 합치기(Merge)', `괜찮으면 Core 브랜치에서 파일 이름 옆 ⌄ → Review and merge changes → Merge. 그때 ${coreName} 본 파일이 바뀌어요. 이상하면 합치지 말고 브랜치를 버리면 원래대로예요.`)}
-      ${nextCore ? step(3, `다음 Core: ${esc(nextCore.coreName)}`, `이 시안은 ${esc(nextCore.coreName)}에도 들어가요. 같은 순서로 한 번 더 해요.<div class="row-btn"><button id="nextCore" type="button">${esc(nextCore.coreName)} 갱신하기</button></div>`) : ''}
+      ${nextCore ? step(3, `다음 Core: ${esc(nextCore.coreName)}`, `이 시안은 ${esc(nextCore.coreName)}에도 들어가요. 같은 순서로 한 번 더 해요.<div class="row-btn"><button id="nextCore" type="button">${esc(nextCore.coreName)} 갱신하기</button></div>`)
+        : step(3, '끝', `Merge까지 했으면 눌러 주세요. 이 프로젝트는 여기서 끝이에요.<div class="row-btn"><button id="finishGo" type="button">머지했어요</button></div>`)}
       </ol>` : '';
     $('#work').innerHTML = keep + `<section class="panel"><h2>반영 결과</h2>${head}${next}
       <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
@@ -527,7 +528,27 @@ async function onApply() {
     bindOpen($('#work'));
     $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
     $('#nextCore') && $('#nextCore').addEventListener('click', () => switchCore((current.placeAt || 0) + 1));
+    $('#finishGo') && $('#finishGo').addEventListener('click', () => finishProject(a.done.length));
   } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; setupMaybeLost(e); }
+}
+
+// ---------- 끝 ----------
+// 마무리 뒤에 끝맺음이 없어 새 프로젝트를 하려면 맨 위로 올라가 지난 링크를 지워야 했다 (2026-10-30 윤우 "모든 작업이 끝난 다음 플로우"). [머지했어요] → 요약 한 줄 + [새 프로젝트 시작] → 빈 첫 화면
+function finishProject(n) {
+  const c = (current && current.analysis && current.analysis.cover) || {};
+  const proj = ((c.nameKR || '').split(/\s+I\s+/)[0] || c.nameEN || current.analysis.fileName || '프로젝트').trim();
+  const cores = (current.places || [current.place]).map(p => p.coreName.replace(/^\[Core\]\s*/, '').replace(/\s*⚜️\s*$/, ''));
+  $('#result').innerHTML = `<section class="panel" id="finished"><h2>끝났어요</h2>
+    <div class="conclusion ok"><b>${esc(cores.join(' · '))}에 ${n}장 반영 · ${esc(proj)}</b> Core 본 파일에 합쳐졌어요. 다음 프로젝트부터는 다시 링크만 넣으면 돼요.</div>
+    <div class="row-btn"><button id="startNew" type="button">새 프로젝트 시작</button></div></section>`;
+  $('#startNew').addEventListener('click', startNew);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+function startNew() {
+  current = null; work = null;
+  $('#result').innerHTML = '';
+  const u = $('#url'); u.value = ''; u.focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ---------- 새 Core ----------
