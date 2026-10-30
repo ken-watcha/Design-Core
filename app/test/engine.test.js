@@ -442,7 +442,7 @@ const fixture = require('./fixture-stepmade.json');
     const topBar = kid(app, inst('스크린 설명 컴포넌트', 60, 126, 800, 96, '결제'));
     const whiteT = kid(app, inst('스크린 설명 컴포넌트', 60, 254, 375, 62, '결제')), blueT = kid(app, inst('스크린 설명 컴포넌트', 60, 348, 1189, 62, 'small'));
     const clone = (n) => { const c = node(n.type, n.name, { x: n.x, y: n.y, width: n.width, height: n.height }); c.resize = (W, H) => { c.width = W; c.height = H; }; for (const k of n.children) kid(c, node(k.type, k.name, { characters: k.characters, getStyledTextSegments: () => [] })); return c; };
-    whiteT.clone = () => clone(whiteT); blueT.clone = () => clone(blueT);
+    whiteT.clone = () => clone(whiteT); blueT.clone = () => { const c = clone(blueT); c.resize = (W, H) => { c.width = W; c.height = W < 200 ? 368 : H; }; return c; };   // 실제 Figma: 좁으면 글자가 줄바꿈돼 높이가 부푼다
     const old1 = kid(app, Object.assign(screen(375, 2097, '결제페이지'), { x: 60, y: 440 })), old2 = kid(app, Object.assign(screen(768, 2097, '결제페이지'), { x: 467, y: 440 }));
     const paste = kid(page, node('SECTION', '✅ Mobile'));
     const news = ['콘상페', '단건 결제 페이지', '패키지 팝업'].map(t => kid(paste, screen(375, 812, t)));
@@ -464,6 +464,8 @@ const fixture = require('./fixture-stepmade.json');
     assert(white && white.parent === app && white.y >= 440 + 2097 && white.x === 60, '⚪ 묶음 바는 기존 ⚪ 바를 복제해 섹션 맨 아래, 왼쪽 맞춤');
     const blues = app.children.filter(i => i.type === 'INSTANCE' && i !== whiteT && i !== blueT && i !== topBar && i !== white);
     assert(blues.length === 2 && blues[0].children[0].characters === 'small' && blues[0].width === 874 + 375 - 60, '375 줄 🔵 바는 기존 바 복제, 제목 그대로, 줄 전체 폭');
+    assert.strictEqual(blues[0].height, 62, '🔵 바 높이는 본보기 그대로 (2026-10-30: 폭 100으로 만들었다 늘려 368px로 부풀었던 버그)');
+    assert.strictEqual(news[0].y, white.y + 62 + 40 + 62 + 16, '화면은 ⚪ 바 → 40 → 🔵 바 → 16 아래, 간격이 벌어지지 않음');
     assert(whiteT.width === 375 && blueT.width === 1189, '본보기 바는 그대로');
     assert.strictEqual(white.children[0].characters, '패키지 인지 시키기', '⚪ 바 제목 = 프로젝트 이름');
     assert.deepStrictEqual(news.map(f => f.x), [60, 467, 874], '375 줄은 한 줄로');

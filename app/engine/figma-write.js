@@ -37,9 +37,10 @@ async function barLike(kind, parent, tplId, x, y, w, title, desc) {
   if (tpl && tpl.type === 'INSTANCE' && !tpl.removed) {
     const i = tpl.clone(); parent.appendChild(i);
     try { i.layoutSizingHorizontal = 'FIXED'; } catch (e) {}
-    try { i.resize(w, i.height); } catch (e) {}
     i.x = x; i.y = y == null ? tpl.y : y;
     if (title != null) { const t = i.findOne(n => n.type === 'TEXT' && n.name === RULES.components.barTitleTextName); if (t) { try { await loadTextFonts(t); t.characters = title; } catch (e) {} } }
+    // 높이는 본보기 그대로. 폭이 좁으면 글자가 줄바꿈되며 바가 부풀어(2026-10-30: 🔵 바 368px) 아래 화면까지 밀린다
+    try { i.resize(w, tpl.height); } catch (e) {}
     return i;
   }
   return bar(kind, parent, x, y == null ? RULES.layout.barSizeY : y, w, title == null ? '' : title, desc);
@@ -332,24 +333,28 @@ for (const pf of [...new Set(addRows.map(r => r.platform))]) {
   const x0 = frames.length ? Math.min(...frames.map(f => f.x)) : L.sectionPadding;
   let bottom = 0; for (const c of sec.children) bottom = Math.max(bottom, c.y + c.height);
   // 바는 이 섹션에 있는 것을 복제한다(⚪ 묶음 바·🔵 크기 칸 바 본보기). 없을 때만 앱 기본 모양
-  const gb = await barLike('barWhite', sec, rows[0].groupBar, x0, bottom + L.sectionGap / 2, 100, title, null);
-  let y = gb.y + gb.height + 40, right = x0;
+  // 바 폭은 처음부터 최종 폭으로 만든다(좁게 만들었다 늘리면 글자가 줄바꿈돼 높이가 부푼다). 묶음 폭 = 가장 넓은 줄
+  const rowW = (r) => { const m = pick.filter(x => x.r === r); return m.reduce((a, x) => a + x.p.f.width, 0) + L.gap * Math.max(0, m.length - 1); };
+  const groupW = Math.max(...rows.map(rowW));
+  const gb = await barLike('barWhite', sec, rows[0].groupBar, x0, bottom + L.sectionGap / 2, groupW, title, null);
+  const gbH = gb.height;
+  let y = gb.y + gbH + 40;
   for (const r of rows) {
     const mine = pick.filter(x => x.r === r);
     if (!mine.length) continue;
     // 폭마다 한 줄: 🔵 바 하나가 줄 전체를 덮는다(기존 Core와 같은 꼴), 화면은 그 아래
-    const b = await barLike('barBlue', sec, r.sizeBar, x0, y, 100, r.sizeBar ? null : (r.cls || String(r.width)), r.sizeBar ? null : (r.desc || null));
+    const b = await barLike('barBlue', sec, r.sizeBar, x0, y, rowW(r), r.sizeBar ? null : (r.cls || String(r.width)), r.sizeBar ? null : (r.desc || null));
+    const bH = b.height;
     let x = x0, rowH = 0;
     for (const { p, src } of mine) {
       const nf = p.f; taken.add(nf.id);
-      sec.appendChild(nf); nf.x = x; nf.y = y + b.height + 16;
-      rowH = Math.max(rowH, nf.height); right = Math.max(right, x + nf.width); x += nf.width + L.gap;
+      sec.appendChild(nf); nf.x = x; nf.y = y + bH + 16;
+      rowH = Math.max(rowH, nf.height); x += nf.width + L.gap;
       done.push({ action: '묶음 추가', id: nf.id, platform: pf, cls: r.cls, width: r.width, same: sig(nf) === src.sig });
     }
-    try { b.resize(x - L.gap - x0, b.height); } catch (e) {}
-    y += b.height + 16 + rowH + 80;
+    y += bH + 16 + rowH + 80;
   }
-  try { gb.resize(right - x0, gb.height); } catch (e) {}
+  try { gb.resize(groupW, gbH); } catch (e) {}
   stretchTopBars(sec, L.sectionPadding, null);
   fitSection(sec, L.sectionPadding);
   say('묶음 "' + title + '" 새로 넣음: ' + pick.length + '장');
