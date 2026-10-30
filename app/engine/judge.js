@@ -141,5 +141,44 @@ function judge(analysis, index, rules, mem) {
   });
 }
 // 묶음 이름을 사람이 읽을 이름으로 (featuringcell → "Featuring Cell") — 부분 갱신 표에 쓴다
+// 화면(id → 컴포넌트 해시 목록)마다 어느 Core 화면과 가장 겹치는지 — contentMatch와 같은 가중치(드문 컴포넌트에 무게)
+function screenCores(picks, index, cfg) {
+  const names = index && index.component_names;
+  const files = ((index && index.files) || []).filter(f => (f.screen_components || []).length);
+  if (!picks || !names || !files.length) return {};
+  const screens = files.flatMap(f => f.screen_components.map(s => ({ core: f.name, s, set: new Set(s.c) })));
+  const N = screens.length, df = new Map();
+  for (const x of screens) for (const i of x.set) df.set(i, (df.get(i) || 0) + 1);
+  const pos = new Map(names.map((n, i) => [compHash(n), i]));
+  const weight = (i) => Math.log((N + 1) / ((i == null ? 0 : df.get(i) || 0) + 1));
+  const out = {};
+  for (const [id, list] of Object.entries(picks)) {
+    const ids = [...new Set(list || [])].map(nm => pos.has(nm) ? pos.get(nm) : null);
+    const total = ids.reduce((a, i) => a + weight(i), 0);
+    if (!total) continue;
+    const byCore = {};
+    for (const x of screens) {
+      const v = ids.reduce((a, i) => a + (i != null && x.set.has(i) ? weight(i) : 0), 0) / total;
+      if (!byCore[x.core] || v > byCore[x.core].v) byCore[x.core] = { v, screen: x.s.name };
+    }
+    const best = Object.entries(byCore).sort((a, b) => b[1].v - a[1].v)[0];
+    out[id] = { byCore, best: best ? { name: best[0], v: best[1].v, screen: best[1].screen } : null };
+  }
+  return out;
+}
+// 다른 Core의 화면 가려내기 (2026-10-30 윤우: 프로젝트 문서 플로우의 첫 진입점은 그 프로젝트 스펙의 주요 화면이 아니다 → 새 묶음에 넣지 않는다)
+// 가장 겹치는 Core가 지금 고치는 Core가 아니고, 그 겹침이 strong 이상이며, 지금 Core와는 near보다 더 벌어진 화면만. 이름이 조금 다른 같은 Core("[Core] 결제/구독 ⚜️" ↔ "[Core] 결제/구독")는 같은 것으로 본다.
+const coreKey = (n) => String(n || '').replace(/\[core\]|⚜️|\s/gi, '').toLowerCase();
+function foreignScreens(scored, coreName, cfg) {
+  const me = coreKey(coreName), out = {};
+  if (!me) return out;
+  for (const [id, r] of Object.entries(scored || {})) {
+    if (!r.best || coreKey(r.best.name) === me || r.best.v < cfg.strong) continue;
+    const mine = Object.entries(r.byCore).filter(([n]) => coreKey(n) === me).map(([, b]) => b.v)[0] || 0;
+    if (mine >= r.best.v - cfg.near) continue;
+    out[id] = { core: r.best.name, screen: r.best.screen, v: r.best.v, mine };
+  }
+  return out;
+}
 const featureLabel = (index, fams) => (fams || []).map(fm => ((index && index.component_names) || []).filter(n => family(n) === fm).map(n => n.split('/')[0].replace(/\s*\([^)]*\)\s*/g, ' ').trim()).sort((a, b) => a.length - b.length)[0] || fm);
-module.exports = { judge, contentMatch, compHash, family, featureLabel };
+module.exports = { judge, contentMatch, compHash, family, featureLabel, screenCores, foreignScreens };

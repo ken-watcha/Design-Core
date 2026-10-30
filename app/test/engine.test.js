@@ -421,6 +421,35 @@ const fixture = require('./fixture-stepmade.json');
     assert.deepStrictEqual(g2.rows.find(r => r.action === '묶음 추가').sources.map(f => f.id), ['P1']);
     assert.strictEqual(addGroups(d, reads, null), d, '프로젝트 이름이 없으면 그대로');
   }
+  // 다른 Core의 화면은 새 묶음에서 뺀다 (2026-10-30 윤우: 플로우 첫 진입점 "콘텐츠 상세 페이지"는 결제 프로젝트 스펙의 주요 화면이 아니다)
+  {
+    const { addGroups } = require('../engine/delta');
+    const { screenCores, foreignScreens, compHash } = require('../engine/judge');
+    const H = (n) => compHash(n);
+    // 작은 색인: 결제 Core 화면 2장, 콘상페 Core 화면 2장. 공통 컴포넌트(상단바·버튼)는 모두에, 드문 컴포넌트는 Core마다 다르게
+    const names = ['상단바', '버튼', '결제카드', '요금제셀', '포스터', '회차목록', '별점'];
+    const idx = (c) => c.map(n => names.indexOf(n));
+    const index = { component_names: names, files: [
+      { name: '[Core] 결제/구독 ⚜️', key: 'PAY', screen_components: [{ id: 'a', name: '결제', c: idx(['상단바', '버튼', '결제카드', '요금제셀']) }, { id: 'b', name: '구독', c: idx(['상단바', '결제카드']) }] },
+      { name: '[Core] 콘상페 ⚜️', key: 'DET', screen_components: [{ id: 'c', name: '콘텐츠 상세', c: idx(['상단바', '버튼', '포스터', '회차목록', '별점']) }, { id: 'd', name: '상세 2', c: idx(['상단바', '포스터']) }] },
+    ] };
+    const picks = { P1: ['상단바', '버튼', '결제카드', '요금제셀'].map(H), P0: ['상단바', '버튼', '포스터', '회차목록', '별점'].map(H), P9: ['상단바', '버튼'].map(H), P8: ['없는것'].map(H) };
+    const sc = screenCores(picks, index, { strong: 0.7, near: 0.05 });
+    assert.strictEqual(sc.P1.best.name, '[Core] 결제/구독 ⚜️'); assert.strictEqual(sc.P0.best.name, '[Core] 콘상페 ⚜️');
+    assert.strictEqual(sc.P8.best.v, 0, '색인에 없는 컴포넌트만 있으면 어느 Core와도 겹침 0');
+    const skip = foreignScreens(sc, '[Core] 결제/구독', { strong: 0.7, near: 0.05 });
+    assert.deepStrictEqual(Object.keys(skip), ['P0'], '콘상페 화면만 다른 Core로 가림 (공통 컴포넌트만 있는 P9는 두 Core가 비슷해 가리지 않음)');
+    assert.strictEqual(skip.P0.core, '[Core] 콘상페 ⚜️');
+    assert.deepStrictEqual(foreignScreens(sc, '[Core] 콘상페 ⚜️', { strong: 0.7, near: 0.05 }) && Object.keys(foreignScreens(sc, '[Core] 콘상페 ⚜️', { strong: 0.7, near: 0.05 })), ['P1'], '콘상페 Core를 고칠 때는 결제 화면이 빠짐');
+    const d = { rows: [{ action: '추가', platform: 'WEB', cls: 'large', width: 1280, desc: '1280~', source: { id: 'P1', name: '패키지 결제', w: 1280, h: 900, sig: 's1' }, target: null, beside: { id: 'C1' } }], missing: [], summary: { add: 1 } };
+    const reads = [{ platform: 'WEB', width: 1280, total: 3, frames: [{ id: 'P0', name: '콘텐츠 상세 페이지', w: 1280, h: 832, sig: 's0' }, { id: 'P1', name: '패키지 결제', w: 1280, h: 900, sig: 's1' }] }];
+    const g = addGroups(d, reads, '패키지 인지', skip);
+    assert.deepStrictEqual(g.rows[0].sources.map(f => f.id), ['P1'], '다른 Core 화면은 묶음에서 빠짐');
+    assert(g.rows[0].why.includes('콘텐츠 상세 페이지') && g.rows[0].why.includes('[Core] 콘상페'), '뺀 화면과 그 Core를 표에 적음');
+    // 대표로 고른 화면까지 다른 Core 것이면 그 폭은 넣지 않고 확인 칸으로
+    const g2 = addGroups(d, reads, '패키지 인지', { P0: skip.P0, P1: { core: '[Core] 콘상페 ⚜️' } });
+    assert(g2.rows[0].action === '그대로' && g2.rows[0].check && !g2.rows[0].source && g2.summary.addGroup === 0 && g2.summary.untouched === 1, '넣을 화면이 없으면 그대로(확인)');
+  }
   // 반영: 새 묶음은 섹션 맨 아래에 ⚪ 바 + 폭마다 한 줄, 기존 줄은 건드리지 않음
   {
     let seq = 0;

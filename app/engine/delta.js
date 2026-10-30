@@ -200,24 +200,34 @@ function applyGroups(delta, groups, cases) {
 // 일반 결제만 있는 Core에 패키지 결제 문서를 넣었더니 대표 1장(패키지 팝업)만 기존 줄에 끼어 "어느 게 패키지 케이스인지" 구분이 안 됐다.
 // '추가' 칸(Core에 맞는 화면이 없어 새로 넣는 칸)은 그 폭의 이름 다른 화면을 모두(reads = figma-group.js 새 묶음 읽기) 프로젝트 이름 묶음으로 넣는다.
 // 교체·유지·그대로 칸은 그대로. 대표로 고른 화면은 읽기에 빠졌어도 반드시 넣는다.
-function addGroups(delta, reads, title) {
+function addGroups(delta, reads, title, skip) {
   const adds = delta.rows.filter(r => r.action === '추가' && r.source);
   if (!adds.length || !title) return delta;
+  skip = skip || {};
   const used = new Set(delta.rows.filter(r => r.source && r.action !== '추가').map(r => r.source.sig));
   const rows = delta.rows.slice();
   for (const r of adds) {
     const g = (reads || []).find(x => x.platform === r.platform && Math.abs(x.width - r.width) < 0.5);
-    let news = g && !g.tooMany ? g.frames.filter(f => !used.has(f.sig)) : [];
-    if (!news.some(f => f.id === r.source.id)) news = [r.source].concat(news.filter(f => f.sig !== r.source.sig));
+    const all = g && !g.tooMany ? g.frames.filter(f => !used.has(f.sig)) : [];
+    if (!all.some(f => f.id === r.source.id)) all.unshift(r.source);
+    // 다른 Core의 화면(플로우 첫 진입점 등)은 묶음에서 뺀다 — 색인과 컴포넌트가 가장 겹치는 Core가 다른 곳인 화면 (judge.js foreignScreens)
+    const out = all.filter(f => skip[f.id]);
+    const news = all.filter(f => !skip[f.id]);
+    const outNote = out.length ? ` · 다른 Core 화면 ${out.length}장은 뺌(${out.slice(0, 4).map(f => `"${f.name || f.id}" → ${skip[f.id].core}`).join(', ')}${out.length > 4 ? ' 외' : ''})` : '';
+    if (!news.length) {
+      rows[rows.indexOf(r)] = { platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, action: '그대로', check: true, source: null, target: null, beside: null,
+        why: `이 폭의 시안은 다른 Core의 화면뿐이라 넣지 않음${outNote} — 이 프로젝트 화면이 맞으면 직접 넣어 주세요` };
+      continue;
+    }
     const names = news.map(f => `"${f.name || f.id}"`);
     rows[rows.indexOf(r)] = {
       platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, action: '묶음 추가', check: false, group: { title }, sources: news,
       source: Object.assign({}, news[0], { name: news.length > 1 ? `${names.slice(0, 3).join(' · ')}${news.length > 3 ? ' 외' : ''} ${news.length}장` : news[0].name }), target: null, beside: null,
-      why: `Core에 없는 케이스라 기존 줄에 섞지 않고 "${title}" 묶음으로 따로 넣음 — 이 폭의 이름 다른 화면 ${news.length}장(${names.slice(0, 6).join(', ')}${news.length > 6 ? ' 외' : ''})`
+      why: `Core에 없는 케이스라 기존 줄에 섞지 않고 "${title}" 묶음으로 따로 넣음 — 이 폭의 이름 다른 화면 ${news.length}장(${names.slice(0, 6).join(', ')}${news.length > 6 ? ' 외' : ''})${outNote}`
     };
   }
   const count = (a) => rows.filter(r => r.action === a).length;
-  return Object.assign({}, delta, { rows, summary: Object.assign({}, delta.summary, { add: count('추가'), addGroup: count('묶음 추가') }) });
+  return Object.assign({}, delta, { rows, summary: Object.assign({}, delta.summary, { add: count('추가'), addGroup: count('묶음 추가'), untouched: count('그대로') }) });
 }
 
 module.exports = { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups };
