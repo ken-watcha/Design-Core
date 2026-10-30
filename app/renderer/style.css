@@ -50,6 +50,8 @@ table.delta .size { font-size:12px; }
 table.delta .go { width:56px; text-align:right; color:var(--accent); font-weight:600; white-space:nowrap; }
 table.delta tr.pick { cursor:pointer; }
 table.delta tr.pick:hover td { background:var(--bg); }
+table.delta tr.quiet-toggle td { padding-top:10px; border-bottom:none; }
+table.delta tr.quiet-toggle .chev { transform:rotate(90deg); }
 /* 두 화면 나란히 보기 */
 .cmp-back { position:fixed; inset:0; background:rgba(0,0,0,.45); display:flex; align-items:center; justify-content:center; padding:24px; z-index:10; }
 .cmp { background:var(--surface); border-radius:12px; width:min(1280px,100%); height:100%; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 12px 40px rgba(0,0,0,.3); }
