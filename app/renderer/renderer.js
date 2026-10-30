@@ -324,7 +324,7 @@ const diffHtml = (d) => {
 };
 // 오른쪽 화살표 아이콘 (글자 › 는 작고 굵기가 안 맞아 2026-10-12 윤우 지적으로 바꿈)
 const CHEV = '<svg class="chev" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '묶음 교체': 'warn', '부분 교체': 'warn', '묶음 삭제': 'warn', '그대로': '', '미수록': 'bad' };
+const ACTION_PILL = { '유지': 'ok', '교체': 'warn', '추가': 'warn', '묶음 교체': 'warn', '묶음 추가': 'warn', '부분 교체': 'warn', '묶음 삭제': 'warn', '그대로': '', '미수록': 'bad' };
 const screenCell = (x) => x ? `${esc(x.name || '')}${x.w ? `<div class="muted size">${x.w}×${x.h}</div>` : ''}` : '<span class="muted">—</span>';
 function showDelta() {
   const d = work.delta, s = d.summary;
@@ -334,7 +334,7 @@ function showDelta() {
   const rows = d.rows.map((r, i) => `<tr class="pick${quiet(r) ? ' quiet' : ''}" data-row="${i}" title="눌러서 두 화면 나란히 보기"${quiet(r) && !work.showQuiet ? ' hidden' : ''}><td class="act"><span class="pill ${ACTION_PILL[r.action]}">${r.action}</span></td><td>${esc(r.platform)} ${esc(r.cls || '')} ${r.width ? r.width + 'px' : ''}</td>
     <td>${screenCell(r.source)}</td><td>${r.target ? screenCell(Object.assign({ name: 'Core' }, r.target)) : screenCell(null)}</td><td class="muted">${r.check ? '<span class="pill warn">확인 필요</span> ' : ''}${esc(r.why)}${diffHtml(r.diff)}</td><td class="go"><span class="go-in">비교${CHEV}</span></td></tr>`).join('');
   // todo = 시안 화면을 붙여 넣어야 하는 칸. drops = 붙여넣기 없이 반영만 누르면 되는 칸(묶음 삭제)
-  const todo = d.rows.filter(r => ['교체', '추가', '묶음 교체', '부분 교체'].includes(r.action));
+  const todo = d.rows.filter(r => ['교체', '추가', '묶음 교체', '묶음 추가', '부분 교체'].includes(r.action));
   const drops = d.rows.filter(r => r.action === '묶음 삭제');
   // 파일 사이로는 앱이 화면을 못 옮긴다 → 사람이 프로젝트 페이지를 통째로 ⌘C/⌘V 한 번, 필요한 화면 고르기·정리는 앱이 한다
   // (2026-10-26 윤우: 단계가 복잡하고 맥락을 모르면 따라 하기 어렵다 → 프로젝트 브랜치·모으기 없앰, 지금 할 단계 하나만 펼쳐 보임)
@@ -371,7 +371,7 @@ function showDelta() {
     : `<div class="conclusion ok"><b>바꿀 화면이 없어요.</b> Core가 프로젝트 문서와 같아요. 브랜치는 머지할 필요 없이 버리면 돼요.${next.length ? '<ul>' + next.map(t => `<li>${t}</li>`).join('') + '</ul>' : ''}</div>`;
   $('#work').innerHTML = `<section class="panel"><h2>바뀔 내용 — ${esc(current.place.coreName)}</h2>
     ${verdict}
-    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.group ? ' · 묶음 교체 ' + s.group : ''}${s.part ? ' · 부분 교체 ' + s.part : ''}${s.drop ? ' · 묶음 삭제 ' + s.drop : ''}${s.untouched ? ' · 그대로 ' + s.untouched : ''} ${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
+    <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.group ? ' · 묶음 교체 ' + s.group : ''}${s.addGroup ? ' · 묶음 추가 ' + s.addGroup : ''}${s.part ? ' · 부분 교체 ' + s.part : ''}${s.drop ? ' · 묶음 삭제 ' + s.drop : ''}${s.untouched ? ' · 그대로 ' + s.untouched : ''} ${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
     <p class="hint" style="margin:0 0 6px">줄을 누르면 프로젝트 화면과 Core 화면을 나란히 볼 수 있어요.</p>
     <table class="delta"><tr><th class="act"></th><th>칸</th><th>프로젝트 화면</th><th>Core 화면</th><th></th><th></th></tr>${rows}${nQuiet ? `<tr class="quiet-toggle"><td colspan="6"><button class="link plain" id="quietToggle">${work.showQuiet ? `그대로 ${nQuiet}칸 접기` : `그대로 ${nQuiet}칸 보기`}${CHEV}</button><span class="muted"> 프로젝트에 맞는 칸이 없어 손대지 않는 화면이에요.</span></td></tr>` : ''}</table>
     ${work.unverifiedBranch ? '<p class="hint">이 링크가 브랜치인지 복제본인지는 앱이 가릴 수 없습니다. 복제본이면 나중에 Core에 합칠(머지) 수 없으니, Figma에서 브랜치인지 한 번 확인해 주세요.</p>' : ''}

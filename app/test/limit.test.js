@@ -5,7 +5,7 @@ const rules = require('../../plugin/rules.json');
 const { buildCoreReadCode } = require('../engine/figma-core-read');
 const { readItemCounts, readItemLabels, findSources } = require('../engine/figma-find');
 const { buildAnalyzeCode } = require('../engine/figma-analyze');
-const { buildCaseReadCode } = require('../engine/figma-group');
+const { buildCaseReadCode, buildNewGroupReadCode } = require('../engine/figma-group');
 const { buildRegionReadCode } = require('../engine/figma-part');
 const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
 const LIMIT = 20480;
@@ -60,6 +60,10 @@ const runner = async (key, code, desc) => {
   const cw = docPages.flatMap(p => widths.map(w => ({ platform: 'APP', width: w, pageId: p.id })));
   const cr = (await runner('DOC', buildCaseReadCode(rules, { want: cw }), '묶음 시안 화면')).data;
   assert.strictEqual(cr.sections.length, cw.length, '폭마다 섹션을 골라 받음');
+  // 새 묶음 추가: 폭마다 이름 다른 화면 모두 읽기 (2026-10-30) — 큰 문서라도 한도 아래
+  const gr = (await runner('DOC', buildNewGroupReadCode(rules, { want: cw, prefer: [] }), '새 묶음 시안 화면')).data;
+  assert.strictEqual(gr.groups.length, cw.length, '폭마다 받음');
+  assert(gr.groups.every(g => g.frames.length <= 12), '폭마다 12장까지');
   assert.strictEqual(read.platforms.APP.screens.length, N, 'Core 화면을 모두 읽음');
   const targets = read.platforms.APP.screens.map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
   const f = await findSources(runner, 'DOC', targets, '원본 찾기');
