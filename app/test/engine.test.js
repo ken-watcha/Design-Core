@@ -341,6 +341,10 @@ const fixture = require('./fixture-stepmade.json');
     kid(bdg5, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); const lk5 = kid(bdg5, node('TEXT', 'Text', { characters: '링크', hyperlink: null, getStyledTextSegments: () => [{ fontName: { family: 'Pretendard JP', style: 'Bold' } }] }));
     const bdgB = kid(card5, node('INSTANCE', '뱃지')); kid(bdgB, node('TEXT', 'Text', { characters: '🔗' })); const lkB = kid(bdgB, node('TEXT', 'Text', { characters: '링크', hyperlink: { type: 'URL', value: 'https://old' } }));
     const inHome = kid(home, node('TEXT', 't', { characters: '링크', hyperlink: null }));
+    // 이번에 화면이 안 바뀌는 WEB 섹션의 카드도 채운다 (2026-10-30 윤우 "여전히 안 걸려 있잖아")
+    const web5 = kid(root5, node('SECTION', 'WEB')); const cardW = kid(web5, node('FRAME', '피쳐링셀 케이스'));
+    const bdgW = kid(kid(cardW, node('INSTANCE', 'ㄴ 상태 뱃지')), node('INSTANCE', 'ㄴ 🪐 상단 Badge'));
+    kid(bdgW, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); const lkW = kid(bdgW, node('TEXT', 'Text', { characters: '링크', hyperlink: null, getStyledTextSegments: () => [{ fontName: { family: 'Pretendard JP', style: 'Bold' } }] }));
     const fig5 = { fileKey: 'BRANCH', root: { children: [page5] }, loadFontAsync: async () => {},
       createFrame: () => { const f = node('FRAME', 'f'); f.resize = (w, h) => { f.width = w; f.height = h; }; return f; }, createText: () => node('TEXT', 't'),
       importComponentByKeyAsync: async () => ({ createInstance: () => { const b = node('INSTANCE', '뱃지'); b.setProperties = () => {}; kid(b, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(b, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] })); return b; } }),
@@ -356,8 +360,9 @@ const fixture = require('./fixture-stepmade.json');
     assert(old5.removed && sub5.removed && gb5.removed && !home.removed, '묶음은 바·화면째 지우고 메인 화면은 남김');
     assert.strictEqual(far5.x, 1400 - 800 - rules.layout.gap, '오른쪽 것은 왼쪽으로 당김');
     assert(paste5.removed, '남은 붙여넣기는 지움');
-    assert.strictEqual(out5.badgeLinks, 1, '빈 링크 뱃지 1개에 링크: ' + JSON.stringify(out5.log));
+    assert.strictEqual(out5.badgeLinks, 2, '빈 링크 뱃지 2개(APP·WEB)에 링크: ' + JSON.stringify(out5.log));
     assert.deepStrictEqual(lk5.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '카드의 빈 🔗 링크 뱃지에 문서 링크');
+    assert.deepStrictEqual(lkW.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '화면이 안 바뀐 WEB 섹션의 카드도');
     assert(lkB.hyperlink.value === 'https://old' && inHome.hyperlink === null, '이미 걸린 링크·화면 속 글자는 그대로');
     // 높이가 다르면 손대지 않는다
     const page6 = node('PAGE', '🌏 마스터 파일'); const root6 = kid(page6, node('SECTION', '🌏 SVOD')); const app6 = kid(root6, node('SECTION', 'APP'));
