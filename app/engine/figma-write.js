@@ -80,16 +80,20 @@ function stretchTopBars(sec, pad, skip) {
   const topY = Math.min(...bars.map(b => b.y));
   for (const b of bars.filter(b => Math.abs(b.y - topY) < 2)) { try { b.resize(Math.max(b.width, inner), b.height); } catch (e) {} }
 }
+// 섹션을 내용에 맞춘다: 키우기만 하지 않고 줄이기도 한다 (2026-10-30 윤우 "여백이 왜케 크게 잡혀?" — 🌏 SVOD가 내용보다 9,000px 넓게 남아 있었음).
+// 오른쪽·아래 여백 = 내용의 왼쪽·위 여백과 같게(최소 pad). 옆·아래 섹션은 늘어난 만큼 밀고, 줄어든 만큼 당긴다.
 function fitSection(s, pad) {
-  let r = 0, b = 0; for (const c of s.children) { r = Math.max(r, c.x + c.width); b = Math.max(b, c.y + c.height); }
+  const kids = s.children.filter(c => !c.removed); if (!kids.length) return;
+  let r = 0, b = 0, l = Infinity, t = Infinity;
+  for (const c of kids) { r = Math.max(r, c.x + c.width); b = Math.max(b, c.y + c.height); l = Math.min(l, c.x); t = Math.min(t, c.y); }
   const w0 = s.width, h0 = s.height;
-  s.resizeWithoutConstraints(Math.max(s.width, r + pad), Math.max(s.height, b + pad));
+  s.resizeWithoutConstraints(Math.max(1, r + Math.max(pad, l)), Math.max(1, b + Math.max(pad, t)));
   const dw = s.width - w0, dh = s.height - h0;
-  if ((dw <= 0 && dh <= 0) || !s.parent || !('children' in s.parent)) return;
+  if ((!dw && !dh) || !s.parent || !('children' in s.parent)) return;
   for (const n of s.parent.children) {
     if (n === s || n.removed) continue;
-    if (dw > 0 && n.x >= s.x + w0 - 1 && n.y < s.y + h0 && n.y + n.height > s.y) n.x += dw;   // 오른쪽에 나란히 있던 것
-    if (dh > 0 && n.y >= s.y + h0 - 1 && n.x < s.x + s.width && n.x + n.width > s.x) n.y += dh; // 아래에 있던 것
+    if (dw && n.x >= s.x + w0 - 1 && n.y < s.y + h0 && n.y + n.height > s.y) n.x += dw;   // 오른쪽에 나란히 있던 것
+    if (dh && n.y >= s.y + h0 - 1 && n.x < s.x + s.width && n.x + n.width > s.x) n.y += dh; // 아래에 있던 것
   }
 }
 `;
