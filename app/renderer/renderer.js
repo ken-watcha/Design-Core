@@ -369,7 +369,7 @@ function showDelta() {
     ? `<div class="conclusion warn"><b>바꿀 화면 ${todo.length}칸${drops.length ? ` · 지울 묶음 ${drops.length}개` : ''}</b> — 아래 "화면 옮기기" 순서대로 따라 해 주세요.${d.part ? ` 메인 화면은 그대로 두고 ${esc(work.label || '핵심 컴포넌트')} 영역 속만 바꿔요.` : ''}</div>`
     : drops.length ? `<div class="conclusion warn"><b>지울 묶음 ${drops.length}개</b> — 메인 화면 속 ${esc(work.label || '핵심 컴포넌트')}은 이미 시안과 같아요. 아래 [반영]을 눌러 주세요.</div>`
     : `<div class="conclusion ok"><b>바꿀 화면이 없어요.</b> Core가 프로젝트 문서와 같아요. 브랜치는 머지할 필요 없이 버리면 돼요.${next.length ? '<ul>' + next.map(t => `<li>${t}</li>`).join('') + '</ul>' : ''}</div>`;
-  $('#work').innerHTML = `<section class="panel"><h2>Δ 바뀔 내용 — ${esc(current.place.coreName)}</h2>
+  $('#work').innerHTML = `<section class="panel"><h2>바뀔 내용 — ${esc(current.place.coreName)}</h2>
     ${verdict}
     <p class="muted">유지 ${s.keep}${s.near ? ` (그중 거의 같음 ${s.near})` : ''} · 교체 ${s.replace} · 추가 ${s.add}${s.group ? ' · 묶음 교체 ' + s.group : ''}${s.part ? ' · 부분 교체 ' + s.part : ''}${s.drop ? ' · 묶음 삭제 ' + s.drop : ''}${s.untouched ? ' · 그대로 ' + s.untouched : ''} ${work.preferred ? ` — Core에 이미 있는 화면과 같은 후보 ${work.preferred}칸을 대표로 맞췄습니다` : ''}</p>
     <p class="hint" style="margin:0 0 6px">줄을 누르면 프로젝트 화면과 Core 화면을 나란히 볼 수 있어요.</p>
