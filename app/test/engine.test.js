@@ -378,6 +378,24 @@ const fixture = require('./fixture-stepmade.json');
     assert.deepStrictEqual(nt[1].hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '그 글자에 문서 링크');
     assert(!card7.removed && card7.parent === root7 && !page7.children.some(n => /링크 카드/.test(n.name)), '카드를 새로 만들지 않음');
     assert(p7.parent === app7, '시안은 APP 섹션으로');
+    // 카드가 없는 Core(SVOD)는 디자이너 카드와 같은 모양으로 새로 만든다: Core 이름 + 안내 글 + 뱃지, 내용 크기, Pretendard JP
+    const page8 = node('PAGE', '🌏 마스터 파일'); const root8 = kid(page8, Object.assign(node('SECTION', '🌏 SVOD'), { x: 100, y: 500, width: 1000, height: 1000 })); const app8 = kid(root8, node('SECTION', 'APP'));
+    const home8 = kid(app8, screen(375, 4816, '홈')); const p8 = kid(page8, screen(375, 812, '시안'));
+    page8.loadAsync = async () => {};
+    const texts8 = [], fonts8 = [];
+    const fig8 = { fileKey: 'BRANCH', root: { children: [page8] }, getNodeByIdAsync: async (id) => (id === home8.id ? home8 : null),
+      loadFontAsync: async (f) => { if (f.family !== 'Pretendard JP' && f.family !== 'Inter') throw new Error('no font'); fonts8.push(f.family); },
+      createFrame: () => { const f = node('FRAME', 'f'); f.resize = (w, h) => { f.width = w; f.height = h; }; return f; },
+      createText: () => { const t = node('TEXT', 't'); texts8.push(t); return t; },
+      importComponentByKeyAsync: async (key) => { if (key !== rules.components.badge) return { createInstance: () => inst('🔵', 0, 0, 100, 40) }; return { createInstance: () => { const b = node('INSTANCE', '뱃지'); b.setProperties = () => {}; kid(b, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(b, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] })); return b; } }; } };
+    const out8 = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id], keepTop: [root8.id], rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(p8) }, beside: { id: home8.id, bar: null } }] })))(fig8);
+    assert(out8.linkAdded && out8.linkAdded.newCard && out8.linkAdded.badge, '카드를 새로 만들고 뱃지로 링크: ' + JSON.stringify(out8.linkAdded));
+    const card8 = page8.children.find(n => /링크 카드/.test(n.name));
+    assert.deepStrictEqual(texts8.map(t => t.characters), ['SVOD', 'SVOD 관련 자세한 스펙은 아래 링크를 참고해주세요!'], 'Core 이름 + 안내 글 (디자이너 카드와 같은 글)');
+    assert(texts8.every(t => t.fontName.family === 'Pretendard JP') && texts8[0].fontSize === 20 && texts8[1].fontSize === 16, 'Pretendard JP 20/16');
+    assert(card8.primaryAxisSizingMode === 'AUTO' && card8.counterAxisSizingMode === 'AUTO' && card8.itemSpacing === 16 && card8.paddingLeft === 24, '내용 크기·여백 24·간격 16');
+    const b8 = card8.children.filter(n => n.type === 'INSTANCE'); assert.strictEqual(b8.length, 1);
+    assert.deepStrictEqual(b8[0].findAll(n => n.type === 'TEXT').map(n => n.characters), ['🔗', '패키지 인지 (2026.10)']);
   }
   // 부분 갱신 (2026-10-28 윤우): 메인 화면은 그대로, 핵심 컴포넌트 영역 속만 바꾸고 따로 정리한 묶음은 지운다
   {

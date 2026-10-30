@@ -8,7 +8,11 @@ const HELPERS = String.raw`
 const rgb = (a) => ({ r: a[0] / 255, g: a[1] / 255, b: a[2] / 255 });
 const log = []; const say = (m) => log.push(m);
 async function loadPages() { for (const p of figma.root.children) { try { await p.loadAsync(); } catch (e) {} } }
-async function loadFont(style) { const f = { family: 'Pretendard', style }; try { await figma.loadFontAsync(f); return f; } catch (e) { const g = { family: 'Inter', style: style === 'Bold' ? 'Bold' : 'Regular' }; await figma.loadFontAsync(g); return g; } }
+// 글꼴: 디자이너 카드와 같은 Pretendard JP 먼저, 없으면 Pretendard, 그것도 없으면 Inter (2026-10-30 윤우: 앱이 만든 카드가 Inter라 다르게 보임)
+async function loadFont(style) {
+  for (const family of ['Pretendard JP', 'Pretendard']) { const f = { family, style }; try { await figma.loadFontAsync(f); return f; } catch (e) {} }
+  const g = { family: 'Inter', style: style === 'Bold' ? 'Bold' : 'Regular' }; await figma.loadFontAsync(g); return g;
+}
 async function loadTextFonts(t) { for (const s of t.getStyledTextSegments(['fontName'])) await figma.loadFontAsync(s.fontName); }
 const pageByName = (name) => figma.root.children.find(p => p.name.trim() === name.trim());
 async function bar(kind, parent, x, y, w, title, desc) {
@@ -424,7 +428,8 @@ if (keepTop && done.length && pastedUsed) for (const n of page.children.filter(n
 // 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
-if (root) fitSection(root, L.rootPadding);
+// 플랫폼 섹션(APP·WEB)도 매번 내용에 맞춘다 — 예전 맞추기(오른쪽 60px 고정)로 왼쪽 417·오른쪽 62처럼 어긋난 여백을 바로잡는다 (2026-10-30 윤우 "섹션 내 좌우 패딩값이 다르게")
+if (root) { for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) fitSection(sec, L.sectionPadding); fitSection(root, L.rootPadding); }
 // 이번 프로젝트 문서 링크를 링크 카드에 건다. 카드가 없는 Core(SVOD 등)는 루트 섹션 위에 카드를 새로 둔다 (2026-10-21 윤우)
 // 링크는 기존 카드와 같은 형태로: 카드 속 "🔗 관련 스펙 링크" 뱃지를 복제해 글자를 프로젝트 이름으로 바꾸고 링크를 건다 (2026-10-30 윤우: 형태 통일). 뱃지가 없으면 뱃지 컴포넌트를 불러오고, 그것도 안 되면 파란 글자
 let linkAdded = null;
@@ -433,11 +438,13 @@ if (done.length && PLAN.sourceUrl) {
   const already = card && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
   if (!already) {
     if (!card) {
+      // 디자이너가 만든 카드(결제/구독 '결제')와 같은 모양: 세로 자동 배치·여백 24·간격 16·모서리 12·내용 크기, Core 이름(20 Bold) + 안내 글(16 Medium) + 뱃지 (2026-10-30 윤우: 형태 통일)
+      const coreShort = String(PLAN.coreName || '').replace(/^\[Core\]\s*/, '').replace(/\s*⚜️\s*$/, '').trim() || 'Core';
       card = figma.createFrame(); card.name = '📎 스펙 링크 카드'; page.appendChild(card); made = true;
       card.layoutMode = 'VERTICAL'; card.itemSpacing = 16; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
-      card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'FIXED'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
-      card.resize(L.cardSize[0], L.cardSize[1]);
-      await text(card, RULES.linkCard.badgeText, 'Bold', 18, { r: 1, g: 1, b: 1 });
+      card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'AUTO'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
+      await text(card, coreShort, 'Bold', 20, { r: 1, g: 1, b: 1 });
+      await text(card, RULES.linkCard.body.replace(/<프로젝트명>/g, coreShort), 'Medium', 16, { r: 1, g: 1, b: 1 });
     }
     const label = (PLAN.projectName || '프로젝트 문서') + (PLAN.month ? ' (' + PLAN.month + ')' : '');
     const badge = card.findOne(n => n.type === 'INSTANCE' && hasLinkText(n));
