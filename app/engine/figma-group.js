@@ -23,8 +23,44 @@ while (bytes(out) > 16000 && out.sections.some(s => s.frames.length)) { const bi
 return out;
 `;
 
+// 새 묶음 추가(2026-10-30 윤우): Core에 없는 케이스(일반 결제만 있는 Core ↔ 패키지 결제 문서)는 폭마다 대표 1장을 기존 줄에 섞지 않고,
+// 그 폭의 이름 다른 화면을 모두 읽어 프로젝트 이름 묶음(⚪ 바)으로 따로 넣는다. 케이스별 중복(같은 이름)은 맨 위 1장만, 대표로 고른 화면(prefer)은 반드시.
+const NEW_GROUP_SIDE = String.raw`
+const out = { groups: [] };
+const norm = (t) => String(t || '').toLowerCase().replace(/[\s_\-()[\]·]/g, '');
+const avoid = (PLAN.avoidNames || []).map(norm).filter(Boolean);
+const prefer = new Set(PLAN.prefer || []);
+const ay = (n) => n.absoluteTransform ? n.absoluteTransform[1][2] : n.y, ax = (n) => n.absoluteTransform ? n.absoluteTransform[0][2] : n.x;
+for (const w of PLAN.want) {
+  const page = await figma.getNodeByIdAsync(w.pageId);
+  if (!page) continue;
+  try { await page.loadAsync(); } catch (e) {}
+  const pool = [];
+  const walk = (n) => { for (const c of n.children || []) { if (c.type === 'FRAME') { if (Math.abs(c.width - w.width) < 0.5 && c.height >= PLAN.minHeight) pool.push(c); } else if (c.type === 'SECTION' || c.type === 'GROUP') walk(c); } };
+  walk(page);
+  const by = new Map();
+  for (const f of pool.slice().sort((a, b) => ay(a) - ay(b) || ax(a) - ax(b))) {
+    const k = norm(f.name);
+    if (!k || avoid.some(a => k.includes(a))) continue;
+    if (!by.has(k) || prefer.has(f.id)) by.set(k, f);
+  }
+  const fs = [...by.values()].slice(0, PLAN.max || 12);
+  out.groups.push({ platform: w.platform, width: w.width, total: pool.length, frames: fs.map(f => Object.assign({ id: f.id, name: f.name.slice(0, 30), w: Math.round(f.width), h: Math.round(f.height) }, sigs(f))) });
+}
+// 20KB 한도: 크면 화면 이름부터 빼고, 그래도 크면 화면이 많은 폭부터 비우며 빠졌다고 적는다 (빠진 폭은 앱이 대표 1장만 넣음)
+const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
+if (bytes(out) > 16000) for (const g of out.groups) for (const f of g.frames) delete f.name;
+while (bytes(out) > 16000 && out.groups.some(g => g.frames.length)) { const big = out.groups.slice().sort((a, b) => b.frames.length - a.frames.length)[0]; big.frames = []; big.tooMany = true; }
+return out;
+`;
+
+function buildNewGroupReadCode(rules, plan) {
+  const sp = rules.screenPick || {};
+  return `const PLAN = ${JSON.stringify(Object.assign({ minHeight: sp.minHeight || 0, avoidNames: sp.avoidNames || [] }, plan))};\n` + SIG_FN + NEW_GROUP_SIDE;
+}
+
 function buildCaseReadCode(rules, plan) {
   return `const PLAN = ${JSON.stringify(Object.assign({ minHeight: (rules.screenPick || {}).minHeight || 0 }, plan))};\n` + SIG_FN + FIGMA_SIDE;
 }
 
-module.exports = { buildCaseReadCode };
+module.exports = { buildCaseReadCode, buildNewGroupReadCode };

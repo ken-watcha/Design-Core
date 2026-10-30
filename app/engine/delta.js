@@ -79,7 +79,7 @@ function computeDelta(analysis, core, sources = {}) {
           check: !!near || action === '교체',
           source: { id: src.id, name: src.name, w: src.w, h: src.h, sig: src.sig },
           target: target ? { id: target.id, name: target.name, w: target.w, h: target.h, sig: target.sig, bar: target.bar } : null,
-          beside: beside ? { id: beside.id, name: beside.name, w: beside.w, h: beside.h } : null
+          beside: beside ? { id: beside.id, name: beside.name, w: beside.w, h: beside.h, bar: beside.bar || null } : null
         });
       }
     }
@@ -196,4 +196,28 @@ function applyGroups(delta, groups, cases) {
   return Object.assign({}, delta, { rows, summary: Object.assign({}, delta.summary, { keep: count('유지'), replace: count('교체'), add: count('추가'), untouched: count('그대로'), group: count('묶음 교체') }) });
 }
 
-module.exports = { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows };
+// ---------- 새 묶음 추가 (2026-10-30 윤우) ----------
+// 일반 결제만 있는 Core에 패키지 결제 문서를 넣었더니 대표 1장(패키지 팝업)만 기존 줄에 끼어 "어느 게 패키지 케이스인지" 구분이 안 됐다.
+// '추가' 칸(Core에 맞는 화면이 없어 새로 넣는 칸)은 그 폭의 이름 다른 화면을 모두(reads = figma-group.js 새 묶음 읽기) 프로젝트 이름 묶음으로 넣는다.
+// 교체·유지·그대로 칸은 그대로. 대표로 고른 화면은 읽기에 빠졌어도 반드시 넣는다.
+function addGroups(delta, reads, title) {
+  const adds = delta.rows.filter(r => r.action === '추가' && r.source);
+  if (!adds.length || !title) return delta;
+  const used = new Set(delta.rows.filter(r => r.source && r.action !== '추가').map(r => r.source.sig));
+  const rows = delta.rows.slice();
+  for (const r of adds) {
+    const g = (reads || []).find(x => x.platform === r.platform && Math.abs(x.width - r.width) < 0.5);
+    let news = g && !g.tooMany ? g.frames.filter(f => !used.has(f.sig)) : [];
+    if (!news.some(f => f.id === r.source.id)) news = [r.source].concat(news.filter(f => f.sig !== r.source.sig));
+    const names = news.map(f => `"${f.name || f.id}"`);
+    rows[rows.indexOf(r)] = {
+      platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, action: '묶음 추가', check: false, group: { title }, sources: news,
+      source: Object.assign({}, news[0], { name: news.length > 1 ? `${names.slice(0, 3).join(' · ')}${news.length > 3 ? ' 외' : ''} ${news.length}장` : news[0].name }), target: null, beside: null,
+      why: `Core에 없는 케이스라 기존 줄에 섞지 않고 "${title}" 묶음으로 따로 넣음 — 이 폭의 이름 다른 화면 ${news.length}장(${names.slice(0, 6).join(', ')}${news.length > 6 ? ' 외' : ''})`
+    };
+  }
+  const count = (a) => rows.filter(r => r.action === a).length;
+  return Object.assign({}, delta, { rows, summary: Object.assign({}, delta.summary, { add: count('추가'), addGroup: count('묶음 추가') }) });
+}
+
+module.exports = { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups };

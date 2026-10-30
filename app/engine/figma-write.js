@@ -30,6 +30,20 @@ async function bar(kind, parent, x, y, w, title, desc) {
   i.layoutSizingHorizontal = 'FIXED'; i.resize(w, i.height); i.x = x; i.y = y;
   return i;
 }
+// 본보기 바(tplId)가 있으면 복제해 쓴다 — Core마다 바 모양(제목 숨김, 높이, 색)이 달라서 앱 기본 모양으로 새로 만들면 어긋난다 (2026-10-30 윤우)
+// y가 null이면 본보기의 y를 그대로 둔다(그 Core의 줄 높이). title이 null이면 본보기 제목을 그대로 둔다. 본보기가 없으면 bar()로 만든다
+async function barLike(kind, parent, tplId, x, y, w, title, desc) {
+  const tpl = tplId ? await figma.getNodeByIdAsync(tplId) : null;
+  if (tpl && tpl.type === 'INSTANCE' && !tpl.removed) {
+    const i = tpl.clone(); parent.appendChild(i);
+    try { i.layoutSizingHorizontal = 'FIXED'; } catch (e) {}
+    try { i.resize(w, i.height); } catch (e) {}
+    i.x = x; i.y = y == null ? tpl.y : y;
+    if (title != null) { const t = i.findOne(n => n.type === 'TEXT' && n.name === RULES.components.barTitleTextName); if (t) { try { await loadTextFonts(t); t.characters = title; } catch (e) {} } }
+    return i;
+  }
+  return bar(kind, parent, x, y == null ? RULES.layout.barSizeY : y, w, title == null ? '' : title, desc);
+}
 async function text(parent, chars, style, size, color, url) {
   const t = figma.createText(); parent.appendChild(t);
   t.fontName = await loadFont(style); t.characters = chars; t.fontSize = size;
@@ -55,6 +69,16 @@ function diffFix(a, b, acc) {
 function diffCount(a, b) { let n = 0; const w = (x, y) => { if (Math.abs(x.width - y.width) > 0.5 || Math.abs(x.height - y.height) > 0.5) n++; if ('children' in x && 'children' in y) { const m = Math.min(x.children.length, y.children.length); for (let i = 0; i < m; i++) w(x.children[i], y.children[i]); } }; w(a, b); return n; }
 // 섹션을 속 내용에 맞게 키우고, 커진 만큼 오른쪽·아래에 있던 형제(다른 섹션·화면)를 민다.
 // 2026-10-28 결제/구독 테스트: 🌏 결제 루트 섹션이 WEB 줄 때문에 넓어지며 옆의 🌏 구독 섹션을 덮음 → 형제도 같이 밀기
+// 맨 위 ⚫ 섹션 제목 바만 화면 폭까지 늘린다 (🔵 바는 건드리지 않음 — 2026-10-28 결제/구독 테스트에서 🔵 전부가 8,000px로 늘어났던 일)
+function stretchTopBars(sec, pad, skip) {
+  const frames = sec.children.filter(n => n.type === 'FRAME');
+  if (!frames.length) return;
+  const inner = Math.max(...frames.map(f => f.x + f.width)) - pad;
+  const bars = sec.children.filter(n => n.type === 'INSTANCE' && n !== skip);
+  if (!bars.length) return;
+  const topY = Math.min(...bars.map(b => b.y));
+  for (const b of bars.filter(b => Math.abs(b.y - topY) < 2)) { try { b.resize(Math.max(b.width, inner), b.height); } catch (e) {} }
+}
 function fitSection(s, pad) {
   let r = 0, b = 0; for (const c of s.children) { r = Math.max(r, c.x + c.width); b = Math.max(b, c.y + c.height); }
   const w0 = s.width, h0 = s.height;
@@ -171,6 +195,7 @@ if (PLAN.coreKey && figma.fileKey && figma.fileKey === PLAN.coreKey) throw new E
 const existing = new Set(PLAN.coreScreenIds);
 const want = PLAN.rows.filter(r => r.action === '교체' || r.action === '추가');
 const groupRows = PLAN.rows.filter(r => r.action === '묶음 교체');
+const addRows = PLAN.rows.filter(r => r.action === '묶음 추가');
 const partRows = PLAN.rows.filter(r => r.action === '부분 교체');
 const dropRows = PLAN.rows.filter(r => r.action === '묶음 삭제');
 // 붙여 넣은 것 = 확인 때 읽은 페이지 맨 위 목록(PLAN.keepTop)에 없던 것. 프로젝트 페이지를 통째로 붙여도 되고(2026-10-26 윤우: 단계를 줄이자), 📦 섹션 하나여도 된다.
@@ -179,7 +204,7 @@ const keepTop = PLAN.keepTop ? new Set(PLAN.keepTop) : null;
 const isCard = (n) => n.type === 'FRAME' && /링크 카드/.test(n.name);   // 지난 [반영]이 만든 링크 카드는 붙여넣기가 아니다
 const pastedTop = keepTop ? page.children.filter(n => !keepTop.has(n.id) && !isCard(n)) : [];
 const sizeKey = (w, h) => Math.round(w) + 'x' + Math.round(h);
-const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)).concat(groupRows.flatMap(r => r.sources.map(x => sizeKey(x.w, x.h))), partRows.map(r => sizeKey(r.source.w, r.source.h))));
+const wantSizes = new Set(want.map(r => sizeKey(r.source.w, r.source.h)).concat(groupRows.concat(addRows).flatMap(r => r.sources.map(x => sizeKey(x.w, x.h))), partRows.map(r => sizeKey(r.source.w, r.source.h))));
 let pasted;
 if (keepTop) {
   pasted = [];
@@ -233,13 +258,13 @@ for (const r of want) {
       right = at; screenY = bs.y;
     }
     sec.appendChild(nf); nf.x = right; nf.y = screenY; // 이름은 붙여 넣은 원본 이름 그대로
-    await bar('barBlue', sec, right, L.barSizeY, nf.width, r.cls, r.desc);
+    // 🔵 크기 칸 바: 기준 화면 위 바가 있으면 새 화면까지 늘리고, 없으면 그 크기 칸의 기존 바를 복제한다 (앱 기본 모양 새로 만들기는 마지막 수단)
+    const bb = bs && r.beside.bar ? await figma.getNodeByIdAsync(r.beside.bar) : null;
+    if (bb && bb.parent === sec && bb.x <= bs.x + 1 && bb.x + bb.width >= bs.x + bs.width - 1) { try { bb.resize(bb.width + nf.width + L.gap, bb.height); } catch (e) {} }
+    else await barLike('barBlue', sec, r.sizeBar, right, r.sizeBar ? null : L.barSizeY, nf.width, r.sizeBar ? null : r.cls, r.sizeBar ? null : r.desc);
     // 맨 위 ⚫ 섹션 제목 바만 새 폭까지 늘린다. 2026-10-28 결제/구독 테스트: 🔵 크기 칸 바가 규칙(y 282)보다 위(y 254)에 있는 Core라
     // y 기준으로 고르니 🔵 바 전부가 8,000px로 늘어나 섹션이 옆 섹션을 덮었다 → 가장 위 줄의 바만 늘린다
-    const inner = Math.max(...sec.children.filter(n => n.type === 'FRAME').map(f => f.x + f.width)) - L.sectionPadding;
-    const barsAll = sec.children.filter(n => n.type === 'INSTANCE' && n !== nf);
-    const topY = barsAll.length ? Math.min(...barsAll.map(b => b.y)) : 0;
-    for (const b of barsAll.filter(b => Math.abs(b.y - topY) < 2)) { try { b.resize(Math.max(b.width, inner), b.height); } catch (e) {} }
+    stretchTopBars(sec, L.sectionPadding, nf);
     fitSection(sec, L.sectionPadding);
     done.push({ action: '추가', id: nf.id, platform: r.platform, cls: r.cls, width: r.width, same: sig(nf) === r.source.sig });
   }
@@ -290,6 +315,44 @@ for (const gid of [...new Set(groupRows.map(r => r.group.id))]) {
   if (Math.abs(shift) > 0.5) for (const n of sec.children) if (n !== gb && !placed.has(n.id) && n.x >= x0 + oldW - 1) n.x += shift;
   fitSection(sec, L.sectionPadding);
   say('묶음 "' + gname + '": 지움 ' + removed + ' · 넣음 ' + pick.length);
+}
+// 새 묶음 추가 (2026-10-30 윤우): Core에 없는 케이스는 기존 줄에 섞지 않고, 섹션 맨 아래에 프로젝트 이름 ⚪ 바를 두고 폭마다 한 줄씩(🔵 바 + 화면) 넣는다
+for (const pf of [...new Set(addRows.map(r => r.platform))]) {
+  const rows = addRows.filter(r => r.platform === pf).sort((a, b) => a.width - b.width);
+  const sec = secOf(pf);
+  if (!sec) { notFound.push(pf + ' 섹션 없음'); continue; }
+  const pick = [];
+  for (const r of rows) for (const src of r.sources) {
+    const hit = pasted.find(p => !taken.has(p.f.id) && !pick.some(x => x.p === p) && p.s === src.sig);
+    if (hit) pick.push({ p: hit, r, src }); else notFound.push(pf + ' ' + r.width + 'px "' + (src.name || src.id) + '" (시안 화면 못 찾음)');
+  }
+  if (!pick.length) continue;
+  const title = rows[0].group.title;
+  const frames = sec.children.filter(n => n.type === 'FRAME');
+  const x0 = frames.length ? Math.min(...frames.map(f => f.x)) : L.sectionPadding;
+  let bottom = 0; for (const c of sec.children) bottom = Math.max(bottom, c.y + c.height);
+  // 바는 이 섹션에 있는 것을 복제한다(⚪ 묶음 바·🔵 크기 칸 바 본보기). 없을 때만 앱 기본 모양
+  const gb = await barLike('barWhite', sec, rows[0].groupBar, x0, bottom + L.sectionGap / 2, 100, title, null);
+  let y = gb.y + gb.height + 40, right = x0;
+  for (const r of rows) {
+    const mine = pick.filter(x => x.r === r);
+    if (!mine.length) continue;
+    // 폭마다 한 줄: 🔵 바 하나가 줄 전체를 덮는다(기존 Core와 같은 꼴), 화면은 그 아래
+    const b = await barLike('barBlue', sec, r.sizeBar, x0, y, 100, r.sizeBar ? null : (r.cls || String(r.width)), r.sizeBar ? null : (r.desc || null));
+    let x = x0, rowH = 0;
+    for (const { p, src } of mine) {
+      const nf = p.f; taken.add(nf.id);
+      sec.appendChild(nf); nf.x = x; nf.y = y + b.height + 16;
+      rowH = Math.max(rowH, nf.height); right = Math.max(right, x + nf.width); x += nf.width + L.gap;
+      done.push({ action: '묶음 추가', id: nf.id, platform: pf, cls: r.cls, width: r.width, same: sig(nf) === src.sig });
+    }
+    try { b.resize(x - L.gap - x0, b.height); } catch (e) {}
+    y += b.height + 16 + rowH + 80;
+  }
+  try { gb.resize(right - x0, gb.height); } catch (e) {}
+  stretchTopBars(sec, L.sectionPadding, null);
+  fitSection(sec, L.sectionPadding);
+  say('묶음 "' + title + '" 새로 넣음: ' + pick.length + '장');
 }
 // 부분 갱신 (2026-10-28 윤우, 공통 규칙): Core 메인 화면은 그대로 두고 핵심 컴포넌트 영역 속만 시안의 같은 영역으로 바꾼다. 높이가 같을 때만, 영역이 인스턴스가 아닐 때만
 for (const r of partRows) {
@@ -344,7 +407,7 @@ if (done.length && PLAN.month) {
 }
 // 쓰고 남은 붙여넣기는 지운다 (반영한 화면이 하나라도 있을 때만 — 잘못 붙였으면 사람이 보도록 남긴다)
 let leftoverRemoved = 0;
-const pastedUsed = done.some(d => d.action !== '묶음 삭제') || !(want.length + groupRows.length + partRows.length);   // 붙여 넣은 것을 하나도 못 썼으면 남겨 둔다
+const pastedUsed = done.some(d => d.action !== '묶음 삭제') || !(want.length + groupRows.length + partRows.length + addRows.length);   // 붙여 넣은 것을 하나도 못 썼으면 남겨 둔다
 if (keepTop && done.length && pastedUsed) for (const n of page.children.filter(n => !keepTop.has(n.id) && !isCard(n))) { if (n.removed) continue; n.remove(); leftoverRemoved++; }
 // 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
