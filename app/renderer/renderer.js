@@ -8,14 +8,32 @@ const linkTo = (base, id) => base.split('?')[0].replace(/\/$/, '') + '/?node-id=
 
 let setupOk = false;
 let lastSetup = null;   // 마지막 준비 상태 확인 결과 (null = 확인 중)
+// 연결 확인은 처음 한 번만 (2026-10-30 윤우: "앱을 킬 때마다 확인해야 되는 거야?"). 한 번 모두 연결되면 이 맥에 기억해 두고,
+// 다음부터는 확인 없이 바로 링크 칸을 보여 준다. 연결이 끊겨 일이 실패하면 그때 다시 확인해 어디가 끊겼는지 보여 준다.
+const SETUP_KEY = 'setup:ok';
+const setupCache = { get: () => { try { return JSON.parse(localStorage.getItem(SETUP_KEY) || 'null'); } catch (e) { return null; } }, set: (v) => { try { v ? localStorage.setItem(SETUP_KEY, JSON.stringify(v)) : localStorage.removeItem(SETUP_KEY); } catch (e) {} } };
+function useCachedSetup() {
+  const c = setupCache.get(); if (!c) return false;
+  lastSetup = { claude: true, figma: true, who: c.who, cached: true }; setupOk = true;
+  const el = $('#setup'); el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((c.who && c.who.handle) || '')}`;
+  el.title = [`지난 확인: ${new Date(c.at).toLocaleString('ko-KR')} · 누르면 다시 확인`, el.dataset.rules].filter(Boolean).join('\n');
+  renderOnboard(); return true;
+}
+// 일이 실패했는데 연결이 끊긴 탓일 수 있으면(로그인·Figma 연결·설치) 기억을 지우고 다시 확인한다
+function setupMaybeLost(e) {
+  const m = String(e && e.message || e || '');
+  if (!/log ?in|auth|credential|api key|mcp|ENOENT|command not found|spawn/i.test(m)) return;   // 보통의 작업 오류(화면 못 찾음 등)에는 다시 확인하지 않는다
+  setupCache.set(null); showSetup();
+}
 async function showSetup() {
   const el = $('#setup');
   lastSetup = null; renderOnboard();
   let s;
   try { s = await window.core.setup(); }
-  catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; lastSetup = { failed: e.message }; renderOnboard(); return; }
+  catch (e) { el.innerHTML = `<span class="bad">● 확인 실패</span>`; el.title = e.message; lastSetup = { failed: e.message }; setupCache.set(null); renderOnboard(); return; }
   lastSetup = s;
   setupOk = !!(s.claude && s.figma);
+  setupCache.set(setupOk ? { who: s.who || null, at: Date.now() } : null);
   if (setupOk) el.innerHTML = `<span class="ok">● 준비됨</span> · Figma ${esc((s.who && s.who.handle) || '')}`;
   else if (!s.installed) el.innerHTML = `<span class="bad">● Claude Code 설치 필요</span>`;
   else if (!s.claude) el.innerHTML = `<span class="bad">● Claude 로그인 필요</span>`;
@@ -49,7 +67,7 @@ function renderOnboard() {
   };
   const left = items.filter(i => !i.done).length;
   box.innerHTML = `<h2>${checking ? '연결 상태를 확인하고 있어요' : `연결이 ${left}개 필요해요`}</h2>
-    <p class="muted lead">${failed ? '상태를 확인하지 못했어요: ' + esc(s.failed) + ' <button class="link obRecheck" type="button">다시 확인</button>' : '아래가 모두 <b>연결됨</b>이 되면 프로젝트 링크를 넣는 칸이 나타나요. 처음 한 번만 하면 돼요.'}</p>
+    <p class="muted lead">${failed ? '상태를 확인하지 못했어요: ' + esc(s.failed) + ' <button class="link obRecheck" type="button">다시 확인</button>' : '아래가 모두 <b>연결됨</b>이 되면 프로젝트 링크를 넣는 칸이 나타나요. 처음 한 번만 하면 되고, 다음부터는 바로 링크 칸이 열려요.'}</p>
     <ol class="steps">${items.map((i, k) => li(i, k + 1)).join('')}</ol><div class="msg muted" id="obMsg"></div>`;
   const msg = (t, cls) => { const m = $('#obMsg'); m.textContent = t; m.className = 'msg ' + (cls || 'muted'); };
   const b1 = $('#obInstall'); if (b1) b1.addEventListener('click', async () => { b1.disabled = true; msg('설치 중… 창을 닫지 말아 주세요.'); try { await window.core.installClaude(); msg('설치됐어요. 확인 중…', 'ok'); showSetup(); } catch (e) { msg('설치하지 못했어요: ' + String(e.message || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, ''), 'bad'); b1.disabled = false; } });
@@ -180,7 +198,7 @@ $('#form').addEventListener('submit', async (ev) => {
   $('#result').innerHTML = progressHtml('analyze', 'Figma 문서를 읽고 있어요');
   startProgress('analyze');
   try { current = await window.core.analyze(url); current.analysis0 = JSON.parse(JSON.stringify(current.analysis)); stopProgress(true); render(current); if (current.analysis.kind === 'project') prefetchPicks(); }
-  catch (e) { stopProgress(); $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; }
+  catch (e) { stopProgress(); $('#result').innerHTML = `<section class="panel"><h2>분석하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; setupMaybeLost(e); }
   finally { $('#go').disabled = false; }
 });
 
@@ -311,7 +329,7 @@ async function onPlace(ev) {
     work = w;
     if (w.kind === 'branch') { current.analysis = w.analysis; render(current); $('#placeUrl').value = url; showDelta(); prefetchDelta(); }
     else showBuild();
-  } catch (e) { stopProgress(); fail('작업 위치를 확인하지 못했습니다', e); }
+  } catch (e) { stopProgress(); fail('작업 위치를 확인하지 못했습니다', e); setupMaybeLost(e); }
   finally { $('#placeGo').disabled = false; }
 }
 
@@ -509,7 +527,7 @@ async function onApply() {
     bindOpen($('#work'));
     $('#applyGo') && $('#applyGo').addEventListener('click', onApply);
     $('#nextCore') && $('#nextCore').addEventListener('click', () => switchCore((current.placeAt || 0) + 1));
-  } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; }
+  } catch (e) { stopProgress(); const b = $('#applyBusy'); if (b) b.outerHTML = `<section class="panel"><h2>반영하지 못했습니다</h2><p class="muted">${esc(e.message)}</p></section>`; $('#applyGo').disabled = false; setupMaybeLost(e); }
 }
 
 // ---------- 새 Core ----------
@@ -537,8 +555,8 @@ async function onBuild() {
       ${(b.log || []).filter(l => /⚠|대신/.test(l)).map(l => `<p class="muted">${esc(l)}</p>`).join('')}
       <p class="hint">이 Core를 앱의 Core 목록에 추가했습니다 — 다음 판별부터 "기존 Core"로 잡힙니다. 남은 사람 손: 파일 이름·Core 폴더 이동, 원본 커버 Final/아카이브.</p></section>`;
     bindOpen($('#work'));
-  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">${/SyntaxError/.test(e.message) ? 'Figma가 코드를 실행하기 전에 멈춰서 복사본은 그대로예요. 다시 눌러 보세요.' : '복사본에 반쯤 만든 페이지가 남았을 수 있어요. 복사본을 지우고 다시 복제해 주세요.'}</p></section>`; $('#buildGo').disabled = false; }
+  } catch (e) { stopProgress(); $('#buildBusy').outerHTML = `<section class="panel"><h2>만들지 못했습니다</h2><p class="muted">${esc(e.message)}</p><p class="hint">${/SyntaxError/.test(e.message) ? 'Figma가 코드를 실행하기 전에 멈춰서 복사본은 그대로예요. 다시 눌러 보세요.' : '복사본에 반쯤 만든 페이지가 남았을 수 있어요. 복사본을 지우고 다시 복제해 주세요.'}</p></section>`; $('#buildGo').disabled = false; setupMaybeLost(e); }
 }
 
-showSetup();
+if (!useCachedSetup()) showSetup();
 showKnowledge();
