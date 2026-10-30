@@ -3,9 +3,9 @@
 const assert = require('assert');
 const rules = require('../../plugin/rules.json');
 const { buildCoreReadCode } = require('../engine/figma-core-read');
-const { readItemCounts, readItemLabels, findSources } = require('../engine/figma-find');
+const { readItemCounts, readItemLabels, findSources, readInParts } = require('../engine/figma-find');
 const { buildAnalyzeCode } = require('../engine/figma-analyze');
-const { buildCaseReadCode, buildNewGroupReadCode } = require('../engine/figma-group');
+const { buildCaseReadCode, buildNewGroupReadCode, buildGroupCompsReadCode } = require('../engine/figma-group');
 const { buildRegionReadCode } = require('../engine/figma-part');
 const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
 const LIMIT = 20480;
@@ -64,6 +64,11 @@ const runner = async (key, code, desc) => {
   const gr = (await runner('DOC', buildNewGroupReadCode(rules, { want: cw, prefer: [] }), '새 묶음 시안 화면')).data;
   assert.strictEqual(gr.groups.length, cw.length, '폭마다 받음');
   assert(gr.groups.every(g => g.frames.length <= 12), '폭마다 12장까지');
+  // 새 묶음 화면이 어느 Core 것인지: 화면마다 컴포넌트 해시 — 36장(폭 3 × 12장)이라도 나눠 받아 한도 아래
+  const gids = docPages[0].children[0].children.slice(0, 36).map(f => f.id);
+  const cc = await readInParts(runner, 'DOC', gids, buildGroupCompsReadCode, 'picks', '새 묶음 화면 컴포넌트');
+  assert.strictEqual(Object.keys(cc.got).length, 36, '화면마다 컴포넌트 해시를 받음');
+  assert(Object.values(cc.got).every(l => l.length > 0 && l.length <= 120), '화면마다 1~120개');
   assert.strictEqual(read.platforms.APP.screens.length, N, 'Core 화면을 모두 읽음');
   const targets = read.platforms.APP.screens.map(s => ({ id: s.id, w: s.w, h: s.h, n: s.n, sig: s.sig, csig: s.csig }));
   const f = await findSources(runner, 'DOC', targets, '원본 찾기');

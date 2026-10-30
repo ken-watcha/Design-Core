@@ -9,10 +9,10 @@ const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode, gatherPasteCode, GATHER_SECTION } = require('./figma-write');
 const { proposePlace, checkLink, parseLink } = require('./place');
 const { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups } = require('./delta');
-const { buildCaseReadCode, buildNewGroupReadCode } = require('./figma-group');
+const { buildCaseReadCode, buildNewGroupReadCode, buildGroupCompsReadCode } = require('./figma-group');
 const { buildRegionReadCode } = require('./figma-part');
-const { featureLabel } = require('./judge');
-const { findSources, diffCounts, readItemCounts, readItemLabels } = require('./figma-find');
+const { featureLabel, screenCores, foreignScreens } = require('./judge');
+const { findSources, diffCounts, readItemCounts, readItemLabels, readInParts } = require('./figma-find');
 
 const RAW = 'https://raw.githubusercontent.com/ken-watcha/Design-Core/main/';
 const LOCAL = path.join(__dirname, '..', '..');
@@ -103,7 +103,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
       delta = applyGroups(delta, groups, cases);
     }
     // 새 묶음 추가(2026-10-30 윤우): Core에 맞는 화면이 없어 '추가'가 되는 칸은 그 폭의 이름 다른 화면을 모두 읽어 프로젝트 이름 묶음으로 따로 넣는다
-    let newGroups = [];
+    let newGroups = [], groupSkip = {};
     const adds = partMode ? [] : delta.rows.filter(r => r.action === '추가' && r.source);
     if (adds.length) {
       const pages = state.analysis.platformPages || {};
@@ -111,8 +111,18 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
       if (want.length) {
         const g = await runner(state.fileKey, buildNewGroupReadCode(knowledge.rules, { want, prefer: adds.map(r => r.source.id) }), 'Core 업데이트: 새 묶음에 넣을 시안 화면 찾기 (읽기 전용)');
         cost += g.costUsd || 0; newGroups = (g.data && g.data.groups) || [];
+        // 다른 Core의 화면(플로우 첫 진입점 등, 2026-10-30 윤우 "콘텐츠 상세 페이지")은 묶음에 넣지 않는다 — 화면마다 컴포넌트를 읽어 색인과 비교
+        const ids = [...new Set(newGroups.flatMap(x => x.frames.map(f => f.id)).concat(adds.map(r => r.source.id)))];
+        if (ids.length) {
+          const cc = await readInParts(runner, state.fileKey, ids, buildGroupCompsReadCode, 'picks', 'Core 업데이트: 새 묶음 화면이 어느 Core 것인지 보기 (읽기 전용)');
+          cost += cc.cost;
+          const jr = knowledge.rules.judge || {};
+          const cfg = Object.assign({ strong: 0.7, near: 0.05 }, jr.content || {});
+          const me = (knowledge.index.files.find(f => f.key === state.place.coreKey) || {}).name || state.place.coreName;
+          groupSkip = foreignScreens(screenCores(cc.got, knowledge.index, cfg), me, cfg);
+        }
       }
-      delta = addGroups(delta, newGroups, updateProjectName(state.analysis));
+      delta = addGroups(delta, newGroups, updateProjectName(state.analysis), groupSkip);
     }
     // 확인이 필요한 칸(거의 같음·교체)은 무엇이 다른지 실제로 비교해 적는다 — 지문만으로 단정하지 않는다
     const checks = delta.rows.filter(r => r.check && r.target && r.source && (r.action === '교체' || r.action === '유지'));
@@ -126,7 +136,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
       cost += la.cost + lb.cost;
       checks.forEach((r, i) => { const d = diffs[i], na = la.labels[r.source.id] || {}, nb = lb.labels[r.target.id] || {}; r.diff = Object.assign({}, d, { onlyA: d.onlyA.map(h => na[h] || '(이름 못 읽음)'), onlyB: d.onlyB.map(h => nb[h] || '(이름 못 읽음)') }); });
     }
-    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, cases, newGroups, regions, feature, label, partMode, delta, preferred, analysis: state.analysis, costUsd: cost };
+    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, cases, newGroups, groupSkip, regions, feature, label, partMode, delta, preferred, analysis: state.analysis, costUsd: cost };
   }
   const projectPages = knowledge.rules.fileKind.projectPagePatterns;
   const hasProject = projectPages.some(pat => read.pages.some(n => n.includes(pat)));
@@ -172,7 +182,7 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
   let after = computeDelta(state.analysis, r.data, work.sources || {});
   if (work.partMode) after = partRows(after, r.data, state.analysis, work.regions || {}, findGroupsAll(r.data, state.analysis), work.label) || after;
   else if ((work.cases || []).length) after = applyGroups(after, findGroups(after, r.data, state.analysis), work.cases);
-  if (!work.partMode && (work.newGroups || []).length) after = addGroups(after, work.newGroups, updateProjectName(state.analysis));
+  if (!work.partMode && (work.newGroups || []).length) after = addGroups(after, work.newGroups, updateProjectName(state.analysis), work.groupSkip);
   return { apply: a.data, after, core: r.data, costUsd: (a.costUsd || 0) + (r.costUsd || 0) };
 }
 

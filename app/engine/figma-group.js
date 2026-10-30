@@ -54,6 +54,34 @@ while (bytes(out) > 16000 && out.groups.some(g => g.frames.length)) { const big 
 return out;
 `;
 
+// 새 묶음에 넣을 화면이 어느 Core 것인지 보기 위한 컴포넌트 해시 (2026-10-30 윤우: 플로우의 첫 진입점 "콘텐츠 상세 페이지"는 결제 Core의 묶음에 들어갈 화면이 아니다).
+// 분석(figma-analyze.js compNames)과 같은 해시를 쓰고, judge.js가 색인과 비교해 다른 Core 화면을 가려낸다. 한 번에 14KB쯤까지, 남은 id는 rest로.
+const COMPS_SIDE = String.raw`
+const compHash = (s) => { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0; return h.toString(36); };
+const out = {}, rest = []; let size = 0;
+for (const id of IDS) {
+  if (size > 14000) { rest.push(id); continue; }
+  const f = await figma.getNodeByIdAsync(id);
+  if (!f) { out[id] = []; continue; }
+  const skip = figma.skipInvisibleInstanceChildren;
+  figma.skipInvisibleInstanceChildren = false;
+  const insts = f.findAll(n => n.type === 'INSTANCE');
+  figma.skipInvisibleInstanceChildren = skip;
+  const set = new Set();
+  for (let i = 0; i < insts.length && set.size < 120; i += 200) {
+    const mcs = await Promise.all(insts.slice(i, i + 200).map(async n => { try { return await n.getMainComponentAsync(); } catch (e) { return null; } }));
+    for (const mc of mcs) { if (!mc) continue; const nm = String(mc.parent && mc.parent.type === 'COMPONENT_SET' ? mc.parent.name : mc.name).trim(); if (nm && !nm.includes('=')) set.add(compHash(nm)); }
+  }
+  out[id] = [...set].slice(0, 120);
+  size += JSON.stringify(out[id]).length + id.length + 4;
+}
+return { picks: out, rest };
+`;
+
+function buildGroupCompsReadCode(ids) {
+  return `const IDS = ${JSON.stringify(ids)};\n` + COMPS_SIDE;
+}
+
 function buildNewGroupReadCode(rules, plan) {
   const sp = rules.screenPick || {};
   return `const PLAN = ${JSON.stringify(Object.assign({ minHeight: sp.minHeight || 0, avoidNames: sp.avoidNames || [] }, plan))};\n` + SIG_FN + NEW_GROUP_SIDE;
@@ -63,4 +91,4 @@ function buildCaseReadCode(rules, plan) {
   return `const PLAN = ${JSON.stringify(Object.assign({ minHeight: (rules.screenPick || {}).minHeight || 0 }, plan))};\n` + SIG_FN + FIGMA_SIDE;
 }
 
-module.exports = { buildCaseReadCode, buildNewGroupReadCode };
+module.exports = { buildCaseReadCode, buildNewGroupReadCode, buildGroupCompsReadCode };

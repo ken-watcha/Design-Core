@@ -115,4 +115,4 @@ async function readItemLabels(runner, key, want, label) {
   return { labels: r.data.labels || {}, cost: r.costUsd || 0 };
 }
 
-module.exports = { buildFindSourcesCode, buildItemsCode, buildLabelsCode, diffCounts, readItemCounts, readItemLabels, findSources };
+module.exports = { buildFindSourcesCode, buildItemsCode, buildLabelsCode, diffCounts, readItemCounts, readItemLabels, findSources, readInParts };
