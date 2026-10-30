@@ -176,7 +176,7 @@ async function applyUpdate(state, work, knowledge, runner = runFigma) {
     : r.action === '묶음 추가' ? Object.assign({ action: r.action, platform: r.platform, cls: r.cls, width: r.width, desc: r.desc, group: { title: r.group.title }, sources: r.sources.map(x => ({ id: x.id, name: x.name, w: x.w, h: x.h, sig: x.sig })) }, tmpl(r.platform, r.cls))
     : r;
   const rows = work.delta.rows.filter(r => ['교체', '추가', '묶음 교체', '부분 교체', '묶음 삭제', '묶음 추가'].includes(r.action)).map(slim);
-  const plan = { feature: work.feature || [], coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), keepTop: work.core.top || null, sourceUrl: state.sourceUrl, projectName: updateProjectName(state.analysis) };
+  const plan = { feature: work.feature || [], coreKey: state.place.coreKey, coreScreenIds: Object.values(work.core.platforms).flatMap(p => p.screens.map(s => s.id)), rows, month: month(), keepTop: work.core.top || null, sourceUrl: state.sourceUrl, projectName: updateProjectName(state.analysis), coreName: state.place.coreName };
   const a = await runner(work.workKey, applyUpdateCode(knowledge.rules, plan), 'Core 업데이트: 기존 Core 갱신 (브랜치)');
   const r = await runner(work.workKey, buildCoreReadCode(knowledge.rules, { feature: work.feature || [] }), 'Core 업데이트: 갱신 결과 확인 (읽기 전용)');
   let after = computeDelta(state.analysis, r.data, work.sources || {});
