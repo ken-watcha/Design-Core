@@ -350,7 +350,7 @@ const fixture = require('./fixture-stepmade.json');
       importComponentByKeyAsync: async () => ({ createInstance: () => { const b = node('INSTANCE', '뱃지'); b.setProperties = () => {}; kid(b, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(b, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] })); return b; } }),
       getNodeByIdAsync: async (id) => ({ [region.id]: region, [gb5.id]: gb5, [home.id]: home }[id] || null) };
     page5.loadAsync = async () => {};
-    const plan5 = { feature: ['featuringcell'], coreKey: 'CORE', coreScreenIds: [home.id, old5.id, far5.id], month: null, keepTop: [root5.id], sourceUrl: 'https://www.figma.com/design/DOC',
+    const plan5 = { feature: ['featuringcell'], coreKey: 'CORE', coreScreenIds: [home.id, old5.id, far5.id, card5.id, cardW.id], month: null, keepTop: [root5.id], sourceUrl: 'https://www.figma.com/design/DOC',
       rows: [{ action: '부분 교체', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(newS) }, target: { id: home.id }, regions: [region.id], newCsigs: [newCsig] },
              { action: '묶음 삭제', platform: 'APP', group: { id: gb5.id }, olds: [old5.id] }] };
     const out5 = await new AsyncFn('figma', applyUpdateCode(rules, plan5))(fig5);
@@ -363,7 +363,8 @@ const fixture = require('./fixture-stepmade.json');
     assert.strictEqual(out5.badgeLinks, 2, '빈 링크 뱃지 2개(APP·WEB)에 링크: ' + JSON.stringify(out5.log));
     assert.deepStrictEqual(lk5.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '카드의 빈 🔗 링크 뱃지에 문서 링크');
     assert.deepStrictEqual(lkW.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '화면이 안 바뀐 WEB 섹션의 카드도');
-    assert(lkB.hyperlink.value === 'https://old' && inHome.hyperlink === null, '이미 걸린 링크·화면 속 글자는 그대로');
+    assert(lkB.hyperlink.value === 'https://old' && inHome.hyperlink === null, '이미 걸린 링크·뱃지가 아닌 글자는 그대로');
+    // 카드 프레임은 Core 읽기에서 화면으로 세어져 coreScreenIds에 들어 있어도 채워야 한다 (2026-11-02 실제 SVOD WEB 카드가 이 때문에 빠짐)
     // 높이가 다르면 손대지 않는다
     const page6 = node('PAGE', '🌏 마스터 파일'); const root6 = kid(page6, node('SECTION', '🌏 SVOD')); const app6 = kid(root6, node('SECTION', 'APP'));
     const home6 = kid(app6, screen(375, 4816, '홈')); const reg6 = kid(home6, node('FRAME', 'R', { y: 158, width: 375, height: 442 })); kid(reg6, cell('옛'));

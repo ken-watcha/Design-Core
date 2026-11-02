@@ -464,14 +464,13 @@ if (done.length && PLAN.sourceUrl) {
 }
 // 플랫폼 섹션(APP·WEB…) 속 설명 카드의 빈 "🔗 링크" 뱃지에도 프로젝트 문서 링크를 건다 (2026-10-30 윤우: SVOD WEB "피쳐링셀 케이스" 카드의 링크 뱃지가 비어 있었음 → "채우기").
 // 처음엔 반영한 화면이 든 섹션만 봤는데, WEB처럼 이번에 화면이 바뀌지 않은 섹션의 카드가 그대로 비어 있어(2026-10-30 윤우 "여전히 안 걸려 있잖아") 루트 섹션 아래 모든 플랫폼 섹션을 본다.
-// 이미 링크가 있으면 그대로, 화면 속 글자는 건드리지 않는다. 글자 일부에만 링크가 있으면(mixed) 있는 것으로 본다
+// 이미 링크가 있으면 그대로. 글자 일부에만 링크가 있으면(mixed) 있는 것으로 본다. 뱃지 모양("🔗" 글자 옆의 "링크" 글자, 인스턴스 속)으로만 가린다 —
+// Core 읽기는 섹션 바로 아래 프레임을 모두 화면으로 세어 "피쳐링셀 케이스" 카드도 화면 목록에 들어 있으니, 화면 속이라고 빼면 그 카드가 빠진다 (2026-11-02 윤우 "여전히 안 걸려 있잖아" 2번째)
 let badgeLinks = 0;
 if (PLAN.sourceUrl && root) {
-  const screenIds = new Set(PLAN.coreScreenIds || []);
-  const inScreen = (n) => { for (let p = n; p; p = p.parent) if (screenIds.has(p.id)) return true; return false; };
   const noLink = (t) => { if (t.hyperlink === null) return true; if (t.hyperlink && t.hyperlink !== figma.mixed) return false; try { return t.getStyledTextSegments(['hyperlink']).every(sg => !sg.hyperlink); } catch (e) { return false; } };
   for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || ''))) {
-    if (t.removed || inScreen(t) || !noLink(t)) continue;
+    if (t.removed || !noLink(t)) continue;
     const badge = t.parent;
     if (!badge || badge.type !== 'INSTANCE' || !badge.children.some(c => c !== t && c.type === 'TEXT' && /🔗/.test(c.characters || ''))) continue;
     try { await loadTextFonts(t); t.hyperlink = { type: 'URL', value: PLAN.sourceUrl }; badgeLinks++; } catch (e) { say('링크 뱃지에 링크를 못 걸음: ' + e.message); }
