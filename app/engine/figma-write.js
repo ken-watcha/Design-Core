@@ -459,7 +459,8 @@ if (done.length && PLAN.sourceUrl) {
       card = figma.createFrame(); card.name = '📎 스펙 링크 카드'; page.appendChild(card); made = true;
       card.layoutMode = 'VERTICAL'; card.itemSpacing = 16; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
       card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'AUTO'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
-      await text(card, coreShort, 'Bold', 20, { r: 1, g: 1, b: 1 });
+      // 제목도 프로젝트명 (2026-11-02 윤우: "타이틀이 SVOD이면 안 돼, 피쳐링셀이라고 적혀 있어야지")
+      await text(card, PLAN.projectName || coreShort, 'Bold', 20, { r: 1, g: 1, b: 1 });
       // 안내 글의 이름은 프로젝트명 (2026-11-02 윤우: "SVOD 관련"이 아니라 "피쳐링셀 관련" — 프로젝트명을 따름)
       await text(card, RULES.linkCard.body.replace(/<프로젝트명>/g, PLAN.projectName || coreShort), 'Medium', 16, { r: 1, g: 1, b: 1 });
     }

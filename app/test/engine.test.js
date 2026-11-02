@@ -407,7 +407,7 @@ const fixture = require('./fixture-stepmade.json');
     const out8 = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id], keepTop: [root8.id], rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(p8) }, beside: { id: home8.id, bar: null } }] })))(fig8);
     assert(out8.linkAdded && out8.linkAdded.newCard && out8.linkAdded.badge, '카드를 새로 만들고 뱃지로 링크: ' + JSON.stringify(out8.linkAdded));
     const card8 = page8.children.find(n => /링크 카드/.test(n.name));
-    assert.deepStrictEqual(texts8.map(t => t.characters), ['SVOD', '패키지 인지 관련 자세한 스펙은 아래 링크를 참고해주세요!'], 'Core 이름 + 안내 글(프로젝트명, 2026-11-02 윤우)');
+    assert.deepStrictEqual(texts8.map(t => t.characters), ['패키지 인지', '패키지 인지 관련 자세한 스펙은 아래 링크를 참고해주세요!'], '제목·안내 글 모두 프로젝트명 (2026-11-02 윤우)');
     assert(texts8.every(t => t.fontName.family === 'Pretendard JP') && texts8[0].fontSize === 20 && texts8[1].fontSize === 16, 'Pretendard JP 20/16');
     assert(card8.primaryAxisSizingMode === 'AUTO' && card8.counterAxisSizingMode === 'AUTO' && card8.itemSpacing === 16 && card8.paddingLeft === 24, '내용 크기·여백 24·간격 16');
     const b8 = card8.children.filter(n => n.type === 'INSTANCE'); assert.strictEqual(b8.length, 1);
