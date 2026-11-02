@@ -61,6 +61,9 @@ function contentMatch(analysis, index, cfg) {
   const title = [analysis.cover && analysis.cover.nameEN, analysis.cover && analysis.cover.nameKR, analysis.fileName].join(' ').toLowerCase().replace(/\s+/g, '');
   let feature = rare.filter(fm => fm.length >= 4 && title.includes(fm));
   if (!feature.length) feature = rare.filter(fm => pickFams.every(x => x.has(fm)) && primary.some(c => inAnyMain(c.name, fm)));
+  // 여럿이면 문서가 스펙으로 다루는 컴포넌트(섹션 바로 아래 그 이름의 프레임이 있는 것, 분석 specFams)만 남긴다
+  // 2026-11-02 TVOD: 표지 이름이 한글("피쳐링셀")이라 이름 매칭이 안 됐고, 고른 화면 전부에 든 드문 묶음으로 Featuring Cell과 배경의 Rows가 같이 잡힘 → 영역 짝이 어긋나 메인 화면 전부 "확인 필요"
+  if (feature.length > 1 && Array.isArray(analysis.specFams)) { const spec = new Set(analysis.specFams); const narrowed = feature.filter(fm => spec.has(fm)); if (narrowed.length) feature = narrowed; }
   // 메인 화면에 가려지지 않고 보여야 그 Core의 기능에 쓰이는 것 (2026-10-26 윤우 "그 Core 메인 기능이 작동하는 데 영향을 받는지")
   //   소식함 WEB 대표 화면은 드롭다운 뒤에 홈이 깔렸을 뿐, 로그인 시작은 막 뒤 배경이라 빠짐
   const holders = feature.length ? cores.filter(c => feature.every(fm => inAnyMain(c.name, fm))) : [];

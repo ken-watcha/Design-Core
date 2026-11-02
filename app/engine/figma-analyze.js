@@ -67,6 +67,11 @@ if (kind === 'project') {
     const sections = page.children.filter(n => n.type === 'SECTION');
     const secClass = {};
     for (const s of sections) { const c = classifySection(platform, cfg, s.name); if (c) secClass[s.id] = c; result.sections.push({ platform, id: s.id, name: s.name, frames: s.findAll(n => n.type === 'FRAME' && n.parent === s).length, cls: c ? c.cls : null, basis: c ? c.basis : null }); }
+    // 문서가 스펙으로 다루는 컴포넌트: 섹션 바로 아래 프레임 이름의 묶음(judge.js family와 같은 식). 판별이 핵심 컴포넌트를 고를 때 이것을 우선한다
+    // (2026-11-02 TVOD: 표지 이름이 한글이라 이름 매칭이 안 돼 화면 배경의 Rows까지 핵심으로 잡혔고, 영역 짝이 어긋나 메인 화면 전부 "확인 필요"가 됨)
+    const fam = (n) => String(n).toLowerCase().replace(/\((web|mobile|common|web-large|mobile,tablet)\)/g, '').replace(/\s+/g, '').split('/')[0];
+    result.specFams = result.specFams || [];
+    for (const s of sections) for (const f of s.children) { const k = f.type === 'FRAME' ? fam(f.name) : ''; if (k && !result.specFams.includes(k) && result.specFams.length < 150) result.specFams.push(k); }
     const picks = [];
     for (const cls of cfg.classes) {
       const sec = sections.find(s => secClass[s.id] && secClass[s.id].cls === cls.name);
@@ -128,6 +133,7 @@ if (kind === 'project') {
 const strip = () => { for (const pf of Object.values(result.platforms)) for (const e of pf) for (const p of e.picks) for (const c of p.candidates) delete c.texts; };
 const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i < j.length; i++) { const c = j.charCodeAt(i); b += c < 0x80 ? 1 : c < 0x800 ? 2 : 3; } return b; };
 if (bytes(result) > 18000) strip();
+if (bytes(result) > 18000) delete result.specFams;
 if (bytes(result) > 18000) for (const pf of Object.values(result.platforms)) for (const e of pf) for (const p of e.picks) p.candidates = p.candidates.slice(0, 3);
 if (bytes(result) > 18000 && result.comps) for (const id in result.comps.picks) result.comps.picks[id] = result.comps.picks[id].slice(0, 60);
 if (bytes(result) > 18000) delete result.comps;   // 마지막 수단: 판별은 이름으로만 한다

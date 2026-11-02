@@ -63,6 +63,24 @@ const fixture = require('./fixture-stepmade.json');
     assert(/메인 화면\(웹툰_APP, 웹툰_WEB\)/.test(vm.targets[2].why), '웹툰 근거는 메인 화면');
     const v3 = judge(Object.assign(an({}), { comps: undefined }), index, rules, {});
     assert(v3.targets && v3.content === null, '컴포넌트 자료가 없으면 이름으로만 판별');
+    // 핵심 컴포넌트 고르기 (2026-11-02 TVOD): 표지 이름이 한글이면 이름 매칭이 안 되고, 고른 화면 전부에 든 드문 묶음(Featuring Cell·배경의 Rows)이 다 잡힌다.
+    // 문서 섹션 바로 아래에 그 이름의 스펙 프레임이 있는 컴포넌트(specFams)만 핵심으로 남긴다 — Rows가 끼면 영역 짝이 어긋나 메인 화면이 전부 "확인 필요"가 됨
+    {
+      const names2 = ['TopBar', 'Button', 'Featuring Cell(Mobile)', 'Rows/Row(Moblie)', 'ContentBadge'];
+      const scr2 = (id, ns, main) => Object.assign({ id, name: id, w: 375, h: 812, c: ns.map(n => names2.indexOf(n)) }, main ? { main } : {});
+      const fillers = (k) => Array.from({ length: 4 }, (_, i) => scr2(k + i, ['TopBar', 'Button']));
+      const ix2 = { component_names: names2, files: [
+        { name: '[Core] SVOD', key: 'S', url: 's', screen_components: [scr2('🌏 SVOD_APP', names2, 'APP')].concat(fillers('s')) },
+        { name: '[Core] TVOD', key: 'T', url: 't', screen_components: [scr2('🌏 TVOD_APP', names2, 'APP')].concat(fillers('t')) }] };
+      const an2 = (extra) => Object.assign({ cover: { nameEN: '피쳐링셀', nameKR: '피쳐링셀 컴포넌트' }, fileName: '피쳐링셀', fileKey: 'X', comps: { names: names2.map(compHash), picks: { a: [0, 1, 2, 3, 4], b: [0, 2, 3, 4] } } }, extra);
+      const before = judge(an2({}), ix2, rules, {});
+      assert.deepStrictEqual(before.content.feature.slice().sort(), ['contentbadge', 'featuringcell', 'rows'], '스펙 프레임 정보가 없으면 전처럼 드문 묶음 전부');
+      const after = judge(an2({ specFams: ['contentbadge', 'featuringcell', '대표화면', '그라데이션'] }), ix2, rules, {});
+      assert.deepStrictEqual(after.content.feature.slice().sort(), ['contentbadge', 'featuringcell'], '문서에 스펙 프레임이 있는 묶음만 핵심 (배경의 Rows는 빠짐)');
+      const none = judge(an2({ specFams: ['대표화면'] }), ix2, rules, {});
+      assert.deepStrictEqual(none.content.feature.slice().sort(), ['contentbadge', 'featuringcell', 'rows'], '겹치는 스펙 프레임이 없으면 좁히지 않음');
+      assert.deepStrictEqual(after.targets.map(t => t.name), ['[Core] SVOD', '[Core] TVOD']);
+    }
   }
   // --- v0.2: 작업 위치 · Δ · 쓰기 코드 ---
   const os = require('os'), path = require('path'), fs = require('fs');
