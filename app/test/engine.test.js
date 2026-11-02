@@ -430,6 +430,16 @@ const fixture = require('./fixture-stepmade.json');
     assert(card8.primaryAxisSizingMode === 'AUTO' && card8.counterAxisSizingMode === 'AUTO' && card8.itemSpacing === 16 && card8.paddingLeft === 24, '내용 크기·여백 24·간격 16');
     const b8 = card8.children.filter(n => n.type === 'INSTANCE'); assert.strictEqual(b8.length, 1);
     assert.deepStrictEqual(b8[0].findAll(n => n.type === 'TEXT').map(n => n.characters), ['🔗', '패키지 인지 (2026.10)']);
+    // 예전 판이 Core 이름으로 적어 둔 제목은 다음 반영 때 프로젝트명으로 고친다 (2026-11-02 윤우: 머지된 카드의 "SVOD" 제목이 새 브랜치에 그대로). 링크는 이미 있으니 뱃지는 더 안 만든다
+    texts8[0].characters = 'SVOD'; texts8[0].getStyledTextSegments = () => [{ fontName: texts8[0].fontName }];
+    const out8b = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
+    assert.deepStrictEqual(out8b.cardTitleFixed, { from: 'SVOD', to: '패키지 인지' }, JSON.stringify(out8b.log));
+    assert.strictEqual(texts8[0].characters, '패키지 인지');
+    assert.strictEqual(card8.children.filter(n => n.type === 'INSTANCE').length, 1, '링크가 이미 있으니 뱃지를 또 만들지 않음');
+    // 디자이너가 적은 제목(Core 이름과 다름)은 그대로
+    texts8[0].characters = '홈';
+    const out8c = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
+    assert(!out8c.cardTitleFixed && texts8[0].characters === '홈', '디자이너 제목은 손대지 않음');
   }
   // 부분 갱신 (2026-10-28 윤우): 메인 화면은 그대로, 핵심 컴포넌트 영역 속만 바꾸고 따로 정리한 묶음은 지운다
   {
