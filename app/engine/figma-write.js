@@ -462,16 +462,16 @@ if (done.length && PLAN.sourceUrl) {
     linkAdded = { cardId: card.id, textId: t.id, badge: !!nb, newCard: made };
   }
 }
-// 바뀐 플랫폼 섹션 속 설명 카드의 빈 "🔗 링크" 뱃지에도 프로젝트 문서 링크를 건다 (2026-10-30 윤우: SVOD WEB "피쳐링셀 케이스" 카드의 링크 뱃지가 비어 있었음 → "채우기"). 이미 링크가 있으면 그대로, 화면 속 글자는 건드리지 않는다
+// 플랫폼 섹션(APP·WEB…) 속 설명 카드의 빈 "🔗 링크" 뱃지에도 프로젝트 문서 링크를 건다 (2026-10-30 윤우: SVOD WEB "피쳐링셀 케이스" 카드의 링크 뱃지가 비어 있었음 → "채우기").
+// 처음엔 반영한 화면이 든 섹션만 봤는데, WEB처럼 이번에 화면이 바뀌지 않은 섹션의 카드가 그대로 비어 있어(2026-10-30 윤우 "여전히 안 걸려 있잖아") 루트 섹션 아래 모든 플랫폼 섹션을 본다.
+// 이미 링크가 있으면 그대로, 화면 속 글자는 건드리지 않는다. 글자 일부에만 링크가 있으면(mixed) 있는 것으로 본다
 let badgeLinks = 0;
-if (done.length && PLAN.sourceUrl) {
-  const platSec = (n) => { while (n && !(n.type === 'SECTION' && n.parent && n.parent.type === 'SECTION')) n = n.parent; return n; };
-  const secs = new Set();
-  for (const d of done) { const n = await figma.getNodeByIdAsync(d.id); const sec = n && !n.removed ? platSec(n) : null; if (sec) secs.add(sec); }
+if (PLAN.sourceUrl && root) {
   const screenIds = new Set(PLAN.coreScreenIds || []);
   const inScreen = (n) => { for (let p = n; p; p = p.parent) if (screenIds.has(p.id)) return true; return false; };
-  for (const sec of secs) for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || '') && !n.hyperlink)) {
-    if (t.removed || inScreen(t)) continue;
+  const noLink = (t) => { if (t.hyperlink === null) return true; if (t.hyperlink && t.hyperlink !== figma.mixed) return false; try { return t.getStyledTextSegments(['hyperlink']).every(sg => !sg.hyperlink); } catch (e) { return false; } };
+  for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || ''))) {
+    if (t.removed || inScreen(t) || !noLink(t)) continue;
     const badge = t.parent;
     if (!badge || badge.type !== 'INSTANCE' || !badge.children.some(c => c !== t && c.type === 'TEXT' && /🔗/.test(c.characters || ''))) continue;
     try { await loadTextFonts(t); t.hyperlink = { type: 'URL', value: PLAN.sourceUrl }; badgeLinks++; } catch (e) { say('링크 뱃지에 링크를 못 걸음: ' + e.message); }

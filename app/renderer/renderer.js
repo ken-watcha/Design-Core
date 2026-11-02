@@ -509,7 +509,7 @@ async function onApply() {
     const coreName = esc(current.place.coreName);
     const nextCore = (current.places || [])[(current.placeAt || 0) + 1] || null;
     const head = !a.done.length
-      ? `<div class="conclusion warn"><b>아직 반영한 화면이 없어요.</b> 붙여 넣은 화면을 찾지 못했어요. 위 순서대로 Core 브랜치에 붙여 넣었는지 확인하고 [반영]을 다시 눌러 주세요.</div>`
+      ? `<div class="conclusion warn"><b>아직 반영한 화면이 없어요.</b> 붙여 넣은 화면을 찾지 못했어요. 위 순서대로 Core 브랜치에 붙여 넣었는지 확인하고 [반영]을 다시 눌러 주세요.${a.badgeLinks ? ` (섹션 속 카드의 빈 🔗 링크 뱃지 ${a.badgeLinks}개에는 문서 링크를 걸었어요.)` : ''}</div>`
       : clean
         ? `<div class="conclusion ok"><b>${coreName} 브랜치에 ${a.done.length}장을 반영했어요.</b> 다시 읽어 보니 모든 칸이 프로젝트 시안과 같아요${a.cardUpdated ? ' (링크 카드 기준 날짜도 고침)' : ''}. ${a.linkAdded ? (a.linkAdded.newCard ? '프로젝트 문서 링크는 마스터 페이지 맨 위에 링크 카드를 새로 만들어 걸었어요. ' : '링크 카드에 프로젝트 문서 링크를 더했어요. ') : ''}${a.badgeLinks ? `섹션 속 카드의 빈 🔗 링크 뱃지 ${a.badgeLinks}개에도 걸었어요. ` : ''}${a.leftoverRemoved ? '붙여 넣고 남은 것은 브랜치에서 지웠어요. ' : ''}아직 Core 본 파일은 그대로예요. 아래 순서로 마무리해 주세요.</div>`
         : `<div class="conclusion warn"><b>${a.done.length}장을 반영했지만 확인할 게 남았어요.</b> ${a.notFound.length ? `못 찾은 칸: ${esc(a.notFound.join(' · '))}. ` : ''}${!allSame ? '"원본과 다름" 표시가 있는 화면을 Figma에서 봐 주세요. ' : ''}${s.replace || s.add || s.group || s.part || s.drop ? `다시 읽어 보니 아직 바뀌지 않은 칸이 ${s.replace + s.add + (s.group || 0) + (s.part || 0) + (s.drop || 0)}개 있어요. ` : ''}확인 후 [반영]을 다시 누르거나 아래처럼 마무리해 주세요.</div>`;
