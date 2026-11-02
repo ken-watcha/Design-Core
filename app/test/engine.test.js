@@ -436,10 +436,11 @@ const fixture = require('./fixture-stepmade.json');
     assert.deepStrictEqual(out8b.cardTitleFixed, { from: 'SVOD', to: '패키지 인지' }, JSON.stringify(out8b.log));
     assert.strictEqual(texts8[0].characters, '패키지 인지');
     assert.strictEqual(card8.children.filter(n => n.type === 'INSTANCE').length, 1, '링크가 이미 있으니 뱃지를 또 만들지 않음');
-    // 디자이너가 적은 제목(Core 이름과 다름)은 그대로
-    texts8[0].characters = '홈';
+    // 디자이너가 만든 카드(이름이 "📎 스펙 링크 카드"가 아님)는 제목이 Core 이름과 같아도 손대지 않는다 (2026-11-02 윤우 "기존 제목은 전부 디자이너가 적은 것")
+    texts8[0].characters = 'SVOD'; card8.name = 'SVOD 홈';
     const out8c = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
-    assert(!out8c.cardTitleFixed && texts8[0].characters === '홈', '디자이너 제목은 손대지 않음');
+    assert(!out8c.cardTitleFixed && texts8[0].characters === 'SVOD', '디자이너 카드는 손대지 않음');
+    card8.name = '📎 스펙 링크 카드';
   }
   // 부분 갱신 (2026-10-28 윤우): 메인 화면은 그대로, 핵심 컴포넌트 영역 속만 바꾸고 따로 정리한 묶음은 지운다
   {

@@ -481,11 +481,12 @@ if (done.length && PLAN.sourceUrl) {
   }
 }
 // 앱이 예전 판에서 Core 이름으로 적어 둔 카드 제목은 프로젝트명으로 고친다 (2026-11-02 윤우: 머지된 카드의 "SVOD" 제목이 새 브랜치에 그대로 남아 "타이틀 또 SVOD으로 나오잖아").
-// 이 프로젝트 문서 링크가 든 카드에서 제목이 Core 이름과 똑같을 때만 — 디자이너가 적은 제목(결제/구독 카드의 '결제')은 Core 이름과 달라 손대지 않는다
+// 앱이 만든 카드(이름 "📎 스펙 링크 카드")에서, 이 프로젝트 문서 링크가 있고 제목이 Core 이름 그대로일 때만. 디자이너가 만든 카드는 제목이 무엇이든 손대지 않는다
+// (2026-11-02 윤우: "기존에 적혀 있던 건 전부 디자이너가 직접 적은 제목" — Core 이름과 같다는 이유로 고치면 헷갈림)
 let cardTitleFixed = null;
 if (PLAN.sourceUrl && PLAN.projectName) {
   const card = findCard();
-  const mine = card && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
+  const mine = card && /스펙 링크 카드/.test(card.name) && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
   const title = mine && card.children.find(n => n.type === 'TEXT' && (n.characters || '').trim() === coreShort);
   if (title) { try { await loadTextFonts(title); title.characters = PLAN.projectName; cardTitleFixed = { from: coreShort, to: PLAN.projectName }; say('스펙 링크 카드 제목을 프로젝트명으로 고침: ' + coreShort + ' → ' + PLAN.projectName); } catch (e) { say('카드 제목을 못 고침: ' + e.message); } }
 }
