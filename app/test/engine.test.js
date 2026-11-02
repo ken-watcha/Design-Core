@@ -344,7 +344,7 @@ const fixture = require('./fixture-stepmade.json');
     // 이번에 화면이 안 바뀌는 WEB 섹션의 카드도 채운다 (2026-10-30 윤우 "여전히 안 걸려 있잖아")
     const web5 = kid(root5, node('SECTION', 'WEB')); const cardW = kid(web5, node('FRAME', '피쳐링셀 케이스'));
     const bdgW = kid(kid(cardW, node('INSTANCE', 'ㄴ 상태 뱃지')), node('INSTANCE', 'ㄴ 🪐 상단 Badge'));
-    kid(bdgW, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); const lkW = kid(bdgW, node('TEXT', 'Text', { characters: '링크', hyperlink: null, getStyledTextSegments: () => [{ fontName: { family: 'Pretendard JP', style: 'Bold' } }] }));
+    kid(bdgW, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); const lkW = kid(bdgW, node('TEXT', 'Text', { characters: '링크', hyperlink: {}, getStyledTextSegments: () => [{ fontName: { family: 'Pretendard JP', style: 'Bold' } }] }));
     const fig5 = { fileKey: 'BRANCH', root: { children: [page5] }, loadFontAsync: async () => {},
       createFrame: () => { const f = node('FRAME', 'f'); f.resize = (w, h) => { f.width = w; f.height = h; }; return f; }, createText: () => node('TEXT', 't'),
       importComponentByKeyAsync: async () => ({ createInstance: () => { const b = node('INSTANCE', '뱃지'); b.setProperties = () => {}; kid(b, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(b, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] })); return b; } }),
@@ -362,7 +362,7 @@ const fixture = require('./fixture-stepmade.json');
     assert(paste5.removed, '남은 붙여넣기는 지움');
     assert.strictEqual(out5.badgeLinks, 2, '빈 링크 뱃지 2개(APP·WEB)에 링크: ' + JSON.stringify(out5.log));
     assert.deepStrictEqual(lk5.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '카드의 빈 🔗 링크 뱃지에 문서 링크');
-    assert.deepStrictEqual(lkW.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '화면이 안 바뀐 WEB 섹션의 카드도');
+    assert.deepStrictEqual(lkW.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '화면이 안 바뀐 WEB 섹션의 카드도 (빈 hyperlink 객체 {}도 없는 것으로)');
     assert(lkB.hyperlink.value === 'https://old' && inHome.hyperlink === null, '이미 걸린 링크·뱃지가 아닌 글자는 그대로');
     // 카드 프레임은 Core 읽기에서 화면으로 세어져 coreScreenIds에 들어 있어도 채워야 한다 (2026-11-02 실제 SVOD WEB 카드가 이 때문에 빠짐)
     // 높이가 다르면 손대지 않는다
