@@ -468,7 +468,9 @@ if (done.length && PLAN.sourceUrl) {
 // Core 읽기는 섹션 바로 아래 프레임을 모두 화면으로 세어 "피쳐링셀 케이스" 카드도 화면 목록에 들어 있으니, 화면 속이라고 빼면 그 카드가 빠진다 (2026-11-02 윤우 "여전히 안 걸려 있잖아" 2번째)
 let badgeLinks = 0;
 if (PLAN.sourceUrl && root) {
-  const noLink = (t) => { if (t.hyperlink === null) return true; if (t.hyperlink && t.hyperlink !== figma.mixed) return false; try { return t.getStyledTextSegments(['hyperlink']).every(sg => !sg.hyperlink); } catch (e) { return false; } };
+  // 링크가 "있다" = 주소(value/url)가 든 것만. REST에서 이 뱃지의 글자 스타일에 빈 hyperlink({})가 보여, 빈 객체는 없는 것으로 본다 (2026-11-02)
+  const hasUrl = (h) => !!(h && h !== figma.mixed && (h.value || h.url));
+  const noLink = (t) => { if (t.hyperlink === figma.mixed) { try { return t.getStyledTextSegments(['hyperlink']).every(sg => !hasUrl(sg.hyperlink)); } catch (e) { return false; } } return !hasUrl(t.hyperlink); };
   for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || ''))) {
     if (t.removed || !noLink(t)) continue;
     const badge = t.parent;
