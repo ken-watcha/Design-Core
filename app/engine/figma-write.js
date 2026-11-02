@@ -428,6 +428,22 @@ if (keepTop && done.length && pastedUsed) for (const n of page.children.filter(n
 // 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();
 const root = page.children.find(n => n.type === 'SECTION' && !n.name.startsWith('📦'));
+// 플랫폼 섹션(APP·WEB…) 속에 있던 옛 링크 카드("🔗 링크"/"관련 스펙 링크" 뱃지가 든 설명 카드)는 지운다 — 프로젝트 문서 링크는 마스터 페이지 맨 위 스펙 링크 카드 하나로 모은다
+// (2026-11-02 윤우: "새로 만들 거면 섹션 안에 있던 기존 건 지우자". 그 전엔 뱃지에 링크를 채우려 했으나(PR #51~#54) 세 번 비어 있었음)
+let linkCardsRemoved = 0;
+if (root) {
+  for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) {
+    for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || ''))) {
+      if (t.removed) continue;
+      const badge = t.parent;
+      if (!badge || badge.type !== 'INSTANCE' || !badge.children.some(c => c !== t && c.type === 'TEXT' && /🔗/.test(c.characters || ''))) continue;
+      let top = badge; while (top.parent && top.parent !== sec) top = top.parent;   // 섹션 바로 아래 카드 프레임(또는 뱃지 자체)
+      if (!top.parent || top.removed || top.type === 'SECTION') continue;
+      say('섹션 속 옛 링크 카드 지움: ' + sec.name + ' / ' + top.name);
+      top.remove(); linkCardsRemoved++;
+    }
+  }
+}
 // 플랫폼 섹션(APP·WEB)도 매번 내용에 맞춘다 — 예전 맞추기(오른쪽 60px 고정)로 왼쪽 417·오른쪽 62처럼 어긋난 여백을 바로잡는다 (2026-10-30 윤우 "섹션 내 좌우 패딩값이 다르게")
 if (root) { for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) fitSection(sec, L.sectionPadding); fitSection(root, L.rootPadding); }
 // 이번 프로젝트 문서 링크를 링크 카드에 건다. 카드가 없는 Core(SVOD 등)는 루트 섹션 위에 카드를 새로 둔다 (2026-10-21 윤우)
@@ -444,7 +460,8 @@ if (done.length && PLAN.sourceUrl) {
       card.layoutMode = 'VERTICAL'; card.itemSpacing = 16; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
       card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'AUTO'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
       await text(card, coreShort, 'Bold', 20, { r: 1, g: 1, b: 1 });
-      await text(card, RULES.linkCard.body.replace(/<프로젝트명>/g, coreShort), 'Medium', 16, { r: 1, g: 1, b: 1 });
+      // 안내 글의 이름은 프로젝트명 (2026-11-02 윤우: "SVOD 관련"이 아니라 "피쳐링셀 관련" — 프로젝트명을 따름)
+      await text(card, RULES.linkCard.body.replace(/<프로젝트명>/g, PLAN.projectName || coreShort), 'Medium', 16, { r: 1, g: 1, b: 1 });
     }
     const label = (PLAN.projectName || '프로젝트 문서') + (PLAN.month ? ' (' + PLAN.month + ')' : '');
     const badge = card.findOne(n => n.type === 'INSTANCE' && hasLinkText(n));
@@ -462,24 +479,7 @@ if (done.length && PLAN.sourceUrl) {
     linkAdded = { cardId: card.id, textId: t.id, badge: !!nb, newCard: made };
   }
 }
-// 플랫폼 섹션(APP·WEB…) 속 설명 카드의 빈 "🔗 링크" 뱃지에도 프로젝트 문서 링크를 건다 (2026-10-30 윤우: SVOD WEB "피쳐링셀 케이스" 카드의 링크 뱃지가 비어 있었음 → "채우기").
-// 처음엔 반영한 화면이 든 섹션만 봤는데, WEB처럼 이번에 화면이 바뀌지 않은 섹션의 카드가 그대로 비어 있어(2026-10-30 윤우 "여전히 안 걸려 있잖아") 루트 섹션 아래 모든 플랫폼 섹션을 본다.
-// 이미 링크가 있으면 그대로. 글자 일부에만 링크가 있으면(mixed) 있는 것으로 본다. 뱃지 모양("🔗" 글자 옆의 "링크" 글자, 인스턴스 속)으로만 가린다 —
-// Core 읽기는 섹션 바로 아래 프레임을 모두 화면으로 세어 "피쳐링셀 케이스" 카드도 화면 목록에 들어 있으니, 화면 속이라고 빼면 그 카드가 빠진다 (2026-11-02 윤우 "여전히 안 걸려 있잖아" 2번째)
-let badgeLinks = 0;
-if (PLAN.sourceUrl && root) {
-  // 링크가 "있다" = 주소(value/url)가 든 것만. REST에서 이 뱃지의 글자 스타일에 빈 hyperlink({})가 보여, 빈 객체는 없는 것으로 본다 (2026-11-02)
-  const hasUrl = (h) => !!(h && h !== figma.mixed && (h.value || h.url));
-  const noLink = (t) => { if (t.hyperlink === figma.mixed) { try { return t.getStyledTextSegments(['hyperlink']).every(sg => !hasUrl(sg.hyperlink)); } catch (e) { return false; } } return !hasUrl(t.hyperlink); };
-  for (const sec of root.children.filter(n => n.type === 'SECTION' && !n.removed)) for (const t of sec.findAll(n => n.type === 'TEXT' && /링크/.test(n.characters || ''))) {
-    if (t.removed || !noLink(t)) continue;
-    const badge = t.parent;
-    if (!badge || badge.type !== 'INSTANCE' || !badge.children.some(c => c !== t && c.type === 'TEXT' && /🔗/.test(c.characters || ''))) continue;
-    try { await loadTextFonts(t); t.hyperlink = { type: 'URL', value: PLAN.sourceUrl }; badgeLinks++; } catch (e) { say('링크 뱃지에 링크를 못 걸음: ' + e.message); }
-  }
-  if (badgeLinks) say('섹션 속 카드의 빈 링크 뱃지 ' + badgeLinks + '개에 문서 링크');
-}
-return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, badgeLinks, log };
+return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, linkCardsRemoved, log };
 `;
 
 // ---------- 기존 Core 갱신: 붙여 넣을 화면을 한곳에 모으기 (프로젝트 문서의 브랜치·복제본에서) ----------
