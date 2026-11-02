@@ -360,11 +360,9 @@ const fixture = require('./fixture-stepmade.json');
     assert(old5.removed && sub5.removed && gb5.removed && !home.removed, '묶음은 바·화면째 지우고 메인 화면은 남김');
     assert.strictEqual(far5.x, 1400 - 800 - rules.layout.gap, '오른쪽 것은 왼쪽으로 당김');
     assert(paste5.removed, '남은 붙여넣기는 지움');
-    assert.strictEqual(out5.badgeLinks, 2, '빈 링크 뱃지 2개(APP·WEB)에 링크: ' + JSON.stringify(out5.log));
-    assert.deepStrictEqual(lk5.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '카드의 빈 🔗 링크 뱃지에 문서 링크');
-    assert.deepStrictEqual(lkW.hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '화면이 안 바뀐 WEB 섹션의 카드도 (빈 hyperlink 객체 {}도 없는 것으로)');
-    assert(lkB.hyperlink.value === 'https://old' && inHome.hyperlink === null, '이미 걸린 링크·뱃지가 아닌 글자는 그대로');
-    // 카드 프레임은 Core 읽기에서 화면으로 세어져 coreScreenIds에 들어 있어도 채워야 한다 (2026-11-02 실제 SVOD WEB 카드가 이 때문에 빠짐)
+    // 섹션 속 옛 링크 카드는 지운다 (2026-11-02 윤우 "새로 만들 거면 기존 건 지우자") — APP·WEB 카드 둘 다, 뱃지가 아닌 '링크' 글자가 든 화면은 그대로
+    assert.strictEqual(out5.linkCardsRemoved, 2, '섹션 속 옛 링크 카드 2개(APP·WEB) 지움: ' + JSON.stringify(out5.log));
+    assert(card5.removed && cardW.removed && !home.removed && inHome.hyperlink === null, '카드만 지우고 화면은 그대로');
     // 높이가 다르면 손대지 않는다
     const page6 = node('PAGE', '🌏 마스터 파일'); const root6 = kid(page6, node('SECTION', '🌏 SVOD')); const app6 = kid(root6, node('SECTION', 'APP'));
     const home6 = kid(app6, screen(375, 4816, '홈')); const reg6 = kid(home6, node('FRAME', 'R', { y: 158, width: 375, height: 442 })); kid(reg6, cell('옛'));
@@ -409,7 +407,7 @@ const fixture = require('./fixture-stepmade.json');
     const out8 = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id], keepTop: [root8.id], rows: [{ action: '추가', platform: 'APP', cls: 'small', width: 375, source: { id: 'P1', w: 375, h: 812, sig: sigOf(p8) }, beside: { id: home8.id, bar: null } }] })))(fig8);
     assert(out8.linkAdded && out8.linkAdded.newCard && out8.linkAdded.badge, '카드를 새로 만들고 뱃지로 링크: ' + JSON.stringify(out8.linkAdded));
     const card8 = page8.children.find(n => /링크 카드/.test(n.name));
-    assert.deepStrictEqual(texts8.map(t => t.characters), ['SVOD', 'SVOD 관련 자세한 스펙은 아래 링크를 참고해주세요!'], 'Core 이름 + 안내 글 (디자이너 카드와 같은 글)');
+    assert.deepStrictEqual(texts8.map(t => t.characters), ['SVOD', '패키지 인지 관련 자세한 스펙은 아래 링크를 참고해주세요!'], 'Core 이름 + 안내 글(프로젝트명, 2026-11-02 윤우)');
     assert(texts8.every(t => t.fontName.family === 'Pretendard JP') && texts8[0].fontSize === 20 && texts8[1].fontSize === 16, 'Pretendard JP 20/16');
     assert(card8.primaryAxisSizingMode === 'AUTO' && card8.counterAxisSizingMode === 'AUTO' && card8.itemSpacing === 16 && card8.paddingLeft === 24, '내용 크기·여백 24·간격 16');
     const b8 = card8.children.filter(n => n.type === 'INSTANCE'); assert.strictEqual(b8.length, 1);
