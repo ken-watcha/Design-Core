@@ -78,7 +78,7 @@ function renderOnboard() {
 
 async function showKnowledge() {
   // 규칙 버전·출처는 화면에 두지 않고, 준비 상태에 마우스를 올리면 보이게 (2026-10-12 윤우: "없어도 될 것 같다")
-  try { const k = await window.core.knowledge(); const el = $('#setup'); el.dataset.rules = `규칙 ${k.rulesVersion} · Core ${k.cores}개 · ${k.from}`; if (!el.title.includes(el.dataset.rules)) el.title = [el.title, el.dataset.rules].filter(Boolean).join('\n'); }
+  try { const k = await window.core.knowledge(); const el = $('#setup'); el.dataset.rules = `규칙 ${k.rulesVersion} · Core ${k.cores}개 · ${k.from}${k.code ? ` · 앱 코드 ${k.code}` : ''}`; if (!el.title.includes(el.dataset.rules)) el.title = [el.title, el.dataset.rules].filter(Boolean).join('\n'); }
   catch (e) { $('#footer').textContent = '규칙을 불러오지 못했습니다: ' + e.message; }
 }
 
@@ -524,7 +524,8 @@ async function onApply() {
     $('#work').querySelectorAll('.apply-result').forEach(el => el.remove());
     $('#work').insertAdjacentHTML('beforeend', `<section class="panel apply-result"><h2>반영 결과</h2>${head}${next}
       <details${clean ? '' : ' open'}><summary class="hint">반영한 화면 ${a.done.length}장 자세히</summary><ul>${done || '<li class="muted">반영한 화면 없음</li>'}</ul>
-      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}${a.linkCardsRemoved ? ` · 섹션 속 옛 링크 카드 ${a.linkCardsRemoved}개 지움` : ''}</p></details>
+      <p class="muted">다시 읽어 비교: 유지 ${s.keep} · 교체 ${s.replace} · 추가 ${s.add}${a.cardUpdated ? ' · 링크 카드 기준 날짜 갱신' : ''}${a.linkAdded ? ' · 프로젝트 문서 링크 추가' : ''}${a.linkCardsRemoved ? ` · 섹션 속 옛 링크 카드 ${a.linkCardsRemoved}개 지움` : ''}</p>
+      ${(a.log || []).length ? `<p class="hint">앱이 Figma에서 한 일</p><ul class="muted">${a.log.map(l => `<li>${esc(l)}</li>`).join('')}</ul>` : ''}</details>
       </section>`);
     $('#work').lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'start' });
     bindOpen($('#work'));

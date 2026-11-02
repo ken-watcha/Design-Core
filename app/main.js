@@ -50,9 +50,11 @@ claude --mcp-config ${JSON.stringify(mcp)}
   await shell.openPath(f);
   return { ok: true };
 });
+// 돌고 있는 앱 코드가 어느 커밋인지 (2026-11-02: "머지했는데 그대로"가 앱이 옛 코드로 도는 건지 가리기 위해 준비 상태 말풍선에 보임)
+const codeVersion = () => new Promise((resolve) => execFile('git', ['-C', __dirname, 'log', '-1', '--format=%h %cs'], { timeout: 5000 }, (err, out) => resolve(err ? null : String(out).trim())));
 ipcMain.handle('knowledge', async () => {
   knowledge = await loadKnowledge();
-  return { from: knowledge.from, rulesVersion: knowledge.rulesVersion, cores: knowledge.index.files.length };
+  return { from: knowledge.from, rulesVersion: knowledge.rulesVersion, cores: knowledge.index.files.length, code: await codeVersion() };
 });
 ipcMain.handle('analyze', async (_e, url) => analyzeProject(url, await ensureKnowledge()));
 ipcMain.handle('checkWorkplace', async (_e, state, url) => checkWorkplace(state, url, await ensureKnowledge()));
