@@ -449,13 +449,13 @@ if (root) { for (const sec of root.children.filter(n => n.type === 'SECTION' && 
 // 이번 프로젝트 문서 링크를 링크 카드에 건다. 카드가 없는 Core(SVOD 등)는 루트 섹션 위에 카드를 새로 둔다 (2026-10-21 윤우)
 // 링크는 기존 카드와 같은 형태로: 카드 속 "🔗 관련 스펙 링크" 뱃지를 복제해 글자를 프로젝트 이름으로 바꾸고 링크를 건다 (2026-10-30 윤우: 형태 통일). 뱃지가 없으면 뱃지 컴포넌트를 불러오고, 그것도 안 되면 파란 글자
 let linkAdded = null;
+const coreShort = String(PLAN.coreName || '').replace(/^\[Core\]\s*/, '').replace(/\s*⚜️\s*$/, '').trim() || 'Core';
 if (done.length && PLAN.sourceUrl) {
   let card = findCard(), made = false;
   const already = card && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
   if (!already) {
     if (!card) {
       // 디자이너가 만든 카드(결제/구독 '결제')와 같은 모양: 세로 자동 배치·여백 24·간격 16·모서리 12·내용 크기, Core 이름(20 Bold) + 안내 글(16 Medium) + 뱃지 (2026-10-30 윤우: 형태 통일)
-      const coreShort = String(PLAN.coreName || '').replace(/^\[Core\]\s*/, '').replace(/\s*⚜️\s*$/, '').trim() || 'Core';
       card = figma.createFrame(); card.name = '📎 스펙 링크 카드'; page.appendChild(card); made = true;
       card.layoutMode = 'VERTICAL'; card.itemSpacing = 16; card.paddingLeft = card.paddingRight = card.paddingTop = card.paddingBottom = 24;
       card.primaryAxisSizingMode = 'AUTO'; card.counterAxisSizingMode = 'AUTO'; card.cornerRadius = 12; card.fills = [{ type: 'SOLID', color: rgb(L.fills.card) }];
@@ -480,7 +480,19 @@ if (done.length && PLAN.sourceUrl) {
     linkAdded = { cardId: card.id, textId: t.id, badge: !!nb, newCard: made };
   }
 }
-return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, linkCardsRemoved, log };
+// 스펙 링크 카드 제목은 프로젝트명을 따른다 (2026-11-02 윤우: "그냥 스펙 링크 카드 제목은 프로젝트 명을 따른다로 가자" — 앱 카드·디자이너 카드 구분 없이).
+// 이 프로젝트 문서 링크가 든 카드의 첫 글자(제목, 20 Bold)가 프로젝트명과 다르면 바꾼다. 안내 글·뱃지는 그대로
+let cardTitleFixed = null;
+if (PLAN.sourceUrl && PLAN.projectName) {
+  const card = findCard();
+  const mine = card && card.findOne(n => n.type === 'TEXT' && n.hyperlink && n.hyperlink.value === PLAN.sourceUrl);
+  const title = mine && card.children.find(n => n.type === 'TEXT');
+  if (title && (title.characters || '').trim() !== PLAN.projectName) {
+    const from = title.characters;
+    try { await loadTextFonts(title); title.characters = PLAN.projectName; cardTitleFixed = { from, to: PLAN.projectName }; say('스펙 링크 카드 제목을 프로젝트명으로 고침: ' + from + ' → ' + PLAN.projectName); } catch (e) { say('카드 제목을 못 고침: ' + e.message); }
+  }
+}
+return { step: 'update', done, notFound, pastedSeen: pasted.length, pastedTop: pastedTop.length, leftoverRemoved, cardUpdated, linkAdded, cardTitleFixed, linkCardsRemoved, log };
 `;
 
 // ---------- 기존 Core 갱신: 붙여 넣을 화면을 한곳에 모으기 (프로젝트 문서의 브랜치·복제본에서) ----------

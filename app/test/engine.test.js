@@ -391,7 +391,7 @@ const fixture = require('./fixture-stepmade.json');
     assert(out6.done.length === 0 && /높이/.test(out6.notFound.join()) && reg6.children[0].children[0].characters === '옛' && !p6.removed, '높이 다르면 그대로 두고 붙인 것도 남김');
     // 링크 카드 형태 통일 (2026-10-30 윤우): 디자이너가 만든 카드(이름 '결제')의 "🔗 관련 스펙 링크" 뱃지를 복제해 프로젝트 이름·링크를 넣는다. 파란 글자는 안 만든다
     const page7 = node('PAGE', '🌏 마스터 파일'); const root7 = kid(page7, node('SECTION', '🌏 결제')); const app7 = kid(root7, node('SECTION', 'APP'));
-    const card7 = kid(root7, node('FRAME', '결제', { width: 367, height: 170 })); kid(card7, node('TEXT', 'btn', { characters: '결제' }));
+    const card7 = kid(root7, node('FRAME', '결제', { width: 367, height: 170 })); const title7 = kid(card7, node('TEXT', 'btn', { characters: '결제', getStyledTextSegments: () => [{ fontName: { family: 'Pretendard JP', style: 'Bold' } }] }));
     const badge7 = kid(card7, node('INSTANCE', 'ㄴ 상태 뱃지')); const inner7 = kid(badge7, node('INSTANCE', 'ㄴ 🪐 상단 Badge'));
     kid(inner7, node('TEXT', 'Text', { characters: '🔗', getStyledTextSegments: () => [] })); kid(inner7, node('TEXT', 'Text', { characters: '관련 스펙 링크', getStyledTextSegments: () => [] }));
     const deep = (n) => { const c = node(n.type, n.name, { characters: n.characters, getStyledTextSegments: n.getStyledTextSegments }); for (const k of n.children) kid(c, deep(k)); return c; };
@@ -411,6 +411,7 @@ const fixture = require('./fixture-stepmade.json');
     assert.deepStrictEqual(nt.map(n => n.characters), ['🔗', '패키지 인지 (2026.10)'], '새 뱃지 글자 = 프로젝트 이름 (월)');
     assert.deepStrictEqual(nt[1].hyperlink, { type: 'URL', value: 'https://www.figma.com/design/DOC' }, '그 글자에 문서 링크');
     assert(!card7.removed && card7.parent === root7 && !page7.children.some(n => /링크 카드/.test(n.name)), '카드를 새로 만들지 않음');
+    assert.strictEqual(title7.characters, '패키지 인지', '디자이너 카드 제목도 프로젝트명 (2026-11-02 윤우)');
     assert(p7.parent === app7, '시안은 APP 섹션으로');
     // 카드가 없는 Core(SVOD)는 디자이너 카드와 같은 모양으로 새로 만든다: Core 이름 + 안내 글 + 뱃지, 내용 크기, Pretendard JP
     const page8 = node('PAGE', '🌏 마스터 파일'); const root8 = kid(page8, Object.assign(node('SECTION', '🌏 SVOD'), { x: 100, y: 500, width: 1000, height: 1000 })); const app8 = kid(root8, node('SECTION', 'APP'));
@@ -430,6 +431,18 @@ const fixture = require('./fixture-stepmade.json');
     assert(card8.primaryAxisSizingMode === 'AUTO' && card8.counterAxisSizingMode === 'AUTO' && card8.itemSpacing === 16 && card8.paddingLeft === 24, '내용 크기·여백 24·간격 16');
     const b8 = card8.children.filter(n => n.type === 'INSTANCE'); assert.strictEqual(b8.length, 1);
     assert.deepStrictEqual(b8[0].findAll(n => n.type === 'TEXT').map(n => n.characters), ['🔗', '패키지 인지 (2026.10)']);
+    // 예전 판이 Core 이름으로 적어 둔 제목은 다음 반영 때 프로젝트명으로 고친다 (2026-11-02 윤우: 머지된 카드의 "SVOD" 제목이 새 브랜치에 그대로). 링크는 이미 있으니 뱃지는 더 안 만든다
+    texts8[0].characters = 'SVOD'; texts8[0].getStyledTextSegments = () => [{ fontName: texts8[0].fontName }];
+    const out8b = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
+    assert.deepStrictEqual(out8b.cardTitleFixed, { from: 'SVOD', to: '패키지 인지' }, JSON.stringify(out8b.log));
+    assert.strictEqual(texts8[0].characters, '패키지 인지');
+    assert.strictEqual(card8.children.filter(n => n.type === 'INSTANCE').length, 1, '링크가 이미 있으니 뱃지를 또 만들지 않음');
+    // 디자이너가 만든 카드도 같다 — 제목은 프로젝트명을 따른다 (2026-11-02 윤우 "그냥 스펙 링크 카드 제목은 프로젝트 명을 따른다로 가자")
+    texts8[0].characters = '홈';
+    const out8c = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
+    assert.deepStrictEqual(out8c.cardTitleFixed, { from: '홈', to: '패키지 인지' }); assert.strictEqual(texts8[0].characters, '패키지 인지');
+    const out8d = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
+    assert(!out8d.cardTitleFixed, '이미 프로젝트명이면 손대지 않음');
   }
   // 부분 갱신 (2026-10-28 윤우): 메인 화면은 그대로, 핵심 컴포넌트 영역 속만 바꾸고 따로 정리한 묶음은 지운다
   {
