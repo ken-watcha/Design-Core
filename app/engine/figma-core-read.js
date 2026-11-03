@@ -1,7 +1,7 @@
 // Figma 안에서 돌릴 "Core 마스터 읽기" 코드를 만든다 (use_figma로 보냄, 읽기 전용).
 // 마스터 페이지의 플랫폼 섹션(APP/WEB) 안 화면 프레임마다: 위에 걸린 설명 바(⚫/⚪/🔵) 제목, 크기 칸, 내용 지문(sig)을 돌려준다.
 // 지문은 분석 코드(figma-analyze.js)와 같은 함수(SIG_FN)로 만들어, 프로젝트 화면과 Core 화면을 "같은지" 비교하는 데 쓴다.
-const { SIG_FN } = require('./signature');
+const { SIG_FN, PLAT_SEC_FN } = require('./signature');
 const { REGION_FN } = require('./figma-part');
 
 const FIGMA_SIDE = String.raw`
@@ -34,7 +34,7 @@ if (master) {
     out.linkCard = { id: card.id, name: card.name };
   }
   for (const platform of Object.keys(RULES.sizeClasses)) {
-    const sec = master.findOne(n => n.type === 'SECTION' && n.name.trim() === platform);
+    const sec = platSec(master, platform);
     if (!sec) continue;
     const cfg = RULES.sizeClasses[platform];
     const bars = [];
@@ -71,7 +71,7 @@ return out;
 // plan.feature = 시안의 핵심 컴포넌트 묶음 이름(판별 결과). 없으면 영역은 읽지 않는다
 function buildCoreReadCode(rules, plan = {}) {
   const r = { fileKind: rules.fileKind, sizeClasses: rules.sizeClasses, components: rules.components, masterPage: rules.masterPage };
-  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify({ feature: plan.feature || [] })};\n` + SIG_FN + REGION_FN + FIGMA_SIDE;
+  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify({ feature: plan.feature || [] })};\n` + SIG_FN + PLAT_SEC_FN + REGION_FN + FIGMA_SIDE;
 }
 
 module.exports = { buildCoreReadCode };

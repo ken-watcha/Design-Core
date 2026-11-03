@@ -22,4 +22,9 @@ function sigs(root) {
 function sig(root) { return sigs(root).sig; }
 `;
 
-module.exports = { SIG_FN };
+// 플랫폼 섹션 찾기: 이름이 "APP"/"WEB" 그대로인 섹션, 없으면 "🌏 TVOD_WEB"처럼 그 말로 끝나는 섹션
+// (2026-11-02 TVOD: WEB 섹션 이름이 "🌏 TVOD_WEB"이라 이름이 꼭 "WEB"이어야 하던 앱이 WEB 화면을 통째로 건너뜀 → 표에 WEB 줄이 없음)
+const PLAT_SEC_FN = String.raw`
+const platSec = (scope, pf) => scope.findOne(n => n.type === 'SECTION' && n.name.trim() === pf) || scope.findOne(n => n.type === 'SECTION' && new RegExp('(^|[^A-Za-z])' + pf + '$', 'i').test(n.name.trim()));
+`;
+module.exports = { PLAT_SEC_FN, SIG_FN };

@@ -1,7 +1,7 @@
 // Figma 안에서 돌릴 "쓰기" 코드를 만든다 (use_figma로 보냄). 사람이 준비한 자리(복제본·브랜치)에만 쓴다.
 //  - 새 Core: plugin/code.js buildNewCore() 이식. 1회차 = 마스터 만들기(뼈대·링크 카드·화면 복제+원본 대조·설명 바), 2회차 = 깎기(로컬 인스턴스 분리·작업 페이지 삭제)
 //  - 기존 Core 갱신: 사람이 브랜치 마스터에 붙여 넣은 화면을 알아보고 교체(껍데기 유지)·추가(🔵 바와 함께)·링크 카드 기준 날짜 갱신
-const { SIG_FN } = require('./signature');
+const { SIG_FN, PLAT_SEC_FN } = require('./signature');
 const { REGION_FN } = require('./figma-part');
 
 const HELPERS = String.raw`
@@ -229,7 +229,7 @@ if (keepTop) {
 }
 const taken = new Set(); const done = [], notFound = [];
 const sameSize = (p, r) => Math.abs(p.f.width - r.source.w) < 0.5 && Math.abs(p.f.height - r.source.h) < 0.5;
-const secOf = (pf) => page.findOne(n => n.type === 'SECTION' && n.name.trim() === pf);
+const secOf = (pf) => platSec(page, pf);
 const LAYOUT_PROPS = ['layoutMode', 'primaryAxisSizingMode', 'counterAxisSizingMode', 'primaryAxisAlignItems', 'counterAxisAlignItems', 'paddingLeft', 'paddingRight', 'paddingTop', 'paddingBottom', 'itemSpacing', 'counterAxisSpacing', 'layoutWrap'];
 const LOOK_PROPS = ['fills', 'strokes', 'strokeWeight', 'strokeAlign', 'cornerRadius', 'clipsContent', 'effects', 'opacity', 'blendMode'];
 for (const r of want) {
@@ -514,7 +514,7 @@ return { pageId: page.id, sectionId: sec.id, count: found.length, missing };
 
 function head(rules, plan) {
   const r = { fileKind: rules.fileKind, masterPage: rules.masterPage, layout: rules.layout, components: rules.components, linkCard: rules.linkCard, trim: rules.trim, screenPick: rules.screenPick };
-  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(plan)};\n` + SIG_FN + REGION_FN + HELPERS;
+  return `const RULES = ${JSON.stringify(r)};\nconst PLAN = ${JSON.stringify(plan)};\n` + SIG_FN + PLAT_SEC_FN + REGION_FN + HELPERS;
 }
 
 const buildNewCoreCode = (rules, plan) => head(rules, plan) + NEW_BUILD;

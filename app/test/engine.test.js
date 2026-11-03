@@ -91,6 +91,17 @@ const fixture = require('./fixture-stepmade.json');
   const { mergeIndex } = require('../engine/index-store');
   const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
   for (const c of [buildCoreReadCode(rules), buildNewCoreCode(rules, {}), trimNewCoreCode(rules, {}), applyUpdateCode(rules, {})]) { new AsyncFn('figma', c); assert(c.length < 50000); }
+  // 플랫폼 섹션 이름 (2026-11-02 TVOD: WEB 섹션이 "🌏 TVOD_WEB"이라 WEB 화면이 통째로 빠짐): "WEB" 그대로가 먼저, 없으면 "_WEB"처럼 그 말로 끝나는 섹션. "WEBTOON" 같은 건 아님
+  {
+    const { PLAT_SEC_FN } = require('../engine/signature');
+    const platSec = new Function('scope', 'pf', PLAT_SEC_FN + ' return platSec(scope, pf);');
+    const mk = (...names) => ({ findOne: (f) => names.map(n => ({ type: 'SECTION', name: n })).find(f) || null });
+    assert.strictEqual(platSec(mk('🌏 TVOD', '🌏 TVOD_WEB', 'APP'), 'WEB').name, '🌏 TVOD_WEB');
+    assert.strictEqual(platSec(mk('🌏 TVOD', '🌏 TVOD_WEB', 'APP'), 'APP').name, 'APP');
+    assert.strictEqual(platSec(mk('🌏 SVOD', 'APP', ' WEB '), 'WEB').name, ' WEB ');
+    assert.strictEqual(platSec(mk('🌏 SVOD_WEB', 'WEB'), 'WEB').name, 'WEB', '정확히 같은 이름이 먼저');
+    assert.strictEqual(platSec(mk('WEBTOON', 'APPLE'), 'WEB'), null);
+  }
   // 붙여 넣을 화면 모으기 (2026-10-14): 프로젝트 문서 브랜치 안에서만, 바꿀 화면을 새 페이지의 한 섹션으로 복제
   {
     const { checkGatherLink, gatherForPaste } = require('../engine/core');
