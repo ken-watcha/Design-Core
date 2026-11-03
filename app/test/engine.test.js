@@ -455,7 +455,30 @@ const fixture = require('./fixture-stepmade.json');
     const out8d = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan7, { coreName: '[Core] SVOD ⚜️', coreScreenIds: [home8.id, p8.id], keepTop: [root8.id], rows: [] })))(fig8);
     assert(!out8d.cardTitleFixed, '이미 프로젝트명이면 손대지 않음');
   }
-  // 부분 갱신 (2026-10-28 윤우): 메인 화면은 그대로, 핵심 컴포넌트 영역 속만 바꾸고 따로 정리한 묶음은 지운다
+  // 동점 후보 중 Core에 없는 케이스가 든 장을 대표로 (2026-11-03 윤우: 웹 "대표 화면" 세 장 중 맨 왼쪽은 운영 셀만이라 WEB 피쳐링셀 구성이 그대로였음)
+  // 값은 2026-11-03 피쳐링셀 문서(5zNYDvdWhKd3TzT1UjQWzb)·[Core] SVOD에서 REST로 확인한 실제 케이스: Core는 dim=off/on·info=True·type=operation,
+  // 문서 medium 후보 중 운영 셀만 든 장은 dim=True/False·info=False, ML 장은 type=ml — 토글(True/False)을 세면 둘이 비기고, 빼면 ML 장만 새 케이스 1개
+  {
+    const { preferNewCase, tiedCandidates, caseTokens } = require('../engine/delta');
+    const OP = 'dim=True,info=True,type=operation', OP2 = 'dim=False,info=False,type=operation', ML = 'dim=False,info=True,type=ml';
+    const cand = (id, score, w = 768, h = 721) => ({ id, name: '대표화면', w, h, score, sig: 's' + id });
+    const mk = () => ({ platforms: { APP: [{ cls: 'medium', picks: [{ width: 768, chosen: 'A', candidates: [cand('A', 5), cand('B', 5), cand('C', 5), cand('D', 4), cand('E', 5, 768, 600)] }] }] } });
+    const read = { platforms: { APP: { screens: [{ id: 'HOMEM', w: 768, reg: [{ id: 'R', cases: ['dim=on,info=True,type=operation', 'dim=off,info=True,type=operation', 'dim=on,info=True,type=operation'] }] }] } } };
+    const regions = { A: [{ id: 'rA', cases: [OP, OP2, OP] }], B: [{ id: 'rB', cases: [OP, ML, OP] }], C: [{ id: 'rC', cases: [OP, ML, OP] }], D: [{ id: 'rD', cases: [ML, ML, ML] }], E: [{ id: 'rE', cases: [ML] }] };
+    assert.deepStrictEqual([...caseTokens(regions.A)], ['type=operation'], '토글(True/False)은 케이스로 세지 않음');
+    const an = mk();
+    assert.deepStrictEqual(tiedCandidates(an.platforms.APP[0].picks[0]).map(c => c.id), ['B', 'C'], '같은 이름·크기·점수만 동점 (점수 다른 D, 크기 다른 E는 아님)');
+    assert.strictEqual(preferNewCase(an, read, regions), 1);
+    assert.strictEqual(an.platforms.APP[0].picks[0].chosen, 'B', '동점 중 Core에 없는 케이스(type=ml)가 든 첫 장(B)으로, 점수 낮은 D는 안 고름');
+    assert.strictEqual(an.platforms.APP[0].picks[0].basis, '새 케이스');
+    const an2 = mk(); an2.platforms.APP[0].picks[0].touched = true;
+    assert.strictEqual(preferNewCase(an2, read, regions), 0, '사람이 고른 칸은 그대로');
+    const an3 = mk(); an3.platforms.APP[0].picks[0].chosen = 'B';
+    assert.strictEqual(preferNewCase(an3, read, regions), 0, '이미 새 케이스가 든 장이면 그대로');
+    const an4 = mk();
+    assert.strictEqual(preferNewCase(an4, { platforms: { APP: { screens: [{ id: 'HOMEM', reg: [] }] } } }, regions), 0, 'Core에 케이스가 없으면 판단하지 않음');
+    assert.strictEqual(preferNewCase(mk(), read, { A: regions.A, B: [{ id: 'rB', cases: [OP, OP2, OP] }], C: [{ id: 'rC', cases: [OP, OP2, OP] }] }), 0, '동점 후보도 운영 셀만이면 그대로 (토글 차이는 새 케이스가 아님)');
+  }
   {
     const { computeDelta, findGroupsAll, partRows } = require('../engine/delta');
     const an = { cover: { nameKR: '피쳐링셀 I 윤우' }, fileName: '피쳐링셀', platforms: { APP: [

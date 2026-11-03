@@ -8,7 +8,7 @@ const { mergeIndex, readLocal, removeLocal, entryFromCoreRead, addLocal } = requ
 const { buildCoreReadCode } = require('./figma-core-read');
 const { buildNewCoreCode, trimNewCoreCode, applyUpdateCode, gatherPasteCode, GATHER_SECTION } = require('./figma-write');
 const { proposePlace, checkLink, parseLink } = require('./place');
-const { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups } = require('./delta');
+const { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups, tiedCandidates, preferNewCase } = require('./delta');
 const { buildCaseReadCode, buildNewGroupReadCode, buildGroupCompsReadCode } = require('./figma-group');
 const { buildRegionReadCode } = require('./figma-part');
 const { featureLabel, screenCores, foreignScreens } = require('./judge');
@@ -82,14 +82,18 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
     if (targets.length) { const f = await findSources(runner, state.fileKey, targets, 'Core 업데이트: Core 화면의 원본 찾기 (읽기 전용)'); sources = f.sources; cost += f.cost; }
     let delta = computeDelta(state.analysis, read, sources);
     // 부분 갱신(2026-10-28 윤우, 공통 규칙): 핵심 컴포넌트가 Core 메인 화면 안에 영역으로 있으면 화면은 그대로 두고 영역 속만 바꾼다. 시안 화면은 Core에 넣지 않는다
-    let cases = [], regions = null, partMode = false;
+    let cases = [], regions = null, partMode = false, richer = 0;
     const allGroups = findGroupsAll(read, state.analysis);
     const groupIds = new Set(allGroups.flatMap(g => g.olds.map(s => g.platform + '|' + s.id)));
     const hasRegion = feature.length && Object.entries(read.platforms).some(([pf, p]) => p.screens.some(s => (s.reg || []).length && !groupIds.has(pf + '|' + s.id)));
     if (hasRegion) {
-      const ids = [...new Set(Object.values(state.analysis.platforms).flat().flatMap(e => e.picks.map(p => p.chosen)).filter(Boolean))];
+      // 고른 장과, 같은 이름·크기·점수로 동점인 후보까지 영역을 읽는다 — Core에 없는 케이스가 든 장이 있으면 그 장을 대표로 (2026-11-03 윤우, delta.js preferNewCase)
+      const picksAll = Object.values(state.analysis.platforms).flat().flatMap(e => e.picks);
+      const ids = [...new Set(picksAll.flatMap(p => [p.chosen, ...(p.touched ? [] : tiedCandidates(p).map(c => c.id))]).filter(Boolean))];
       const rr = await runner(state.fileKey, buildRegionReadCode({ feature, ids }), `Core 업데이트: 시안의 ${label} 영역 읽기 (읽기 전용)`);
       cost += rr.costUsd || 0; regions = (rr.data && rr.data.regions) || {};
+      richer = preferNewCase(state.analysis, read, regions);
+      if (richer) delta = computeDelta(state.analysis, read, sources);
       const pr = partRows(delta, read, state.analysis, regions, allGroups, label);
       if (pr) { delta = pr; partMode = true; }
     }
@@ -136,7 +140,7 @@ async function checkWorkplace(state, url, knowledge, runner = runFigma) {
       cost += la.cost + lb.cost;
       checks.forEach((r, i) => { const d = diffs[i], na = la.labels[r.source.id] || {}, nb = lb.labels[r.target.id] || {}; r.diff = Object.assign({}, d, { onlyA: d.onlyA.map(h => na[h] || '(이름 못 읽음)'), onlyB: d.onlyB.map(h => nb[h] || '(이름 못 읽음)') }); });
     }
-    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, cases, newGroups, groupSkip, regions, feature, label, partMode, delta, preferred, analysis: state.analysis, costUsd: cost };
+    return { ok: true, kind: 'branch', workKey: link.workKey, workUrl: url, unverifiedBranch: !!link.unverifiedBranch, core: read, sources, cases, newGroups, groupSkip, regions, feature, label, partMode, delta, preferred, richer, analysis: state.analysis, costUsd: cost };
   }
   const projectPages = knowledge.rules.fileKind.projectPagePatterns;
   const hasProject = projectPages.some(pat => read.pages.some(n => n.includes(pat)));

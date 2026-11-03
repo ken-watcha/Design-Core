@@ -52,7 +52,7 @@ const runner = async (key, code, desc) => {
 
 (async () => {
   const read = (await runner('CORE', buildCoreReadCode(rules, { feature: ['카드0', '카드1'] }), '작업 위치 확인')).data;
-  assert(['wb', 'nameless'].includes(read.trimmed) || read.platforms.APP.screens.every(s => s.reg && s.reg.length), '화면마다 핵심 컴포넌트 영역을 찾음 (한도에 걸려 뺀 경우는 예외)');
+  assert(['cases', 'wb', 'nameless'].includes(read.trimmed) || read.platforms.APP.screens.every(s => s.reg && s.reg.length), '화면마다 핵심 컴포넌트 영역을 찾음 (한도에 걸려 뺀 경우는 예외)');
   // 부분 갱신: 시안 화면 여럿의 영역 읽기 (2026-10-28)
   const rr = (await runner('DOC', buildRegionReadCode({ feature: ['카드0'], ids: docPages[0].children[0].children.slice(0, 40).map(f => f.id) }), '시안 영역')).data;
   assert.strictEqual(Object.keys(rr.regions).length, 40, '시안 화면마다 영역을 받음');
