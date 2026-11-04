@@ -392,6 +392,51 @@ const fixture = require('./fixture-stepmade.json');
     // 섹션 속 옛 링크 카드는 지운다 (2026-11-02 윤우 "새로 만들 거면 기존 건 지우자") — APP·WEB 카드 둘 다, 뱃지가 아닌 '링크' 글자가 든 화면은 그대로
     assert.strictEqual(out5.linkCardsRemoved, 2, '섹션 속 옛 링크 카드 2개(APP·WEB) 지움: ' + JSON.stringify(out5.log));
     assert(card5.removed && cardW.removed && !home.removed && inHome.hyperlink === null, '카드만 지우고 화면은 그대로');
+    // 틀 없이 나란히 놓인 셀들(웹 768 캐러셀)은 한 영역으로 보고 Core 틀 속으로 옮긴다 (2026-11-03 윤우 "768이 어디에 없다는거야")
+    {
+      const { buildRegionReadCode } = require('../engine/figma-part');
+      const wcell = (t, x) => { const i = node('INSTANCE', 'Featuring Cell (Web)', { x, y: 80, width: 688, height: 301, componentProperties: { type: { value: t === '새 ML' ? 'ml' : 'operation' } } }); kid(i, node('TEXT', 't', { characters: t })); return i; };
+      const pageL = node('PAGE', '🌏 마스터 파일'); const rootL = kid(pageL, node('SECTION', '🌏 SVOD')); const webL = kid(rootL, node('SECTION', 'WEB'));
+      const homeL = kid(webL, Object.assign(screen(768, 5182, '아래 내용'), { name: '비로그인/비구독_1280 미만' }));
+      const wrap = kid(homeL, node('FRAME', 'Frame 2609191', { x: 0, y: 80, width: 768, height: 301 })); kid(wrap, wcell('옛 셀', 40));
+      const pL = kid(pageL, screen(768, 721, '시안')); kid(pL, node('INSTANCE', '(Web)GNB', { width: 768, height: 72 }));
+      const lc = [wcell('옆 셀', 740), wcell('새 ML', 40), wcell('옆 셀2', -660)]; lc.forEach(c => kid(pL, c)); const below = kid(pL, node('FRAME', 'Frame 2609188', { y: 596, width: 688, height: 1183 }));
+      const figL = Object.assign({}, fig5, { root: { children: [pageL] }, getNodeByIdAsync: async (id) => ({ [wrap.id]: wrap, [pL.id]: pL, [homeL.id]: homeL }[id] || null) });
+      pageL.loadAsync = async () => {};
+      const rd = await new AsyncFn('figma', buildRegionReadCode({ feature: ['featuringcell'], ids: [pL.id, homeL.id] }))(figL);
+      assert.strictEqual(rd.regions[pL.id].length, 1, '틀 없는 셀 3개 = 영역 1개 (아래 내용 프레임은 영역 아님)');
+      assert(rd.regions[pL.id][0].h === 301 && rd.regions[pL.id][0].cases.length === 3 && rd.regions[pL.id][0].cases.some(c => /type=ml/.test(c)), '영역 높이·케이스: ' + JSON.stringify(rd.regions[pL.id]));
+      assert.strictEqual(rd.regions[homeL.id].length, 1, 'Core 틀 영역 1개');
+      const newC = csigOf({ children: lc.slice().sort((a, b) => a.x - b.x) });
+      const outL = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan5, { keepTop: [rootL.id], coreScreenIds: [homeL.id], rows: [{ action: '부분 교체', platform: 'WEB', cls: 'medium', width: 768, source: { id: 'PW', w: 768, h: 721, sig: sigOf(pL) }, target: { id: homeL.id }, regions: [wrap.id], newCsigs: [newC] }] })))(figL);
+      assert.deepStrictEqual(outL.done.map(x => [x.action, x.same]), [['부분 교체', true]], JSON.stringify(outL.notFound) + JSON.stringify(outL.log));
+      assert.deepStrictEqual(wrap.children.map(c => [c.children[0].characters, c.x, c.y]), [['옆 셀2', -660, 0], ['새 ML', 40, 0], ['옆 셀', 740, 0]], '셀 3개가 Core 틀 안으로, 자리는 틀 기준');
+      assert(wrap.width === 768 && wrap.height === 301 && homeL.height === 5182, '틀·화면 크기는 그대로');
+    }
+    // 케이스 맞춤 반영: 붙여넣기 없이 Core 셀의 변형만 바꾼다. 분리된 프레임 셀은 옆 셀을 복제해 교체 (2026-11-04 윤우)
+    {
+      const mkCell = (type, dim) => { const i = node('INSTANCE', 'Featuring Cell (Web)', { x: 40, y: 0, width: 1480, height: 648 });
+        i.componentProperties = { 'info#1:0': { type: 'BOOLEAN', value: true }, type: { type: 'VARIANT', value: type }, sizeClass: { type: 'VARIANT', value: 'large' }, dim: { type: 'VARIANT', value: dim } };
+        i.setProperties = (p) => { for (const [k, v] of Object.entries(p)) { if (!(k in i.componentProperties)) throw new Error('no prop ' + k); i.componentProperties[k].value = v; } };
+        i.getMainComponentAsync = async () => ({ parent: { type: 'COMPONENT_SET', componentPropertyDefinitions: { type: { type: 'VARIANT', variantOptions: ['operation', 'ml'] }, sizeClass: { type: 'VARIANT', variantOptions: ['small', 'large'] }, dim: { type: 'VARIANT', variantOptions: ['on', 'off'] }, 'info#1:0': { type: 'BOOLEAN' } } } });
+        i.clone = () => { const c = mkCell(i.componentProperties.type.value, i.componentProperties.dim.value); c.x = i.x; c.y = i.y; c.width = i.width; c.height = i.height; return c; };
+        i.resize = (w, h) => { i.width = w; i.height = h; }; return i; };
+      const pageF = node('PAGE', '🌏 마스터 파일'); const rootF = kid(pageF, node('SECTION', '🌏 SVOD')); const webF = kid(rootF, node('SECTION', 'WEB'));
+      const bigF = kid(webF, Object.assign(screen(1560, 6486, '아래 내용'), { name: '로그인/구독_1280 이상' }));
+      const wrapF = kid(bigF, node('FRAME', 'Frame 2609411', { x: 0, y: 136, width: 1560, height: 648 }));
+      wrapF.insertChild = (idx, c) => { if (c.parent) c.parent.children.splice(c.parent.children.indexOf(c), 1); c.parent = wrapF; wrapF.children.splice(idx, 0, c); };
+      const cA = kid(wrapF, Object.assign(mkCell('operation', 'on'), { x: -1452 })); const det = kid(wrapF, node('FRAME', 'Featuring Cell (Web)', { x: 40, y: 0, width: 1480, height: 648 })); const cC = kid(wrapF, Object.assign(mkCell('operation', 'on'), { x: 1532 }));
+      pageF.loadAsync = async () => {};
+      const figF = Object.assign({}, fig5, { root: { children: [pageF] }, getNodeByIdAsync: async (id) => ({ [wrapF.id]: wrapF, [bigF.id]: bigF }[id] || null) });
+      const rowF = { action: '케이스 맞춤', platform: 'WEB', cls: 'large', width: 1560, source: { id: 'W2', w: 768, h: 721, sig: 'w2' }, target: { id: bigF.id }, regions: [wrapF.id], cases: [['dim=True,info=True,type=operation', 'dim=False,info=True,type=ml', 'dim=True,info=True,type=operation']] };
+      const outF = await new AsyncFn('figma', applyUpdateCode(rules, Object.assign({}, plan5, { keepTop: [rootF.id], coreScreenIds: [bigF.id], rows: [rowF] })))(figF);
+      assert.deepStrictEqual(outF.done.map(x => [x.action, x.same, x.changed, x.cloned]), [['케이스 맞춤', true, 1, 1]], JSON.stringify(outF.notFound) + JSON.stringify(outF.log));
+      assert(det.removed && wrapF.children.length === 3 && wrapF.children.every(c => c.type === 'INSTANCE'), '분리된 프레임은 옆 셀 복제로 교체');
+      const mid = wrapF.children[1];
+      assert.deepStrictEqual([mid.componentProperties.type.value, mid.componentProperties.dim.value, mid.x, mid.width, mid.height], ['ml', 'off', 40, 1480, 648], 'ML 변형·dim off(False→off), 자리·크기 유지');
+      assert(cA.componentProperties.type.value === 'operation' && cA.componentProperties.dim.value === 'on' && !cA.removed, '같은 케이스의 셀은 손대지 않음');
+      assert(!outF.notFound.length, '붙여 넣을 화면 없이 반영됨');
+    }
     // 높이가 다르면 손대지 않는다
     const page6 = node('PAGE', '🌏 마스터 파일'); const root6 = kid(page6, node('SECTION', '🌏 SVOD')); const app6 = kid(root6, node('SECTION', 'APP'));
     const home6 = kid(app6, screen(375, 4816, '홈')); const reg6 = kid(home6, node('FRAME', 'R', { y: 158, width: 375, height: 442 })); kid(reg6, cell('옛'));
@@ -507,6 +552,31 @@ const fixture = require('./fixture-stepmade.json');
     assert(!d.rows.some(r => r.action === '교체' || r.action === '추가'), '시안 화면은 Core에 넣지 않음');
     assert.deepStrictEqual([d.summary.part, d.summary.drop, d.summary.keep], [1, 1, 1]);
     assert.strictEqual(partRows(computeDelta(an, { platforms: { APP: { bars: {}, screens: [co.platforms.APP.screens[4]] } } }, {}), { platforms: { APP: { bars: {}, screens: [co.platforms.APP.screens[4]] } } }, an, {}, [], 'x'), null, '영역 있는 메인 화면이 없으면 부분 갱신 아님');
+    // 케이스 맞춤 (2026-11-04 윤우 "해당 사이즈가 없다면 알아서 만들어 주는 것은 어때"): WEB 1560 시안이 없으면 가장 가까운 WEB 768 시안의 케이스대로 Core 셀 변형만 맞춘다
+    // 값은 2026-11-04 [Core] SVOD WEB(옛 판 dim=on/off)·피쳐링셀 문서 웹 768(dim=True/False)에서 REST로 확인한 실제 케이스
+    {
+      const OPc = 'info=True,type=operation,dim=on', OPc2 = 'info=True,type=operation,dim=off', MLc = 'info=True,type=ml,dim=off';
+      const OPd = 'dim=True,info=True,type=operation', MLd = 'dim=False,info=True,type=ml';
+      const anW = { cover: { nameKR: '피쳐링셀' }, platforms: { WEB: [
+        { cls: 'small', desc: '', picks: [{ width: 375, chosen: 'W1', candidates: [{ id: 'W1', name: '대표 화면', w: 375, h: 812, sig: 'w1' }] }] },
+        { cls: 'large', desc: '', picks: [{ width: 768, chosen: 'W2', candidates: [{ id: 'W2', name: '대표화면', w: 768, h: 721, sig: 'w2' }] }] }] } };
+      const regC = (id, h, cases) => ({ id, y: 136, h, w: 1560, csig: 'c' + id, n: 30, cases });
+      const coW = { platforms: { WEB: { bars: {}, screens: [
+        { id: 'L1', name: '로그인/구독_1280 이상', w: 1560, h: 6486, cls: 'large', bar: 'B', sig: 'l1', wb: [], reg: [regC('RL1', 648, [OPc, OPc2, OPc])] },
+        { id: 'L2', name: '비로그인/비구독_1280 이상', w: 1560, h: 4981, cls: 'large', bar: 'B', sig: 'l2', wb: [], reg: [regC('RL2', 648, [OPc, MLc, OPc])] },
+        { id: 'L3', name: '분리된 셀', w: 1560, h: 4981, cls: 'large', bar: 'B', sig: 'l3', wb: [], reg: [regC('RL3', 648, [OPc, 'detached', OPc])] },
+        { id: 'L4', name: '셀 수 다름', w: 1560, h: 4981, cls: 'large', bar: 'B', sig: 'l4', wb: [], reg: [regC('RL4', 648, [OPc, OPc])] }] } } };
+      const dregW = { W1: [{ id: 'D1', y: 80, h: 442, w: 375, csig: 'd1', n: 20, cases: [OPd, MLd, OPd] }], W2: [{ id: 'D2', y: 80, h: 301, w: 2088, csig: 'd2', n: 20, cases: [OPd, MLd, OPd] }] };
+      const dW = partRows(computeDelta(anW, coW, {}), coW, anW, dregW, [], 'Featuring Cell');
+      const byW = (id) => dW.rows.find(r => r.target && r.target.id === id);
+      assert.strictEqual(byW('L1').action, '케이스 맞춤', '같은 폭 없음 + 가운데 셀 운영 vs ML → 케이스 맞춤');
+      assert(byW('L1').source.id === 'W2' && /768px/.test(byW('L1').why) && /운영·ml·운영|operation·ml·operation/.test(byW('L1').why), '가장 가까운 폭(768) 시안 기준: ' + byW('L1').why);
+      assert.deepStrictEqual([byW('L1').regions, byW('L1').cases], [['RL1'], [[OPd, MLd, OPd]]]);
+      assert(byW('L2').action === '유지' && !byW('L2').check, 'dim on/off ↔ True/False는 같은 것으로 보고, 케이스가 같으면 유지: ' + byW('L2').why);
+      assert.strictEqual(byW('L3').action, '케이스 맞춤', '분리된 셀은 다른 것으로 보고 맞춤');
+      assert(byW('L4').action === '그대로' && byW('L4').check, '셀 수가 다르면 전처럼 확인 필요');
+      assert.strictEqual(dW.summary.fit, 2);
+    }
   }
   // 묶음 찾기: 교체 칸이 프로젝트 이름과 같은 묶음 안이면 묶음 교체 줄로 (2026-10-27 SVOD 피쳐링셀)
   {

@@ -388,9 +388,12 @@ for (const r of partRows) {
     const nr = newRegs[i], w = old.width, h = old.height;
     try { old.layoutMode = 'NONE'; } catch (e) {}
     for (const c of [...old.children]) c.remove();
-    for (const c of [...nr.children]) old.appendChild(c);
-    for (const k of LOOK_PROPS) { try { old[k] = nr[k]; } catch (e) {} }
-    for (const k of LAYOUT_PROPS) { try { old[k] = nr[k]; } catch (e) {} }
+    // 틀 없이 놓인 인스턴스 묶음(loose)은 Core 틀 안으로 옮기며 화면 기준 자리를 틀 기준으로 바꾼다. 틀의 모양·배치는 Core 것 유지
+    for (const c of [...nr.children]) { old.appendChild(c); if (nr.loose) { c.x = c.x - old.x; c.y = c.y - old.y; } }
+    if (!nr.loose) {
+      for (const k of LOOK_PROPS) { try { old[k] = nr[k]; } catch (e) {} }
+      for (const k of LAYOUT_PROPS) { try { old[k] = nr[k]; } catch (e) {} }
+    }
     // 영역 크기는 Core 것 그대로 — 아래 내용이 밀리지 않게
     try { old.primaryAxisSizingMode = 'FIXED'; old.counterAxisSizingMode = 'FIXED'; } catch (e) {}
     old.resizeWithoutConstraints(w, h);
@@ -398,6 +401,49 @@ for (const r of partRows) {
   });
   done.push({ action: '부분 교체', id: r.target.id, platform: r.platform, cls: r.cls, width: r.width, same: allSame });
 }
+// 케이스 맞춤 (2026-11-04 윤우): Core 화면 폭의 시안이 없으면 가까운 폭 시안의 케이스대로 Core 영역 셀의 변형만 바꾼다. 붙여 넣을 화면 없음.
+// 분리된 셀(프레임)은 옆 셀 인스턴스를 복제해 같은 자리에 놓고 바꾼다. 변형 값은 그 셀 컴포넌트가 가진 것만(True/on·False/off 맞바꿈 허용), 없으면 건너뛰고 적는다
+const fitRows = PLAN.rows.filter(r => r.action === '케이스 맞춤');
+const parseCase = (cs) => Object.fromEntries(String(cs || '').split(',').filter(t => t.includes('=')).map(t => { const i = t.indexOf('='); return [t.slice(0, i), t.slice(i + 1)]; }).filter(([k]) => !/sizeclass/i.test(k)));
+const fitLog = [];
+for (const r of fitRows) {
+  const tag = r.platform + ' ' + (r.cls || '') + ' ' + r.width + 'px';
+  let changed = 0, cloned = 0; const skipped = []; let broken = null;
+  for (let i = 0; i < r.regions.length && !broken; i++) {
+    const reg = await figma.getNodeByIdAsync(r.regions[i]);
+    if (!reg || !('children' in reg)) { broken = '영역 없음'; break; }
+    const cells = reg.children.filter(c => c.visible !== false && FEATURE.has(family(c.name)));
+    const want = r.cases[i] || [];
+    if (cells.length !== want.length) { broken = '셀 수가 다름 (Core ' + cells.length + ', 시안 ' + want.length + ')'; break; }
+    for (let j = 0; j < cells.length; j++) {
+      const desired = parseCase(want[j]);
+      if (!Object.keys(desired).length) continue;
+      let cell = cells[j];
+      if (cell.type !== 'INSTANCE') {
+        const donor = cells.find(c => c.type === 'INSTANCE');
+        if (!donor) { skipped.push((j + 1) + '번째 셀: 분리된 프레임이고 복제할 셀이 없음'); continue; }
+        const clone = donor.clone(); reg.insertChild(reg.children.indexOf(cell), clone);
+        clone.x = cell.x; clone.y = cell.y; clone.resize(cell.width, cell.height); cell.remove(); cell = clone; cloned++;
+      }
+      const props = cell.componentProperties; const mc = await cell.getMainComponentAsync();
+      const defs = mc && mc.parent && mc.parent.type === 'COMPONENT_SET' ? mc.parent.componentPropertyDefinitions : {};
+      const set = {};
+      for (const k of Object.keys(props)) {
+        const b = k.split('#')[0]; if (!(b in desired)) continue;
+        const cur = props[k]; const raw = String(desired[b]); let v = null;
+        if (cur.type === 'BOOLEAN') v = /^(true|on)$/i.test(raw);
+        else if (cur.type === 'VARIANT') { const opts = (defs[k] && defs[k].variantOptions) || []; const alt = /^true$/i.test(raw) ? 'on' : /^false$/i.test(raw) ? 'off' : /^on$/i.test(raw) ? 'true' : /^off$/i.test(raw) ? 'false' : null; v = opts.includes(raw) ? raw : (alt && opts.includes(alt) ? alt : null); if (v === null) { skipped.push((j + 1) + '번째 셀: ' + b + '=' + raw + ' 변형이 이 컴포넌트에 없음'); continue; } }
+        else continue;
+        if (String(cur.value) !== String(v)) set[k] = v;
+      }
+      if (Object.keys(set).length) { try { cell.setProperties(set); changed++; } catch (e) { skipped.push((j + 1) + '번째 셀: ' + e.message); } }
+    }
+  }
+  if (broken) { notFound.push(tag + ' (' + broken + ')'); continue; }
+  fitLog.push(tag + ': 셀 ' + changed + '개 변형 바꿈' + (cloned ? ', 분리된 셀 ' + cloned + '개는 옆 셀 복제로 교체' : '') + (skipped.length ? ', 못 바꾼 것: ' + skipped.join('; ') : ''));
+  done.push({ action: '케이스 맞춤', id: r.target.id, platform: r.platform, cls: r.cls, width: r.width, same: !skipped.length, changed, cloned, skipped });
+}
+for (const l of fitLog) say('케이스 맞춤 — ' + l);
 // 묶음 지우기: 그 부분만 따로 정리한 묶음(바·화면·하위 바)을 지우고 오른쪽 것은 왼쪽으로 당긴다
 for (const r of dropRows) {
   const gb = await figma.getNodeByIdAsync(r.group.id);
@@ -423,7 +469,7 @@ if (done.length && PLAN.month) {
 }
 // 쓰고 남은 붙여넣기는 지운다 (반영한 화면이 하나라도 있을 때만 — 잘못 붙였으면 사람이 보도록 남긴다)
 let leftoverRemoved = 0;
-const pastedUsed = done.some(d => d.action !== '묶음 삭제') || !(want.length + groupRows.length + partRows.length + addRows.length);   // 붙여 넣은 것을 하나도 못 썼으면 남겨 둔다
+const pastedUsed = done.some(d => d.action !== '묶음 삭제' && d.action !== '케이스 맞춤') || !(want.length + groupRows.length + partRows.length + addRows.length);   // 붙여 넣은 것을 하나도 못 썼으면 남겨 둔다
 if (keepTop && done.length && pastedUsed) for (const n of page.children.filter(n => !keepTop.has(n.id) && !isCard(n))) { if (n.removed) continue; n.remove(); leftoverRemoved++; }
 // 모아서 붙여 넣은 섹션(📦, 붙여 넣으며 이름이 빠진 것 포함)이 비었으면 지운다
 for (const s of page.findAll(n => n.type === 'SECTION' && (n.name.startsWith('📦') || !n.name.trim()) && n.children.length === 0)) s.remove();

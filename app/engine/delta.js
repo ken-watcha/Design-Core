@@ -38,7 +38,7 @@ function preferCoreScreens(analysis, core) {
 // 케이스 = 영역 속 핵심 컴포넌트 인스턴스의 변형 속성 "이름=값"(figma-part.js cases). 켜고 끄는 값(True/False)은 세지 않는다 — 실제 문서에서 운영 셀만 든 장도 info=False 같은 토글이 달라 ML 장과 비겼기 때문.
 // Core 쪽 케이스는 Core 읽기(reg[].cases)에서 온다. Core에 케이스가 하나도 없으면(옛 읽기·한도 초과) 판단하지 않는다. 사람이 직접 고른 칸(touched)은 건드리지 않는다
 function tiedCandidates(p) { const c = p.candidates.find(x => x.id === p.chosen); return c ? p.candidates.filter(x => x !== c && x.score === c.score && x.w === c.w && x.h === c.h) : []; }
-const caseTokens = (regs) => new Set((regs || []).flatMap(r => (r.cases || []).flatMap(cs => String(cs).split(',').filter(t => t && !/=(True|False)$/i.test(t)))));
+const caseTokens = (regs) => new Set((regs || []).flatMap(r => (r.cases || []).flatMap(cs => String(cs).split(',').filter(t => t.includes('=') && !/=(True|False)$/i.test(t)))));
 function preferNewCase(analysis, read, regions) {
   let changed = 0;
   for (const platform of Object.keys(analysis.platforms || {})) {
@@ -162,7 +162,12 @@ function partRows(delta, core, analysis, designRegions, groups, label) {
       if (!isMain(platform, s)) { rows.push(Object.assign(base, { action: '그대로', check: false, why: `${label} 영역이 없는 화면 — 손대지 않음` })); continue; }
       const src = chosenBy(platform, s.w);
       const dreg = src && (designRegions || {})[src.id];
-      if (!src) { rows.push(Object.assign(base, { action: '그대로', check: true, why: `같은 폭(${s.w}px) 시안이 없어 ${label} 영역을 못 바꿈 — 시안의 변화가 이 화면에도 해당하면 직접 고쳐 주세요` })); continue; }
+      if (!src) {
+        // 같은 폭 시안이 없으면(웹 1560) 같은 플랫폼에서 가장 가까운 폭 시안의 케이스로 Core 셀의 변형만 맞춘다 (2026-11-04 윤우 "해당 사이즈가 없다면 알아서 만들어 주는 것은 어때")
+        const fit = fitCases(platform, s, analysis, designRegions, label);
+        rows.push(Object.assign(base, fit || { action: '그대로', check: true, why: `같은 폭(${s.w}px) 시안이 없어 ${label} 영역을 못 바꿈 — 시안의 변화가 이 화면에도 해당하면 직접 고쳐 주세요` }));
+        continue;
+      }
       base.source = { id: src.id, name: src.name, w: src.w, h: src.h, sig: src.sig };
       if (!dreg || dreg.length !== s.reg.length) { rows.push(Object.assign(base, { action: '그대로', check: true, why: `시안 "${src.name}"에서 같은 ${label} 영역을 못 찾음 (Core ${s.reg.length}곳, 시안 ${dreg ? dreg.length : 0}곳) — 직접 확인해 주세요` })); continue; }
       const pairs = s.reg.map((a, i) => [a, dreg[i]]);
@@ -180,7 +185,28 @@ function partRows(delta, core, analysis, designRegions, groups, label) {
     why: `"${g.bar.title}" 묶음 ${g.olds.length}장(${g.olds.map(s => `"${s.name}"`).slice(0, 6).join(', ')}${g.olds.length > 6 ? ' 외' : ''})을 바와 함께 지움 — ${label}은 메인 화면 안에서 다루므로 따로 두지 않음`
   });
   const count = (a) => rows.filter(r => r.action === a).length;
-  return { rows, missing: delta.missing, part: true, summary: { keep: count('유지'), near: 0, replace: 0, add: 0, untouched: count('그대로'), part: count('부분 교체'), drop: count('묶음 삭제'), missing: (delta.missing || []).length } };
+  return { rows, missing: delta.missing, part: true, summary: { keep: count('유지'), near: 0, replace: 0, add: 0, untouched: count('그대로'), part: count('부분 교체'), fit: count('케이스 맞춤'), drop: count('묶음 삭제'), missing: (delta.missing || []).length } };
+}
+
+// 케이스 맞춤: Core 화면 폭의 시안이 없을 때, 같은 플랫폼에서 폭이 가장 가까운 시안 장의 영역 케이스("이름=값" 목록, figma-part.js cases)를 Core 영역 셀에 순서대로 맞춘다.
+// 영역 수·셀 수가 같아야 하고, 값 비교는 sizeClass 빼고 True/on·False/off를 같은 것으로 본다. 분리된 셀('detached')은 다른 것으로 본다(반영 때 옆 셀 복제).
+const parseCase = (cs) => Object.fromEntries(String(cs || '').split(',').filter(t => t.includes('=')).map(t => { const i = t.indexOf('='); return [t.slice(0, i), t.slice(i + 1)]; }).filter(([k]) => !/sizeclass/i.test(k)));
+const normVal = (v) => String(v).toLowerCase().replace(/^true$/, 'on').replace(/^false$/, 'off');
+const sameCase = (a, b) => { if (a === 'detached' || b === 'detached') return a === b; const A = parseCase(a), B = parseCase(b); const keys = new Set([...Object.keys(A), ...Object.keys(B)]); return [...keys].every(k => k in A && k in B && normVal(A[k]) === normVal(B[k])); };
+const CASE_KO = { operation: '운영', ml: 'ML' };
+const caseWords = (cs) => (cs || []).map(c => { if (c === 'detached') return '분리됨'; const t = parseCase(c).type; return t ? (CASE_KO[String(t).toLowerCase()] || t) : (Object.values(parseCase(c)).join('/') || '?'); }).join('·');
+function fitCases(platform, s, analysis, designRegions, label) {
+  const picks = ((analysis.platforms || {})[platform] || []).flatMap(e => e.picks.map(p => Object.assign({ cls: e.cls }, chosenOf(p) || {}, { width: p.width }))).filter(p => p.id && (designRegions || {})[p.id] && (designRegions || {})[p.id].length);
+  if (!picks.length) return null;
+  const near = picks.sort((a, b) => Math.abs(a.width - s.w) - Math.abs(b.width - s.w))[0];
+  const dreg = designRegions[near.id];
+  if (dreg.length !== (s.reg || []).length) return null;
+  const pairs = s.reg.map((a, i) => [a, dreg[i]]);
+  if (!pairs.every(([a, b]) => Array.isArray(a.cases) && Array.isArray(b.cases) && a.cases.length === b.cases.length && b.cases.length)) return null;
+  const source = { id: near.id, name: near.name, w: near.w, h: near.h, sig: near.sig };
+  const same = pairs.every(([a, b]) => a.cases.every((c, j) => sameCase(c, b.cases[j])));
+  if (same) return { action: '유지', check: false, source, why: `같은 폭(${s.w}px) 시안은 없지만 ${label} 케이스(${caseWords(dreg[0].cases)})가 ${near.w}px 시안 "${near.name}"과 같음` };
+  return { action: '케이스 맞춤', check: false, source, regions: s.reg.map(a => a.id), cases: dreg.map(b => b.cases), why: `같은 폭(${s.w}px) 시안이 없어 화면은 그대로 두고 ${label} 셀의 변형만 ${near.w}px 시안 "${near.name}"의 케이스(${caseWords(dreg[0].cases)})대로 맞춤 (지금 ${caseWords(s.reg[0].cases)})` };
 }
 
 // cases = figma-group.js 결과 sections ([{platform, width, id, name, frames}]) → 묶음에 걸린 줄을 "묶음 교체" 줄로 바꾼다
