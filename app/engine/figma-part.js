@@ -14,7 +14,9 @@ function regionsOf(screen) {
   if (!FEATURE.size || !('children' in screen)) return [];
   return screen.children.filter(c => c.visible !== false && (isFeat(c) || ('findOne' in c && !!c.findOne(isFeat)))).sort((a, b) => a.y - b.y || a.x - b.x);
 }
-const regionInfo = (c) => { const s = sigs(c); return { id: c.id, y: Math.round(c.y), h: Math.round(c.height), w: Math.round(c.width), csig: s.csig, n: s.n }; };
+// cases: 영역 바로 아래 핵심 컴포넌트 인스턴스마다 변형 속성(sizeClass 제외) "이름=값,…" — 같은 점수 후보 중 Core에 없는 케이스(예 type=ml)가 든 장을 대표로 고르는 데 쓴다 (2026-11-03)
+const casesOf = (c) => ('children' in c ? c.children : []).filter(isFeat).slice(0, 6).map(i => { let ps = {}; try { ps = i.componentProperties || {}; } catch (e) {} return Object.entries(ps).filter(([n]) => !/sizeclass/i.test(n)).map(([n, v]) => n.split('#')[0] + '=' + String(v && v.value)).join(',').slice(0, 80); });
+const regionInfo = (c) => { const s = sigs(c); return { id: c.id, y: Math.round(c.y), h: Math.round(c.height), w: Math.round(c.width), csig: s.csig, n: s.n, cases: casesOf(c) }; };
 `;
 
 // 시안 화면(고른 대표 화면)마다 영역을 읽는다 → { regions: { 화면 id: [영역…] } }

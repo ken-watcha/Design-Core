@@ -33,7 +33,27 @@ function preferCoreScreens(analysis, core) {
   return changed;
 }
 
-// 문서 전체에서 찾은 원본을 대표 후보로 넣고 고른다
+// 같은 이름·크기·점수의 대표 후보가 여럿이면 핵심 컴포넌트 영역에 "Core에 없는 케이스"가 든 장을 대표로 고른다
+// (2026-11-03 윤우: 웹 [Small] Case "대표 화면" 세 장 중 맨 왼쪽은 운영 셀만, 오른쪽 둘은 "취향 맞춤작"(type=ml) 셀 포함 — 앱이 맨 왼쪽을 골라 WEB·medium 피쳐링셀 구성이 그대로였음)
+// 케이스 = 영역 속 핵심 컴포넌트 인스턴스의 변형 속성 "이름=값"(figma-part.js cases). 켜고 끄는 값(True/False)은 세지 않는다 — 실제 문서에서 운영 셀만 든 장도 info=False 같은 토글이 달라 ML 장과 비겼기 때문.
+// Core 쪽 케이스는 Core 읽기(reg[].cases)에서 온다. Core에 케이스가 하나도 없으면(옛 읽기·한도 초과) 판단하지 않는다. 사람이 직접 고른 칸(touched)은 건드리지 않는다
+function tiedCandidates(p) { const c = p.candidates.find(x => x.id === p.chosen); return c ? p.candidates.filter(x => x !== c && x.score === c.score && x.w === c.w && x.h === c.h) : []; }
+const caseTokens = (regs) => new Set((regs || []).flatMap(r => (r.cases || []).flatMap(cs => String(cs).split(',').filter(t => t && !/=(True|False)$/i.test(t)))));
+function preferNewCase(analysis, read, regions) {
+  let changed = 0;
+  for (const platform of Object.keys(analysis.platforms || {})) {
+    const coreTok = caseTokens((((read || {}).platforms || {})[platform] || { screens: [] }).screens.flatMap(s => s.reg || []));
+    if (!coreTok.size) continue;
+    const fresh = (id) => [...caseTokens((regions || {})[id])].filter(t => !coreTok.has(t)).length;
+    for (const e of analysis.platforms[platform]) for (const p of e.picks) {
+      if (p.touched || !p.chosen) continue;
+      const best = tiedCandidates(p).filter(c => regions && regions[c.id]).sort((a, b) => fresh(b.id) - fresh(a.id))[0];
+      if (best && fresh(best.id) > fresh(p.chosen)) { p.chosen = best.id; p.sure = true; p.basis = '새 케이스'; changed++; }
+    }
+  }
+  return changed;
+}
+
 function adoptSource(p, src, basis) {
   if (!p.candidates.some(c => c.id === src.id)) p.candidates.unshift({ id: src.id, name: src.name, w: src.w, h: src.h, score: null, learned: 0, sig: src.sig, csig: src.csig, n: src.n, path: src.path });
   p.chosen = src.id; p.sure = basis === 'Core와 같음'; p.basis = basis;
@@ -230,4 +250,4 @@ function addGroups(delta, reads, title, skip) {
   return Object.assign({}, delta, { rows, summary: Object.assign({}, delta.summary, { add: count('추가'), addGroup: count('묶음 추가'), untouched: count('그대로') }) });
 }
 
-module.exports = { computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups };
+module.exports = { tiedCandidates, preferNewCase, caseTokens, computeDelta, preferCoreScreens, findGroups, findGroupsAll, applyGroups, partRows, addGroups };

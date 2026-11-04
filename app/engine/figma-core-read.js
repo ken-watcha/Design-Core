@@ -62,6 +62,7 @@ const bytes = (o) => { const j = JSON.stringify(o); let b = 0; for (let i = 0; i
 const all = () => Object.values(out.platforms).flatMap(p => p.screens);
 if (bytes(out) > 18000) { for (const s of all()) { s.name = s.name.slice(0, 24); s.group = s.group.slice(0, 16); } out.trimmed = 'names'; }
 if (bytes(out) > 18000) { for (const s of all()) delete s.group; out.trimmed = 'group'; }
+if (bytes(out) > 18000) { for (const s of all()) for (const r of (s.reg || [])) delete r.cases; out.trimmed = 'cases'; }
 if (bytes(out) > 18000) { for (const s of all()) { delete s.wb; delete s.reg; delete s.gbar; } for (const p of Object.values(out.platforms)) delete p.bars; out.trimmed = 'wb'; }
 if (bytes(out) > 18000) { for (const s of all()) s.name = ''; out.trimmed = 'nameless'; }
 if (bytes(out) > 19500) return { error: 'Core 화면이 너무 많아 한 번에 읽지 못했어요 (' + all().length + '장)' };
